@@ -41,7 +41,7 @@
 
       <div class="nav__actions">
         <a class="btn btn--ghost" href="#login" id="loginBtn">Log in</a>
-        <a class="btn btn--dark" href="#post-property" id="postBtn">Post property FREE</a>
+        <a class="btn btn--accent" href="#post-property" id="postBtn">Post property FREE</a>
       </div>
 
       <button class="nav__toggle" id="navToggle" aria-label="Toggle menu" aria-expanded="false">☰</button>
@@ -54,19 +54,16 @@
       <a href="#pg">PG / Co-living</a>
       <a href="#commercial">Commercial</a>
       <a href="#projects">New Projects</a>
-      <a href="#post-property" class="btn btn--dark" id="mobilePostBtn">Post property FREE</a>
+      <a href="#post-property" class="btn btn--accent" id="mobilePostBtn">Post property FREE</a>
     </nav>
   </header>
 
   <main>
-    <!-- Hero Section (Viewport Locked) -->
+    <!-- Hero Section (Reset with Full-Bleed Ken Burns City Backdrop) -->
     <section class="hero" id="heroSection">
-      <div class="hero__glow" aria-hidden="true"></div>
-      
-      <!-- Visual backdrop asset generated to avoid AI blank/gradient default -->
-      <div class="hero__image-container" aria-hidden="true">
-        <img src="hero_house.webp" alt="Modern luxury villa architecture" class="hero__image" width="720" height="960" fetchpriority="high">
-        <div class="hero__image-overlay"></div>
+      <div class="hero__background" aria-hidden="true">
+        <img src="mumbai.webp" alt="City Skyline Backdrop" class="hero__bg-image" width="1200" height="600" fetchpriority="high">
+        <div class="hero__bg-overlay"></div>
       </div>
 
       <div class="wrap hero__content">
@@ -225,66 +222,54 @@
           </div>
         </div>
 
-        <!-- Semantic clean grid with simple outlines -->
-        <div class="category-table reveal-scroll">
-          <div class="category-item" id="catApartments">
-            <div class="category-item__icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/>
-              </svg>
+        <!-- Semantic grid of visual photo cards with bottom-left titles -->
+        <div class="category-grid reveal-scroll">
+          <div class="category-card" id="catApartments" style="background-image: url('cat_apartments.png');">
+            <div class="category-card__overlay"></div>
+            <div class="category-card__content">
+              <h3 class="category-card__label">Apartments</h3>
+              <p class="category-card__desc">Premium flats & builder floors</p>
             </div>
-            <h3 class="category-item__label">Apartments</h3>
-            <p class="category-item__desc">Premium flats & builder floors</p>
           </div>
 
-          <div class="category-item" id="catVillas">
-            <div class="category-item__icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M3 11l9-7 9 7M5 10v10h14V10M9 20v-6h6v6"/>
-              </svg>
+          <div class="category-card" id="catVillas" style="background-image: url('cat_villas.png');">
+            <div class="category-card__overlay"></div>
+            <div class="category-card__content">
+              <h3 class="category-card__label">Independent House</h3>
+              <p class="category-card__desc">Luxury villas & bungalows</p>
             </div>
-            <h3 class="category-item__label">Independent House</h3>
-            <p class="category-item__desc">Luxury villas & bungalows</p>
           </div>
 
-          <div class="category-item" id="catPlots">
-            <div class="category-item__icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M3 20h18M4 20V10l4-3 4 3v10M12 20V6l4-3 4 3v14"/>
-              </svg>
+          <div class="category-card" id="catPlots" style="background-image: url('cat_plots.png');">
+            <div class="category-card__overlay"></div>
+            <div class="category-card__content">
+              <h3 class="category-card__label">Plots & Land</h3>
+              <p class="category-card__desc">Premium residential plots</p>
             </div>
-            <h3 class="category-item__label">Plots & Land</h3>
-            <p class="category-item__desc">Premium residential plots</p>
           </div>
 
-          <div class="category-item" id="catColiving">
-            <div class="category-item__icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M2 21v-1a6 6 0 0 1 12 0v1M14 21v-1a4.5 4.5 0 0 1 7-3.7"/>
-              </svg>
+          <div class="category-card" id="catColiving" style="background-image: url('cat_coliving.png');">
+            <div class="category-card__overlay"></div>
+            <div class="category-card__content">
+              <h3 class="category-card__label">PG & Co-living</h3>
+              <p class="category-card__desc">Managed student & shared stays</p>
             </div>
-            <h3 class="category-item__label">PG & Co-living</h3>
-            <p class="category-item__desc">Managed student & shared stays</p>
           </div>
 
-          <div class="category-item" id="catOffices">
-            <div class="category-item__icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <rect x="5" y="3" width="14" height="18"/><line x1="9" y1="8" x2="9" y2="18"/><line x1="15" y1="8" x2="15" y2="18"/>
-              </svg>
+          <div class="category-card" id="catOffices" style="background-image: url('cat_offices.png');">
+            <div class="category-card__overlay"></div>
+            <div class="category-card__content">
+              <h3 class="category-card__label">Office Spaces</h3>
+              <p class="category-card__desc">Grade-A commercial offices</p>
             </div>
-            <h3 class="category-item__label">Office Spaces</h3>
-            <p class="category-item__desc">Grade-A commercial offices</p>
           </div>
 
-          <div class="category-item" id="catRetail">
-            <div class="category-item__icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M3 10l9-6 9 6v10H3z"/><path d="M8 20v-6h8v6"/>
-              </svg>
+          <div class="category-card" id="catRetail" style="background-image: url('cat_retail.png');">
+            <div class="category-card__overlay"></div>
+            <div class="category-card__content">
+              <h3 class="category-card__label">Retail & Showrooms</h3>
+              <p class="category-card__desc">High-footfall commercial spaces</p>
             </div>
-            <h3 class="category-item__label">Retail & Showrooms</h3>
-            <p class="category-item__desc">High-footfall commercial spaces</p>
           </div>
         </div>
       </div>
