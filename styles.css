@@ -301,42 +301,62 @@ p {
   padding: 10px 0;
 }
 
-/* ---------- hero section (split-screen layout) ---------- */
+/* ---------- hero section (centered with full-bleed background) ---------- */
 .hero {
   position: relative;
-  background: var(--bg);
-  min-height: calc(100vh - 72px);
+  min-height: 580px;
   display: flex;
   align-items: center;
-  padding: 48px 0;
+  justify-content: center;
+  padding: 80px 0 100px;
   overflow: hidden;
+  text-align: center;
 }
 
-.hero__glow {
+.hero__background {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 50%;
-  height: 100%;
-  background: radial-gradient(circle at 10% 20%, rgba(0, 102, 255, 0.04), transparent 60%);
-  pointer-events: none;
+  inset: 0;
   z-index: 1;
+  overflow: hidden;
+  background: var(--bg);
 }
 
-.hero__container {
-  display: grid;
-  grid-template-columns: 1.25fr 0.75fr;
-  gap: 64px;
-  align-items: center;
+.hero__bg-image {
   width: 100%;
-  z-index: 2;
+  height: 100%;
+  object-fit: cover;
+  animation: kenBurns 40s ease-in-out infinite;
+  opacity: 0.28; /* Highly visible but soft enough for contrast readability */
+}
+
+@keyframes kenBurns {
+  0% {
+    transform: scale(1) translate(0, 0);
+  }
+  50% {
+    transform: scale(1.1) translate(-1.5%, -0.8%);
+  }
+  100% {
+    transform: scale(1) translate(0, 0);
+  }
+}
+
+.hero__bg-overlay {
+  position: absolute;
+  inset: 0;
+  /* Premium radial fade that keeps the city visible but creates light/bright center for readability */
+  background: radial-gradient(circle at center, rgba(250, 249, 246, 0.72) 0%, rgba(250, 249, 246, 0.92) 100%);
 }
 
 .hero__content {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 1200px;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  text-align: left;
+  align-items: center;
+  text-align: center;
 }
 
 .badge-wrapper {
@@ -365,10 +385,10 @@ p {
 }
 
 .hero__title {
-  font-size: clamp(36px, 4.8vw, 54px);
-  line-height: 1.1;
-  margin-bottom: 16px;
-  max-width: 640px;
+  font-size: clamp(34px, 5vw, 56px);
+  line-height: 1.15;
+  margin-bottom: 18px;
+  max-width: 800px;
   color: var(--ink);
 }
 
@@ -377,53 +397,11 @@ p {
 }
 
 .hero__subtitle {
-  font-size: 16.5px;
+  font-size: 17px;
   color: var(--muted-slate);
-  max-width: 50ch;
-  margin-bottom: 32px;
-  line-height: 1.55;
-}
-
-.hero__image-column {
-  position: relative;
-  width: 100%;
-  height: 560px;
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  box-shadow: 0 20px 40px -15px rgba(4, 8, 21, 0.12);
-}
-
-.hero__image-wrapper {
-  width: 100%;
-  height: 100%;
-  position: relative;
-  overflow: hidden;
-}
-
-.hero__bg-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  animation: kenBurns 40s ease-in-out infinite;
-}
-
-@keyframes kenBurns {
-  0% {
-    transform: scale(1) translate(0, 0);
-  }
-  50% {
-    transform: scale(1.1) translate(-1.5%, -0.8%);
-  }
-  100% {
-    transform: scale(1) translate(0, 0);
-  }
-}
-
-.hero__image-scrim {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to left, transparent 65%, rgba(250, 249, 246, 0.08) 100%);
-  pointer-events: none;
+  max-width: 60ch;
+  margin-bottom: 40px;
+  line-height: 1.5;
 }
 
 /* ---------- search widget card ---------- */
@@ -1277,7 +1255,6 @@ p {
 .hero__content > h1 { animation-delay: 90ms; }
 .hero__content > p { animation-delay: 150ms; }
 .hero__content > .search-card { animation-delay: 210ms; }
-.hero__image-column { animation-delay: 270ms; }
 
 @keyframes revealEnter {
   to {
@@ -1296,11 +1273,7 @@ p {
   }
   .hero {
     min-height: auto;
-    padding: 40px 0 60px;
-  }
-  .hero__container {
-    grid-template-columns: 1fr;
-    gap: 32px;
+    padding: 60px 0 80px;
   }
   .hero__content {
     max-width: 100%;
@@ -1310,10 +1283,6 @@ p {
   .hero__subtitle {
     text-align: center;
     margin-bottom: 24px;
-  }
-  .hero__image-column {
-    height: 280px;
-    order: 2;
   }
   .bento-grid {
     grid-template-columns: 1fr;
