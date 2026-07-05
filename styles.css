@@ -260,7 +260,7 @@ p {
 
 .btn--accent {
   background: var(--accent-warm);
-  color: #fff;
+  color: var(--ink);
   border: 1px solid var(--accent-warm);
   transition: background-color 0.2s var(--ease-out), border-color 0.2s var(--ease-out), transform 0.16s var(--ease-out);
 }
@@ -491,7 +491,7 @@ p {
 
 .search-submit {
   background: var(--accent-warm);
-  color: #fff;
+  color: var(--ink);
   border-radius: var(--radius-md);
   padding: 0 24px;
   height: 48px;
