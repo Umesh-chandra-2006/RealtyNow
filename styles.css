@@ -326,7 +326,7 @@ p {
   height: 100%;
   object-fit: cover;
   animation: kenBurns 40s ease-in-out infinite;
-  opacity: 0.28; /* Highly visible but soft enough for contrast readability */
+  opacity: 0.7; /* Increased opacity to make the city skyline background visible */
 }
 
 @keyframes kenBurns {
@@ -344,8 +344,8 @@ p {
 .hero__bg-overlay {
   position: absolute;
   inset: 0;
-  /* Premium radial fade that keeps the city visible but creates light/bright center for readability */
-  background: radial-gradient(circle at center, rgba(250, 249, 246, 0.72) 0%, rgba(250, 249, 246, 0.92) 100%);
+  /* Balanced radial overlay that highlights the text and search widget while keeping the city backdrop clear */
+  background: radial-gradient(circle at center, rgba(250, 249, 246, 0.45) 0%, rgba(250, 249, 246, 0.8) 100%);
 }
 
 .hero__content {
