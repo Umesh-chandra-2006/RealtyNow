@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="List your property for free on RealtyNow. Direct buyer matching, zero brokerage fee, and RERA assistance.">
+  <title>Post Property Free — RealtyNow</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Top bar -->
+  <div class="topbar">
+    <div class="wrap topbar__row">
+      <span>India's fastest-growing property marketplace</span>
+      <div class="topbar__links">
+        <a href="#builders">For builders</a>
+        <a href="#help">Help center</a>
+        <a href="#app">Download app</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <header class="site-header">
+    <div class="wrap nav">
+      <a href="index.html" class="logo" id="logoLink">
+        <span class="logo__mark"></span>RealtyNow
+      </a>
+
+      <nav class="nav__links" id="mainNav">
+        <a href="listings.html?type=buy">Buy</a>
+        <a href="listings.html?type=rent">Rent</a>
+        <a href="listings.html?type=pg">PG / Co-living</a>
+        <a href="listings.html?type=commercial">Commercial</a>
+        <a href="listings.html?type=projects">New Projects</a>
+      </nav>
+
+      <div class="nav__actions">
+        <a class="btn btn--ghost" href="login.html" id="loginBtn">Log in</a>
+        <a class="btn btn--accent active" href="post-property.html" id="postBtn">Post property FREE</a>
+      </div>
+
+      <button class="nav__toggle" id="navToggle" aria-label="Toggle menu" aria-expanded="false">☰</button>
+    </div>
+
+    <!-- Mobile Navigation Drawer -->
+    <nav class="nav__links nav__links--mobile" id="mobileNav">
+      <a href="listings.html?type=buy">Buy</a>
+      <a href="listings.html?type=rent">Rent</a>
+      <a href="listings.html?type=pg">PG / Co-living</a>
+      <a href="listings.html?type=commercial">Commercial</a>
+      <a href="listings.html?type=projects">New Projects</a>
+      <a href="post-property.html" class="btn btn--accent" id="mobilePostBtn">Post property FREE</a>
+    </nav>
+  </header>
+
+  <!-- Post Property Container -->
+  <main class="post-property-main">
+    <div class="wrap post-grid-layout">
+      
+      <!-- Left Column: Trust Info -->
+      <div class="post-info-col">
+        <div class="badge-wrapper">
+          <span class="badge"><span class="badge__pulse"></span>100% Commission Free</span>
+        </div>
+        <h1>List your property for FREE and connect with verified buyers</h1>
+        <p class="post-desc-text">Join thousands of home owners who successfully sold or rented their properties on RealtyNow without paying brokerage commissions.</p>
+        
+        <div class="post-trust-cards">
+          <div class="trust-bullet">
+            <span class="trust-icon">✓</span>
+            <div>
+              <h3>Zero Brokerage</h3>
+              <p>Direct connections between owners and buyers. No middleman, no fees.</p>
+            </div>
+          </div>
+          <div class="trust-bullet">
+            <span class="trust-icon">✓</span>
+            <div>
+              <h3>Owner Verification Badge</h3>
+              <p>Get listed with our 'Owner Verified' checkmark, boosting buyer inquiries by 4.1x.</p>
+            </div>
+          </div>
+          <div class="trust-bullet">
+            <span class="trust-icon">✓</span>
+            <div>
+              <h3>RERA Registration Support</h3>
+              <p>Immediate digital tools to check and link RERA IDs for fast buyer trust.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Multi-step Form -->
+      <div class="post-form-col">
+        <div class="post-form-card">
+          <!-- Step indicator bar -->
+          <div class="step-indicator">
+            <div class="step-dot active" data-step="1"></div>
+            <div class="step-dot" data-step="2"></div>
+            <div class="step-dot" data-step="3"></div>
+            <div class="step-dot" data-step="4"></div>
+          </div>
+
+          <form id="postPropertyForm" novalidate>
+            <!-- Step 1: Listing & Category -->
+            <div class="form-step active" id="step-1">
+              <h2>Select Listing Category</h2>
+              <div class="form-group">
+                <label>Listing Intent</label>
+                <div class="intent-selectors">
+                  <label class="intent-option active">
+                    <input type="radio" name="intent" value="sell" checked>
+                    <span>Sell</span>
+                  </label>
+                  <label class="intent-option">
+                    <input type="radio" name="intent" value="rent">
+                    <span>Rent</span>
+                  </label>
+                  <label class="intent-option">
+                    <input type="radio" name="intent" value="pg">
+                    <span>PG / Co-live</span>
+                  </label>
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="propCategory">Property Type</label>
+                <select id="propCategory" class="filter-select select-full" required>
+                  <option value="">Choose category...</option>
+                  <option value="apartment">Apartment / Flat</option>
+                  <option value="villa">Independent Villa / House</option>
+                  <option value="plot">Plot / Land</option>
+                  <option value="office">Commercial Office Space</option>
+                  <option value="retail">Retail / Showroom</option>
+                </select>
+                <div class="invalid-feedback">Please select a property category.</div>
+              </div>
+              <div class="step-actions">
+                <button type="button" class="btn btn--accent btn--next" onclick="goToStep(2)">Next Step</button>
+              </div>
+            </div>
+
+            <!-- Step 2: Location Details -->
+            <div class="form-step" id="step-2">
+              <h2>Property Location</h2>
+              <div class="form-group">
+                <label for="postCity">City</label>
+                <input type="text" id="postCity" placeholder="Enter city (e.g. Bengaluru)" required>
+                <div class="invalid-feedback">Please enter a valid city name.</div>
+              </div>
+              <div class="form-group">
+                <label for="postLocality">Locality</label>
+                <input type="text" id="postLocality" placeholder="Enter locality (e.g. Whitefield)" required>
+                <div class="invalid-feedback">Please specify the locality.</div>
+              </div>
+              <div class="form-group">
+                <label for="postAddress">Street Address (Optional)</label>
+                <input type="text" id="postAddress" placeholder="e.g. Flat 402, Meridian Heights">
+              </div>
+              <div class="step-actions">
+                <button type="button" class="btn btn--ghost" onclick="goToStep(1)">Back</button>
+                <button type="button" class="btn btn--accent btn--next" onclick="goToStep(3)">Next Step</button>
+              </div>
+            </div>
+
+            <!-- Step 3: Area & Pricing -->
+            <div class="form-step" id="step-3">
+              <h2>Area & Pricing Details</h2>
+              <div class="form-group">
+                <label for="postBhk">Configuration (BHK)</label>
+                <select id="postBhk" class="filter-select select-full" required>
+                  <option value="">BHK Configuration...</option>
+                  <option value="1">1 BHK</option>
+                  <option value="2">2 BHK</option>
+                  <option value="3">3 BHK</option>
+                  <option value="4">4+ BHK / Villa</option>
+                </select>
+                <div class="invalid-feedback">Please specify BHK type.</div>
+              </div>
+              <div class="form-group">
+                <label for="postArea">Area size (sq. ft.)</label>
+                <input type="number" id="postArea" placeholder="e.g. 1450" required>
+                <div class="invalid-feedback">Please enter the area size.</div>
+              </div>
+              <div class="form-group">
+                <label for="postPrice">Expected Price (INR)</label>
+                <input type="number" id="postPrice" placeholder="e.g. 8500000" required>
+                <div class="invalid-feedback">Please specify the price in INR.</div>
+              </div>
+              <div class="step-actions">
+                <button type="button" class="btn btn--ghost" onclick="goToStep(2)">Back</button>
+                <button type="button" class="btn btn--accent btn--next" onclick="goToStep(4)">Next Step</button>
+              </div>
+            </div>
+
+            <!-- Step 4: Contact & Consent -->
+            <div class="form-step" id="step-4">
+              <h2>Owner Verification</h2>
+              <div class="form-group">
+                <label for="ownerName">Full Name</label>
+                <input type="text" id="ownerName" placeholder="Enter your full name" required>
+                <div class="invalid-feedback">Please enter your name.</div>
+              </div>
+              <div class="form-group">
+                <label for="ownerPhone">Mobile Number (OTP Verification)</label>
+                <input type="tel" id="ownerPhone" placeholder="Enter mobile number" required>
+                <div class="invalid-feedback">Please enter a valid 10-digit mobile number.</div>
+              </div>
+              <div class="form-group checkbox-group">
+                <input type="checkbox" id="reraCertify">
+                <label for="reraCertify" class="check-label">I certify that this property complies with local RERA guidelines.</label>
+              </div>
+              <div class="step-actions">
+                <button type="button" class="btn btn--ghost" onclick="goToStep(3)">Back</button>
+                <button type="submit" class="btn btn--accent">Submit Property</button>
+              </div>
+            </div>
+
+          </form>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="wrap footer-grid">
+      <div class="footer-brand">
+        <div class="logo">
+          <span class="logo__mark"></span>RealtyNow
+        </div>
+        <p>Premium RERA-verified property listings with transparent pricing and direct owner verification details.</p>
+        <div class="footer-social">
+          <a href="#linkedin" aria-label="LinkedIn">in</a>
+          <a href="#twitter" aria-label="X (Twitter)">X</a>
+          <a href="#instagram" aria-label="Instagram">ig</a>
+        </div>
+      </div>
+      <div>
+        <h4>Cities</h4>
+        <ul>
+          <li><a href="#mumbai-listings">Mumbai</a></li>
+          <li><a href="#bengaluru-listings">Bengaluru</a></li>
+          <li><a href="#pune-listings">Pune</a></li>
+          <li><a href="#delhi-listings">Delhi NCR</a></li>
+          <li><a href="#hyderabad-listings">Hyderabad</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Marketplace</h4>
+        <ul>
+          <li><a href="#buy-properties">Buy Property</a></li>
+          <li><a href="#rent-properties">Rent Property</a></li>
+          <li><a href="#pg-co-living">PG & Co-living</a></li>
+          <li><a href="#commercial-lease">Commercial</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Company</h4>
+        <ul>
+          <li><a href="#about-us">About Us</a></li>
+          <li><a href="#careers">Careers</a></li>
+          <li><a href="#press">Press</a></li>
+          <li><a href="#contact">Contact</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Legal</h4>
+        <ul>
+          <li><a href="#rera-disclosures">RERA Disclosures</a></li>
+          <li><a href="#terms-of-use">Terms of Use</a></li>
+          <li><a href="#privacy-policy">Privacy Policy</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="wrap footer-bottom">
+      <span>© 2026 RealtyNow. All rights reserved.</span>
+      <span>Prototype Build — Verified Sample Data</span>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+  <script>
+    // Intent selectors active class toggle
+    document.querySelectorAll('.intent-option').forEach(option => {
+      option.addEventListener('click', () => {
+        document.querySelectorAll('.intent-option').forEach(opt => opt.classList.remove('active'));
+        option.classList.add('active');
+      });
+    });
+
+    // Multi-step logic
+    function goToStep(stepNum) {
+      // Validate current step before proceeding
+      const currentStep = document.querySelector('.form-step.active');
+      const inputs = currentStep.querySelectorAll('input[required], select[required]');
+      let isValid = true;
+      
+      inputs.forEach(input => {
+        if (!input.value.trim()) {
+          input.classList.add('has-error');
+          const feedback = input.nextElementSibling;
+          if (feedback && feedback.classList.contains('invalid-feedback')) {
+            feedback.style.display = 'block';
+          }
+          isValid = false;
+        } else {
+          input.classList.remove('has-error');
+          const feedback = input.nextElementSibling;
+          if (feedback && feedback.classList.contains('invalid-feedback')) {
+            feedback.style.display = 'none';
+          }
+        }
+      });
+
+      if (!isValid && stepNum > parseInt(currentStep.id.split('-')[1])) {
+        return; // Don't proceed if validation failed on next navigation
+      }
+
+      // Transition to next step
+      document.querySelectorAll('.form-step').forEach(step => step.classList.remove('active'));
+      document.getElementById('step-' + stepNum).classList.add('active');
+
+      // Update indicators
+      document.querySelectorAll('.step-dot').forEach((dot, index) => {
+        if (index < stepNum) {
+          dot.classList.add('active');
+        } else {
+          dot.classList.remove('active');
+        }
+      });
+    }
+
+    // Submit form handler
+    document.getElementById('postPropertyForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      // Final validations
+      const nameInput = document.getElementById('ownerName');
+      const phoneInput = document.getElementById('ownerPhone');
+      let isValid = true;
+
+      if (!nameInput.value.trim()) {
+        nameInput.classList.add('has-error');
+        nameInput.nextElementSibling.style.display = 'block';
+        isValid = false;
+      }
+      if (!phoneInput.value.trim() || phoneInput.value.trim().length < 10) {
+        phoneInput.classList.add('has-error');
+        phoneInput.nextElementSibling.style.display = 'block';
+        isValid = false;
+      }
+
+      if (isValid) {
+        alert('Congratulations! Your property has been successfully listed. We have sent an OTP verification SMS to ' + phoneInput.value + ' to verify owner credentials.');
+        window.location.href = 'index.html';
+      }
+    });
+  </script>
+</body>
+</html>
