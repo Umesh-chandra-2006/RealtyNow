@@ -15,16 +15,43 @@ CREATE TABLE public.profiles (
 -- Enable RLS for Profiles
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
--- Users can view their own profile
 CREATE POLICY "Users can view their own profile" ON public.profiles
     FOR SELECT USING (auth.uid() = id);
 
--- Authenticated users can view profiles of property owners with active listings
-CREATE POLICY "Authenticated users can view property owners" ON public.profiles
-    FOR SELECT USING (
-        auth.role() = 'authenticated' AND 
-        id IN (SELECT created_by FROM public.properties)
-    );
+-- Expose public metadata view for property listings
+CREATE OR REPLACE VIEW public.public_profiles AS
+SELECT id, full_name, role, created_at
+FROM public.profiles;
+
+-- Grant select to all users on public view
+GRANT SELECT ON public.public_profiles TO anon, authenticated;
+
+-- Secure RPC function to fetch owner phone number only if buyer has sent a contact request
+CREATE OR REPLACE FUNCTION public.get_owner_phone(prop_id UUID)
+RETURNS TEXT AS $$
+DECLARE
+    owner_phone TEXT;
+BEGIN
+    IF auth.role() <> 'authenticated' THEN
+        RETURN NULL;
+    END IF;
+
+    -- Check if contact request exists between requester and the target property
+    IF EXISTS (
+        SELECT 1 FROM public.contact_requests
+        WHERE buyer_id = auth.uid() AND property_id = prop_id
+    ) THEN
+        SELECT phone INTO owner_phone
+        FROM public.profiles p
+        JOIN public.properties pr ON p.id = pr.created_by
+        WHERE pr.id = prop_id;
+        
+        RETURN owner_phone;
+    END IF;
+
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 CREATE POLICY "Users can insert their own profile" ON public.profiles
     FOR INSERT WITH CHECK (auth.uid() = id);
@@ -219,8 +246,8 @@ CREATE TRIGGER enforce_posting_quota
 CREATE OR REPLACE FUNCTION public.protect_property_fields()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Allow admins (identified by is_admin user metadata in JWT) to bypass verification constraints
-    IF coalesce(auth.jwt()->'user_metadata'->>'is_admin', 'false') = 'true' THEN
+    -- Allow admins (identified by is_admin in app_metadata) to bypass verification constraints
+    IF coalesce(auth.jwt()->'app_metadata'->>'is_admin', 'false') = 'true' THEN
         RETURN NEW;
     END IF;
 

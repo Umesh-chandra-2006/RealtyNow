@@ -189,7 +189,7 @@ function ListingsContent() {
         try {
           let query = supabase
             .from("properties")
-            .select("*, profiles(full_name, role, phone)")
+            .select("*, public_profiles(full_name, role)")
             .limit(100); // Set a safety ceiling limit to avoid downloading the entire collection
 
           // Server-side filtering by property intent type
@@ -199,7 +199,7 @@ function ListingsContent() {
           // Server-side search filter
           if (filterSearch.trim()) {
             const queryTerm = filterSearch.toLowerCase().trim();
-            query = query.or(`city.ilike.%${queryTerm}%,locality.ilike.%${queryTerm}%,title.ilike.%${queryTerm}%`);
+            query = query.or("city.ilike.%" + queryTerm + "%,locality.ilike.%" + queryTerm + "%,title.ilike.%" + queryTerm + "%");
           }
 
           // Server-side BHK filter
@@ -252,9 +252,9 @@ function ListingsContent() {
               type: item.type,
               subType: item.sub_type,
               excerpt: item.description,
-              ownerName: item.profiles?.full_name || "Verified Member",
-              ownerLabel: item.profiles?.role || "Owner",
-              phone: item.profiles?.phone || "+91 99999 99999",
+              ownerName: item.public_profiles?.full_name || "Verified Member",
+              ownerLabel: item.public_profiles?.role || "Owner",
+              phone: "+91 XXXXX XXXXX", // Masked in feed for privacy; revealed on detail page after callback request
               image: item.image_urls?.[0] || "/hero_house.webp",
               isRera: item.is_rera_approved,
               isVerified: item.is_verified,
