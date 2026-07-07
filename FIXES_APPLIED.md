@@ -31,6 +31,13 @@ This document details the issues resolved, file references, verification steps, 
   - [property/[id]/page.tsx:L140](file:///d:/ABC/app/property/%5Bid%5D/page.tsx#L140) (restored detail page conditional profiles join query)
 - **Result**: **PASS**. Anonymous queries block phone number delivery.
 
+### Priority 2 (Regression Fix) — Profile Selection Access
+- **Issue**: The previous seller RLS policy blocked new users (who haven't posted listings) from reading their own profile row, breaking onboarding login redirects.
+- **Fix**: Restored the separate `Users can view their own profile` SELECT policy alongside the seller policy. RLS rules are OR'd together, ensuring buyers can query their own onboarding profiles.
+- **Files**:
+  - [schema.sql:L18-L25](file:///d:/ABC/schema.sql#L18-L25) (dual select policies)
+- **Result**: **PASS**. Onboarding and login flow behaves normally.
+
 ### Priority 3 — Locked RERA Approvals (Compliance)
 - **Issue**: `is_rera_approved` and `rera_id` were self-declared from client input with no verification lock.
 - **Fix**: Extended the `protect_property_fields` trigger function to force `is_rera_approved = false` on insertions, and lock the field during updates for non-admins. The client submission payload in `post-property` now maps the RERA status to `false` and renders helper text indicating pending moderator review.
