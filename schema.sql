@@ -15,7 +15,10 @@ CREATE TABLE public.profiles (
 -- Enable RLS for Profiles
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Profiles are viewable by authenticated users" ON public.profiles
+CREATE POLICY "Users can view their own profile" ON public.profiles
+    FOR SELECT USING (auth.uid() = id);
+
+CREATE POLICY "Authenticated users can view property owners" ON public.profiles
     FOR SELECT USING (
         auth.role() = 'authenticated' AND 
         id IN (SELECT created_by FROM public.properties)

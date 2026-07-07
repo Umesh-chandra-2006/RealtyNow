@@ -94,3 +94,31 @@ VALUES ('Villa E (Succeeds)', 5000000, 2, 1000, 'buy', 'apartment', 'Mumbai', 'A
 -- EXPECTED: Exception: Property posting limit exceeded.
 INSERT INTO public.properties (title, price, bhk, area_sqft, type, sub_type, city, locality, created_by) 
 VALUES ('Villa F (Fails)', 5000000, 2, 1000, 'buy', 'apartment', 'Mumbai', 'Andheri', 'a0000000-0000-0000-0000-000000000000');
+
+
+-- ------------------------------------------------------------------------
+-- TEST 5: Profiles SELECT RLS Gating
+-- ------------------------------------------------------------------------
+-- GIVEN: A normal user who has NOT listed any properties (e.g. a new buyer)
+-- EXPECTED:
+-- 1. They can successfully select their OWN profile.
+-- 2. They CANNOT select another user's profile unless that user has listed properties.
+
+-- Setup a second normal user who has NO listed properties
+INSERT INTO public.profiles (id, phone, full_name, role)
+VALUES ('b0000000-0000-0000-0000-000000000000', '+91 99999 33333', 'New Buyer', 'buyer')
+ON CONFLICT (id) DO NOTHING;
+
+-- Simulate New Buyer session
+SELECT set_config('request.jwt.claims', '{"sub": "b0000000-0000-0000-0000-000000000000", "role": "authenticated"}', true);
+
+-- Verification Query 1: Selecting own profile (MUST succeed and return 1 row)
+SELECT id, full_name FROM public.profiles WHERE id = 'b0000000-0000-0000-0000-000000000000';
+
+-- Verification Query 2: Selecting profile of Normal Owner ('a0000000-0000-0000-0000-000000000000' who has active listings)
+-- EXPECTED: Succeeds because they have active listings.
+SELECT id, full_name FROM public.profiles WHERE id = 'a0000000-0000-0000-0000-000000000000';
+
+-- Verification Query 3: Selecting profile of another non-selling user
+-- EXPECTED: Returns 0 rows (fully blocked).
+SELECT id, full_name FROM public.profiles WHERE id = 'a1111111-1111-1111-1111-111111111111';
