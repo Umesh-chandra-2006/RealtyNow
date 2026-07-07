@@ -1,12 +1,18 @@
 "use client";
 
-import React, { use, useState } from "react";
+import React, { use, useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/app/context/AuthContext";
+import { submitContactRequest } from "@/lib/actions";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { useToast } from "@/app/context/ToastContext";
+import Footer from "@/app/components/Footer";
 
-// Mock database listings
+// Mock static database listings
 const PROPERTIES_DB: { [key: string]: any } = {
-  "1": {
+  "static-1": {
     title: "Meridian Sunview",
     loc: "Whitefield, Bengaluru",
     price: "₹ 1.32 Cr",
@@ -23,7 +29,7 @@ const PROPERTIES_DB: { [key: string]: any } = {
     subType: "apartment",
     isRera: true,
   },
-  "2": {
+  "static-2": {
     title: "Cedar Lake Residency",
     loc: "Baner, Pune",
     price: "₹ 78 L",
@@ -40,7 +46,7 @@ const PROPERTIES_DB: { [key: string]: any } = {
     subType: "apartment",
     isRera: false,
   },
-  "3": {
+  "static-3": {
     title: "Palm Coast Villas",
     loc: "ECR, Chennai",
     price: "₹ 2.40 Cr",
@@ -66,21 +72,165 @@ interface PageProps {
 export default function PropertyDetailPage({ params }: PageProps) {
   const { id } = use(params);
   const router = useRouter();
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  const [property, setProperty] = useState<any>(null);
+  const [loadingProp, setLoadingProp] = useState(true);
 
   // Inquiry Form State
   const [inqName, setInqName] = useState("");
   const [inqPhone, setInqPhone] = useState("");
+  const [submittingInquiry, setSubmittingInquiry] = useState(false);
 
-  const property = PROPERTIES_DB[id] || PROPERTIES_DB["1"];
+  // Fetch listing details dynamically on mount
+  useEffect(() => {
+    async function loadProperty() {
+      setLoadingProp(true);
 
-  const handleInquirySubmit = (e: React.FormEvent) => {
+      const isDev = process.env.NODE_ENV !== "production";
+
+      // A. Check static listings first (dev-only sandbox simulation testing)
+      if (isDev && PROPERTIES_DB[id]) {
+        const staticProp = { ...PROPERTIES_DB[id] };
+        if (!user) {
+          staticProp.phone = null; // Do not leak contact number to guests
+        }
+        setProperty(staticProp);
+        setLoadingProp(false);
+        return;
+      }
+
+      // B. Check LocalStorage (dev-only sandbox simulation testing)
+      if (isDev) {
+        try {
+          const localKey = "realtynow_properties";
+          const localStr = localStorage.getItem(localKey);
+          if (localStr) {
+            const localProps = JSON.parse(localStr);
+            const match = localProps.find((item: any) => String(item.id) === String(id));
+            if (match) {
+              setProperty({
+                title: match.title,
+                loc: `${match.locality}, ${match.city}`,
+                price: `₹ ${match.price >= 10000000 ? (match.price / 10000000).toFixed(2) + " Cr" : (match.price / 100000).toFixed(0) + " L"}`,
+                bhk: `${match.bhk} BHK Apartment`,
+                area: `${match.area_sqft} sq.ft`,
+                img: match.image_urls?.[0] || "/hero_house.webp",
+                owner: "Verified User",
+                label: "Owner",
+                phone: user ? "+91 99999 88888" : null, // Mask number for unauthenticated users
+                age: "Ready to Move",
+                floor: "4th Floor",
+                facing: "East-Facing",
+                desc: match.description,
+                subType: match.sub_type,
+                isRera: match.is_rera_approved,
+              });
+              setLoadingProp(false);
+              return;
+            }
+          }
+        } catch (e) {
+          console.error("Error reading local storage property:", e);
+        }
+      }
+
+      // C. Check Supabase Database
+      if (isSupabaseConfigured()) {
+        try {
+          // Gated Select: Only select phone column if user is logged in
+          const selectFields = user
+            ? "*, profiles(full_name, role, phone)"
+            : "*, profiles(full_name, role)";
+
+          const { data, error } = await supabase
+            .from("properties")
+            .select(selectFields)
+            .eq("id", id)
+            .maybeSingle();
+
+          if (error) throw error;
+          if (data) {
+            setProperty({
+              title: data.title,
+              loc: `${data.locality}, ${data.city}`,
+              price: `₹ ${data.price >= 10000000 ? (data.price / 10000000).toFixed(2) + " Cr" : (data.price / 100000).toFixed(0) + " L"}`,
+              bhk: `${data.bhk} BHK ${data.sub_type}`,
+              area: `${data.area_sqft} sq.ft`,
+              img: data.image_urls?.[0] || "/hero_house.webp",
+              owner: data.profiles?.full_name || "Verified Member",
+              label: data.profiles?.role || "Owner",
+              phone: user ? (data.profiles?.phone || "+91 99999 99999") : null, // Mask number for unauthenticated users
+              age: data.is_rera_approved ? "Under Construction" : "Ready to Move",
+              floor: "Middle Floor",
+              facing: "East-Facing",
+              desc: data.description,
+              subType: data.sub_type,
+              isRera: data.is_rera_approved,
+            });
+          }
+        } catch (err) {
+          console.error("Error fetching property details:", err);
+        }
+      }
+
+      setLoadingProp(false);
+    }
+
+    loadProperty();
+  }, [id, user]);
+
+  const handleInquirySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    alert(
-      `Thank you for your interest, ${inqName}!\n\nThe listing host (${property.owner}) has been notified and will call you back shortly at ${inqPhone}.`
-    );
-    setInqName("");
-    setInqPhone("");
+
+    if (!user) {
+      toast("Authentication required. Please log in to request call backs from listing hosts.", "info");
+      router.push(`/login?redirect=/property/${id}`);
+      return;
+    }
+
+    setSubmittingInquiry(true);
+    try {
+      await submitContactRequest(user.id, String(id), `Request call back for: ${property.title}. Buyer phone: ${inqPhone}`);
+      toast(
+        `Thank you for your interest, ${inqName}! The listing host (${property.owner}) has been notified and will call you back shortly.`,
+        "success"
+      );
+      setInqName("");
+      setInqPhone("");
+    } catch (err: any) {
+      toast(err.message || "Error submitting inquiry request.", "error");
+    } finally {
+      setSubmittingInquiry(false);
+    }
   };
+
+  const handleCallOwnerClick = (e: React.MouseEvent) => {
+    if (!user) {
+      e.preventDefault();
+      toast("Authentication required. Please log in to view verified contact details.", "info");
+      router.push(`/login?redirect=/property/${id}`);
+    }
+  };
+
+  if (loadingProp) {
+    return (
+      <main className="detail-page-main" style={{ minHeight: "80vh", display: "flex", justifyContent: "center", alignItems: "center" }}>
+        <h3>Loading property details database...</h3>
+      </main>
+    );
+  }
+
+  if (!property) {
+    return (
+      <main className="detail-page-main" style={{ minHeight: "60vh", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
+        <h2>Property Not Found</h2>
+        <p style={{ color: "var(--muted-slate)", margin: "10px 0" }}>The selected property may have been removed or is no longer active.</p>
+        <Link href="/listings" className="btn btn--accent">Back to Search Listings</Link>
+      </main>
+    );
+  }
 
   return (
     <main className="detail-page-main">
@@ -118,11 +268,11 @@ export default function PropertyDetailPage({ params }: PageProps) {
         {/* Detail Image Gallery Grid */}
         <section className="detail-gallery">
           <div className="detail-gallery__main">
-            <img id="mainGalleryImg" src={property.img} alt="Main property view" className="gallery-img" />
+            <Image id="mainGalleryImg" src={property.img} alt="Main property view" className="gallery-img" width={800} height={500} style={{ objectFit: "cover" }} />
           </div>
           <div className="detail-gallery__side">
-            <img src="/bengaluru.webp" alt="Secondary view" className="gallery-img" />
-            <img src="/delhi.webp" alt="Alternative view" className="gallery-img" />
+            <Image src="/bengaluru.webp" alt="Secondary view" className="gallery-img" width={400} height={240} style={{ objectFit: "cover" }} />
+            <Image src="/delhi.webp" alt="Alternative view" className="gallery-img" width={400} height={240} style={{ objectFit: "cover" }} />
           </div>
         </section>
 
@@ -202,18 +352,18 @@ export default function PropertyDetailPage({ params }: PageProps) {
             {/* Ecosystem Referral Partner Services */}
             <section className="detail-section">
               <h2>RealtyNow Partner Services</h2>
-              <div className="partner-services-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "20px", marginTop: "15px" }}>
-                <div className="partner-card" style={{ padding: "20px", borderRadius: "12px", border: "1px solid var(--line)", background: "var(--surface)", display: "flex", flexDirection: "column", gap: "10px" }}>
-                  <span style={{ fontSize: "1.5rem" }}>📦</span>
-                  <h3 style={{ fontSize: "1.1rem", fontWeight: "600", margin: "0" }}>Kaam Kaaka — Home Services</h3>
-                  <p style={{ fontSize: "0.9rem", color: "var(--muted-slate)", margin: "0", lineHeight: "1.5" }}>Book verified movers & packers, professional painters, and plumbers to set up your new home seamlessly.</p>
-                  <a href="https://kaamkaaka.com?ref=realtynow" target="_blank" rel="noopener noreferrer" className="btn btn--ghost" style={{ marginTop: "auto", textAlign: "center", textDecoration: "none", display: "inline-block" }}>Book Services</a>
+              <div className="partner-services-grid">
+                <div className="partner-card">
+                  <span className="partner-card__icon">📦</span>
+                  <h3 className="partner-card__title">Kaam Kaaka — Home Services</h3>
+                  <p className="partner-card__desc">Book verified movers & packers, professional painters, and plumbers to set up your new home seamlessly.</p>
+                  <Link href="/services/kaam-kaaka" className="btn btn--ghost partner-card__link">Book Services</Link>
                 </div>
-                <div className="partner-card" style={{ padding: "20px", borderRadius: "12px", border: "1px solid var(--line)", background: "var(--surface)", display: "flex", flexDirection: "column", gap: "10px" }}>
-                  <span style={{ fontSize: "1.5rem" }}>✨</span>
-                  <h3 style={{ fontSize: "1.1rem", fontWeight: "600", margin: "0" }}>Interior Design Studio</h3>
-                  <p style={{ fontSize: "0.9rem", color: "var(--muted-slate)", margin: "0", lineHeight: "1.5" }}>Get customized, high-end interior layouts and modular fit-outs for your apartment or commercial showroom.</p>
-                  <a href="https://interiorstudio.com?ref=realtynow" target="_blank" rel="noopener noreferrer" className="btn btn--ghost" style={{ marginTop: "auto", textAlign: "center", textDecoration: "none", display: "inline-block" }}>Request Quote</a>
+                <div className="partner-card">
+                  <span className="partner-card__icon">✨</span>
+                  <h3 className="partner-card__title">Interior Design Studio</h3>
+                  <p className="partner-card__desc">Get customized, high-end interior layouts and modular fit-outs for your apartment or commercial showroom.</p>
+                  <Link href="/services/interior-design" className="btn btn--ghost partner-card__link">Request Quote</Link>
                 </div>
               </div>
             </section>
@@ -225,10 +375,10 @@ export default function PropertyDetailPage({ params }: PageProps) {
               <div className="sidebar-contact-card__head">
                 <span className="owner-tag">
                   <span className="badge__pulse"></span>
-                  {property.label === "Developer Representative" ? "Verified Builder" : "Verified Owner"}
+                  {property.label === "Developer Representative" || property.label === "builder" ? "Verified Builder" : "Verified Owner"}
                 </span>
                 <div className="owner-profile">
-                  <div className="owner-avatar" id="sidebarAvatar">
+                  <div className="owner-avatar owner-avatar--header" id="sidebarAvatar">
                     {property.owner
                       .split(" ")
                       .map((n: string) => n[0])
@@ -247,28 +397,58 @@ export default function PropertyDetailPage({ params }: PageProps) {
                 {/* Direct details */}
                 <div className="verified-phone">
                   <span className="label">Verified Contact:</span>
-                  <span className="number" id="sidebarPhone">
-                    {property.phone}
-                  </span>
+                  {user && property.phone ? (
+                    <span className="number" id="sidebarPhone">
+                      {property.phone}
+                    </span>
+                  ) : (
+                    <span className="number verified-phone__number--blurred" id="sidebarPhone" onClick={() => router.push(`/login?redirect=/property/${id}`)}>
+                      +91 XXXXX XXXXX
+                    </span>
+                  )}
                 </div>
 
                 {/* CTA Buttons */}
                 <div className="sidebar-actions">
-                  <a
-                    href={`tel:${property.phone.replace(/\s+/g, "")}`}
-                    className="btn btn--accent sidebar-btn"
-                    id="sidebarCallBtn"
-                  >
-                    📞 Call {property.label} Now
-                  </a>
-                  <a
-                    href={`https://wa.me/${property.phone.replace(/[^0-9]/g, "")}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn btn--ghost sidebar-btn sidebar-btn--whatsapp"
-                  >
-                    💬 Chat on WhatsApp
-                  </a>
+                  {user && property.phone ? (
+                    <>
+                      <a
+                        href={`tel:${property.phone.replace(/\s+/g, "")}`}
+                        className="btn btn--accent sidebar-btn"
+                        id="sidebarCallBtn"
+                        onClick={handleCallOwnerClick}
+                      >
+                        📞 Call Host Now
+                      </a>
+                      <a
+                        href={`https://wa.me/${property.phone.replace(/[^0-9]/g, "")}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn--ghost sidebar-btn sidebar-btn--whatsapp"
+                        onClick={handleCallOwnerClick}
+                      >
+                        💬 Chat on WhatsApp
+                      </a>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        className="btn btn--accent sidebar-btn"
+                        id="sidebarCallBtn"
+                        onClick={handleCallOwnerClick}
+                      >
+                        📞 Call Host Now
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn--ghost sidebar-btn sidebar-btn--whatsapp"
+                        onClick={handleCallOwnerClick}
+                      >
+                        💬 Chat on WhatsApp
+                      </button>
+                    </>
+                  )}
                 </div>
 
                 <hr className="sidebar-divider" />
@@ -298,8 +478,8 @@ export default function PropertyDetailPage({ params }: PageProps) {
                       required
                     />
                   </div>
-                  <button type="submit" className="btn btn--dark btn--inquiry">
-                    Request Call Back
+                  <button type="submit" className="btn btn--dark btn--inquiry" disabled={submittingInquiry}>
+                    {submittingInquiry ? "Submitting Inquiry..." : "Request Call Back"}
                   </button>
                 </form>
               </div>
@@ -308,64 +488,7 @@ export default function PropertyDetailPage({ params }: PageProps) {
         </div>
       </div>
 
-      {/* Footer */}
-      <footer className="footer" style={{ marginTop: "60px" }}>
-        <div className="wrap footer-grid">
-          <div className="footer-brand">
-            <div className="logo">
-              <span className="logo__mark"></span>RealtyNow
-            </div>
-            <p>
-              Premium RERA-verified property listings with transparent pricing and direct owner verification details.
-            </p>
-            <div className="footer-social">
-              <a href="#linkedin" aria-label="LinkedIn">in</a>
-              <a href="#twitter" aria-label="X (Twitter)">X</a>
-              <a href="#instagram" aria-label="Instagram">ig</a>
-            </div>
-          </div>
-          <div>
-            <h4>Cities</h4>
-            <ul>
-              <li><Link href="/listings?city=Mumbai">Mumbai</Link></li>
-              <li><Link href="/listings?city=Bengaluru">Bengaluru</Link></li>
-              <li><Link href="/listings?city=Pune">Pune</Link></li>
-              <li><Link href="/listings?city=Delhi">Delhi NCR</Link></li>
-              <li><Link href="/listings?city=Hyderabad">Hyderabad</Link></li>
-            </ul>
-          </div>
-          <div>
-            <h4>Marketplace</h4>
-            <ul>
-              <li><Link href="/listings?type=buy">Buy Property</Link></li>
-              <li><Link href="/listings?type=rent">Rent Property</Link></li>
-              <li><Link href="/listings?type=pg">PG & Co-living</Link></li>
-              <li><Link href="/listings?type=commercial">Commercial</Link></li>
-            </ul>
-          </div>
-          <div>
-            <h4>Company</h4>
-            <ul>
-              <li><a href="#about-us">About Us</a></li>
-              <li><a href="#careers">Careers</a></li>
-              <li><a href="#press">Press</a></li>
-              <li><a href="#contact">Contact</a></li>
-            </ul>
-          </div>
-          <div>
-            <h4>Legal</h4>
-            <ul>
-              <li><a href="#rera-disclosures">RERA Disclosures</a></li>
-              <li><a href="#terms-of-use">Terms of Use</a></li>
-              <li><a href="#privacy-policy">Privacy Policy</a></li>
-            </ul>
-          </div>
-        </div>
-        <div className="wrap footer-bottom">
-          <span>© 2026 RealtyNow. All rights reserved.</span>
-          <span>Production Build — Verified Realty Platform</span>
-        </div>
-      </footer>
+      <Footer />
     </main>
   );
 }

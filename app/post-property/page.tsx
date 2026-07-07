@@ -1,18 +1,24 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/app/context/AuthContext";
+import { createPropertyListing } from "@/lib/actions";
+import { useToast } from "@/app/context/ToastContext";
+import Footer from "@/app/components/Footer";
 
 export default function PostProperty() {
   const router = useRouter();
+  const { user, profile, loading } = useAuth();
+  const { toast } = useToast();
 
   // Step state
   const [step, setStep] = useState(1);
 
   // Form Fields State
-  const [intent, setIntent] = useState("sell");
-  const [propCategory, setPropCategory] = useState("");
+  const [intent, setIntent] = useState<"sell" | "rent" | "pg">("sell");
+  const [propCategory, setPropCategory] = useState<string>("");
   const [postCity, setPostCity] = useState("");
   const [postLocality, setPostLocality] = useState("");
   const [postAddress, setPostAddress] = useState("");
@@ -22,9 +28,19 @@ export default function PostProperty() {
   const [ownerName, setOwnerName] = useState("");
   const [ownerPhone, setOwnerPhone] = useState("");
   const [reraCertify, setReraCertify] = useState(false);
+  const [reraId, setReraId] = useState("");
 
   // Validation Error States
   const [errors, setErrors] = useState<{ [key: string]: boolean }>({});
+  const [submitting, setSubmitting] = useState(false);
+
+  // Pre-fill owner details from active session
+  useEffect(() => {
+    if (user && profile) {
+      setOwnerName(profile.full_name || "");
+      setOwnerPhone(user.phone?.replace("+91", "") || "");
+    }
+  }, [user, profile]);
 
   const validateStep = (currentStep: number) => {
     const newErrors: { [key: string]: boolean } = {};
@@ -73,8 +89,9 @@ export default function PostProperty() {
     setStep(prevStep);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
 
     const newErrors: { [key: string]: boolean } = {};
     let isValid = true;
@@ -88,15 +105,75 @@ export default function PostProperty() {
       isValid = false;
     }
 
+    // Require RERA ID for builder roles or commercial listings
+    const isCommercial = propCategory === "office" || propCategory === "retail";
+    const isBuilder = profile?.role === "builder";
+    if ((isCommercial || isBuilder) && !reraId.trim()) {
+      newErrors.reraId = true;
+      isValid = false;
+    }
+
     setErrors(newErrors);
 
     if (isValid) {
-      alert(
-        `Congratulations! Your property has been successfully listed.\n\nWe have sent an OTP verification SMS to +91 ${ownerPhone} to verify owner credentials.`
-      );
-      router.push("/");
+      setSubmitting(true);
+      try {
+        const mappedIntent = intent === "sell" ? "buy" : intent; // sell maps to buy in properties schema
+
+        await createPropertyListing({
+          title: `${postBhk ? postBhk + " BHK " : ""}${propCategory.charAt(0).toUpperCase() + propCategory.slice(1)} in ${postLocality}`,
+          description: `Excellent condition ${propCategory} located in the prime region of ${postLocality}, ${postCity}.`,
+          price: parseFloat(postPrice),
+          bhk: postBhk ? parseInt(postBhk) : 1,
+          area_sqft: parseInt(postArea),
+          type: mappedIntent as any,
+          sub_type: (propCategory === "office" || propCategory === "retail" ? propCategory : "apartment") as any,
+          city: postCity,
+          locality: postLocality,
+          address: postAddress,
+          is_rera_approved: !!reraId,
+          rera_id: reraId || undefined,
+          created_by: user.id,
+          image_urls: ["/hero_house.webp"],
+        });
+
+        toast("Congratulations! Your property has been successfully listed in the database.", "success");
+        router.push("/listings");
+      } catch (err: any) {
+        toast(err.message || "Error submitting listing. Have you reached your 5-property free limit?", "error");
+      } finally {
+        setSubmitting(false);
+      }
     }
   };
+
+  // Enforce page lock if loading or not authenticated
+  if (loading) {
+    return (
+      <main className="post-property-main" style={{ minHeight: "8vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <h3>Verifying posting quota details...</h3>
+      </main>
+    );
+  }
+
+  if (!user) {
+    return (
+      <main className="post-property-main" style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div className="post-form-card" style={{ maxWidth: "480px", textAlign: "center", padding: "40px", border: "1px solid var(--line)", background: "var(--surface)", borderRadius: "12px" }}>
+          <h2>Login Required</h2>
+          <p style={{ color: "var(--muted-slate)", margin: "15px 0", lineHeight: "1.5" }}>
+            You must log in to list property postings on RealtyNow. The first 5 listings are 100% verified and free.
+          </p>
+          <Link href="/login?redirect=/post-property" className="btn btn--accent btn--full" style={{ display: "block", textDecoration: "none", textAlign: "center" }}>
+            Login to Post Property
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
+  const isCommercial = propCategory === "office" || propCategory === "retail";
+  const isBuilder = profile?.role === "builder";
 
   return (
     <main className="post-property-main">
@@ -110,7 +187,7 @@ export default function PostProperty() {
           </div>
           <h1>List your property and connect with verified buyers</h1>
           <p className="post-desc-text">
-            Join thousands of homeowners and builders who successfully sold or rented their properties on RealtyNow.
+            Join thousands of homeowners and builders who successfully listed their properties on RealtyNow.
           </p>
 
           <div className="post-trust-cards">
@@ -391,7 +468,7 @@ export default function PostProperty() {
                     )}
                   </div>
                   <div className="form-group">
-                    <label htmlFor="ownerPhone">Mobile Number (OTP Verification)</label>
+                    <label htmlFor="ownerPhone">Mobile Number (Verified)</label>
                     <input
                       type="tel"
                       id="ownerPhone"
@@ -402,6 +479,7 @@ export default function PostProperty() {
                         if (e.target.value) setErrors({});
                       }}
                       placeholder="Enter mobile number"
+                      disabled
                       required
                     />
                     {errors.ownerPhone && (
@@ -410,6 +488,31 @@ export default function PostProperty() {
                       </div>
                     )}
                   </div>
+
+                  {/* RERA ID Field (shown contextually) */}
+                  {(isCommercial || isBuilder) && (
+                    <div className="form-group">
+                      <label htmlFor="reraId">RERA Registration ID</label>
+                      <input
+                        type="text"
+                        id="reraId"
+                        className={errors.reraId ? "has-error" : ""}
+                        value={reraId}
+                        onChange={(e) => {
+                          setReraId(e.target.value);
+                          if (e.target.value) setErrors({});
+                        }}
+                        placeholder="e.g. PRM/KA/RERA/1251/..."
+                        required
+                      />
+                      {errors.reraId && (
+                        <div className="invalid-feedback" style={{ display: "block" }}>
+                          RERA Registration ID is required for builders and commercial listings.
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="form-group checkbox-group">
                     <input
                       type="checkbox"
@@ -425,8 +528,8 @@ export default function PostProperty() {
                     <button type="button" className="btn btn--ghost" onClick={() => handleBack(3)}>
                       Back
                     </button>
-                    <button type="submit" className="btn btn--accent">
-                      Submit Property
+                    <button type="submit" className="btn btn--accent" disabled={submitting}>
+                      {submitting ? "Listing Property..." : "Submit Property"}
                     </button>
                   </div>
                 </div>
@@ -436,64 +539,7 @@ export default function PostProperty() {
         </div>
       </div>
 
-      {/* Footer */}
-      <footer className="footer" style={{ marginTop: "60px" }}>
-        <div className="wrap footer-grid">
-          <div className="footer-brand">
-            <div className="logo">
-              <span className="logo__mark"></span>RealtyNow
-            </div>
-            <p>
-              Premium RERA-verified property listings with transparent pricing and direct owner verification details.
-            </p>
-            <div className="footer-social">
-              <a href="#linkedin" aria-label="LinkedIn">in</a>
-              <a href="#twitter" aria-label="X (Twitter)">X</a>
-              <a href="#instagram" aria-label="Instagram">ig</a>
-            </div>
-          </div>
-          <div>
-            <h4>Cities</h4>
-            <ul>
-              <li><Link href="/listings?city=Mumbai">Mumbai</Link></li>
-              <li><Link href="/listings?city=Bengaluru">Bengaluru</Link></li>
-              <li><Link href="/listings?city=Pune">Pune</Link></li>
-              <li><Link href="/listings?city=Delhi">Delhi NCR</Link></li>
-              <li><Link href="/listings?city=Hyderabad">Hyderabad</Link></li>
-            </ul>
-          </div>
-          <div>
-            <h4>Marketplace</h4>
-            <ul>
-              <li><Link href="/listings?type=buy">Buy Property</Link></li>
-              <li><Link href="/listings?type=rent">Rent Property</Link></li>
-              <li><Link href="/listings?type=pg">PG & Co-living</Link></li>
-              <li><Link href="/listings?type=commercial">Commercial</Link></li>
-            </ul>
-          </div>
-          <div>
-            <h4>Company</h4>
-            <ul>
-              <li><a href="#about-us">About Us</a></li>
-              <li><a href="#careers">Careers</a></li>
-              <li><a href="#press">Press</a></li>
-              <li><a href="#contact">Contact</a></li>
-            </ul>
-          </div>
-          <div>
-            <h4>Legal</h4>
-            <ul>
-              <li><a href="#rera-disclosures">RERA Disclosures</a></li>
-              <li><a href="#terms-of-use">Terms of Use</a></li>
-              <li><a href="#privacy-policy">Privacy Policy</a></li>
-            </ul>
-          </div>
-        </div>
-        <div className="wrap footer-bottom">
-          <span>© 2026 RealtyNow. All rights reserved.</span>
-          <span>Production Build — Verified Realty Platform</span>
-        </div>
-      </footer>
+      <Footer />
     </main>
   );
 }

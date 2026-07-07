@@ -1,12 +1,16 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useAuth } from "@/app/context/AuthContext";
 
-export default function Header() {
+function HeaderContent() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const activeType = searchParams.get("type");
+  const { user, profile, loading, signOut } = useAuth();
 
   // Close mobile menu when pathname changes
   useEffect(() => {
@@ -24,82 +28,142 @@ export default function Header() {
     }
   };
 
+  const getInitials = () => {
+    if (profile?.full_name) {
+      return profile.full_name
+        .split(" ")
+        .map((n: string) => n[0])
+        .join("")
+        .toUpperCase();
+    }
+    return "U";
+  };
+
+  const isLinkActive = (href: string) => {
+    // Check if the current pathname is listings
+    if (pathname !== "/listings") return false;
+    
+    // Parse target link parameters
+    const targetUrl = new URL(href, "http://localhost:3000");
+    const targetType = targetUrl.searchParams.get("type");
+    
+    return activeType === targetType;
+  };
+
   return (
-    <>
-      {/* Top bar (Marketing Announcement) */}
-      <div className="topbar">
-        <div className="wrap topbar__row">
-          <span>India's fastest-growing property marketplace</span>
-          <div className="topbar__links">
-            <a href="#builders">For builders</a>
-            <a href="#help">Help center</a>
-            <a href="#app">Download app</a>
-          </div>
-        </div>
-      </div>
+    <header className={`site-header ${pathname === "/" ? "" : "site-header--opaque"}`}>
+      <div className="wrap nav">
+        <Link href="/" className="logo" id="logoLink">
+          <span className="logo__mark"></span>RealtyNow
+        </Link>
 
-      {/* Main Site Header */}
-      <header className="site-header">
-        <div className="wrap nav">
-          <Link href="/" className="logo" id="logoLink">
-            <span className="logo__mark"></span>RealtyNow
+        <nav className="nav__links" id="mainNav">
+          <Link href="/listings?type=buy" className={isLinkActive("/listings?type=buy") ? "active" : ""}>
+            Buy
           </Link>
+          <Link href="/listings?type=rent" className={isLinkActive("/listings?type=rent") ? "active" : ""}>
+            Rent
+          </Link>
+          <Link href="/listings?type=pg" className={isLinkActive("/listings?type=pg") ? "active" : ""}>
+            PG / Co-living
+          </Link>
+          <Link href="/listings?type=commercial" className={isLinkActive("/listings?type=commercial") ? "active" : ""}>
+            Commercial
+          </Link>
+          <Link href="/listings?type=projects" className={isLinkActive("/listings?type=projects") ? "active" : ""}>
+            New Projects
+          </Link>
+        </nav>
 
-          <nav className="nav__links" id="mainNav">
-            <Link href="/listings?type=buy" className={pathname === "/listings" ? "active" : ""}>
-              Buy
-            </Link>
-            <Link href="/listings?type=rent" className={pathname === "/listings" ? "active" : ""}>
-              Rent
-            </Link>
-            <Link href="/listings?type=pg" className={pathname === "/listings" ? "active" : ""}>
-              PG / Co-living
-            </Link>
-            <Link href="/listings?type=commercial" className={pathname === "/listings" ? "active" : ""}>
-              Commercial
-            </Link>
-            <Link href="/listings?type=projects" className={pathname === "/listings" ? "active" : ""}>
-              New Projects
-            </Link>
-          </nav>
-
-          <div className="nav__actions">
+        <div className="nav__actions">
+          {!loading && user ? (
+            <div className="user-profile-badge">
+              <div className="owner-avatar owner-avatar--header">
+                {getInitials()}
+              </div>
+              <div className="user-profile-badge__info">
+                <span className="user-profile-badge__name">
+                  {profile?.full_name || user.phone || "User"}
+                </span>
+                <span className="user-profile-badge__role">
+                  {profile?.role || "Buyer"}
+                </span>
+              </div>
+              <button
+                type="button"
+                className="btn btn--ghost btn--logout"
+                onClick={signOut}
+              >
+                Logout
+              </button>
+            </div>
+          ) : (
             <Link className={`btn btn--ghost ${pathname === "/login" ? "active" : ""}`} href="/login" id="loginBtn">
               Log in
             </Link>
-            <Link className={`btn btn--accent ${pathname === "/post-property" ? "active" : ""}`} href="/post-property" id="postBtn">
-              Post property FREE
-            </Link>
-          </div>
+          )}
 
-          <button
-            className="nav__toggle"
-            id="navToggle"
-            aria-label="Toggle menu"
-            aria-expanded={mobileMenuOpen}
-            onClick={toggleMobileMenu}
-          >
-            {mobileMenuOpen ? "✕" : "☰"}
-          </button>
-        </div>
-
-        {/* Mobile Navigation Drawer */}
-        <nav
-          className={`nav__links nav__links--mobile ${mobileMenuOpen ? "is-open" : ""}`}
-          id="mobileNav"
-          aria-hidden={!mobileMenuOpen}
-          style={{ display: mobileMenuOpen ? "flex" : "none" }}
-        >
-          <Link href="/listings?type=buy">Buy</Link>
-          <Link href="/listings?type=rent">Rent</Link>
-          <Link href="/listings?type=pg">PG / Co-living</Link>
-          <Link href="/listings?type=commercial">Commercial</Link>
-          <Link href="/listings?type=projects">New Projects</Link>
-          <Link href="/post-property" className="btn btn--accent" id="mobilePostBtn">
+          <Link className={`btn btn--accent ${pathname === "/post-property" ? "active" : ""}`} href="/post-property" id="postBtn">
             Post property FREE
           </Link>
-        </nav>
-      </header>
-    </>
+        </div>
+
+        <button
+          className="nav__toggle"
+          id="navToggle"
+          aria-label="Toggle menu"
+          aria-expanded={mobileMenuOpen}
+          onClick={toggleMobileMenu}
+        >
+          {mobileMenuOpen ? "✕" : "☰"}
+        </button>
+      </div>
+
+      {/* Mobile Navigation Drawer */}
+      <nav
+        className={`nav__links nav__links--mobile ${mobileMenuOpen ? "is-open" : ""}`}
+        id="mobileNav"
+        aria-hidden={!mobileMenuOpen}
+      >
+        <Link href="/listings?type=buy" className={isLinkActive("/listings?type=buy") ? "active" : ""}>Buy</Link>
+        <Link href="/listings?type=rent" className={isLinkActive("/listings?type=rent") ? "active" : ""}>Rent</Link>
+        <Link href="/listings?type=pg" className={isLinkActive("/listings?type=pg") ? "active" : ""}>PG / Co-living</Link>
+        <Link href="/listings?type=commercial" className={isLinkActive("/listings?type=commercial") ? "active" : ""}>Commercial</Link>
+        <Link href="/listings?type=projects" className={isLinkActive("/listings?type=projects") ? "active" : ""}>New Projects</Link>
+        {!loading && user ? (
+          <button
+            type="button"
+            className="btn btn--ghost btn--mobile-logout"
+            onClick={signOut}
+          >
+            Logout ({profile?.full_name || user.phone || "User"})
+          </button>
+        ) : (
+          <Link href="/login" className="btn btn--ghost btn--mobile-login">
+            Log in
+          </Link>
+        )}
+        <Link href="/post-property" className="btn btn--accent" id="mobilePostBtn">
+          Post property FREE
+        </Link>
+      </nav>
+    </header>
   );
 }
+
+export default function Header() {
+  return (
+    <Suspense fallback={
+      <header className="site-header site-header--opaque">
+        <div className="wrap nav">
+          <Link href="/" className="logo">
+            <span className="logo__mark"></span>RealtyNow
+          </Link>
+        </div>
+      </header>
+    }>
+      <HeaderContent />
+    </Suspense>
+  );
+}
+
