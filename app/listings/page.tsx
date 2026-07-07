@@ -133,6 +133,15 @@ function ListingsContent() {
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [isMapViewMobile, setIsMapViewMobile] = useState(false);
 
+  // Pagination State (Priority 5)
+  const [currentPage, setCurrentPage] = useState(1);
+  const listingsPerPage = 12;
+
+  // Reset pagination on filter change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterType, filterSearch, filterBhk, filterBudget, sortBy]);
+
   // Modal State
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedOwner, setSelectedOwner] = useState({
@@ -187,10 +196,16 @@ function ListingsContent() {
       // B. Load from Supabase Database
       if (isSupabaseConfigured()) {
         try {
+          // Gated Select: Only select phone column if user is logged in (Priority 2)
+          const selectFields = user
+            ? "*, profiles(full_name, role, phone)"
+            : "*, profiles(full_name, role)";
+
           let query = supabase
             .from("properties")
-            .select("*, public_profiles(full_name, role)")
-            .limit(100); // Set a safety ceiling limit to avoid downloading the entire collection
+            .select(selectFields)
+            // range-based pagination (Priority 5)
+            .range((currentPage - 1) * listingsPerPage, currentPage * listingsPerPage - 1);
 
           // Server-side filtering by property intent type
           const mappedType = filterType === "pg" || filterType === "commercial" ? "buy" : filterType;
@@ -252,9 +267,10 @@ function ListingsContent() {
               type: item.type,
               subType: item.sub_type,
               excerpt: item.description,
-              ownerName: item.public_profiles?.full_name || "Verified Member",
-              ownerLabel: item.public_profiles?.role || "Owner",
-              phone: "+91 XXXXX XXXXX", // Masked in feed for privacy; revealed on detail page after callback request
+              ownerName: item.profiles?.full_name || "Verified Member",
+              ownerLabel: item.profiles?.role || "Owner",
+              // Safe fallback placeholder for unauthenticated requests; returns actual phone only if present
+              phone: item.profiles?.phone || "+91 XXXXX XXXXX",
               image: item.image_urls?.[0] || "/hero_house.webp",
               isRera: item.is_rera_approved,
               isVerified: item.is_verified,
@@ -272,7 +288,7 @@ function ListingsContent() {
     }
 
     loadListings();
-  }, [filterType, sortBy, filterSearch, filterBhk, filterBudget]);
+  }, [filterType, sortBy, filterSearch, filterBhk, filterBudget, currentPage]);
 
   // 2. Fetch User Favorites
   useEffect(() => {
@@ -340,7 +356,10 @@ function ListingsContent() {
     setFilterBudget(paramBudget);
   }, [paramType, paramCity, paramBhk, paramBudget]);
 
-  // Filter listings logic
+  // NOTE: This client-side filter is intentional and serves two purposes:
+  // 1. It provides instant UI responsiveness during interactive filter adjustments.
+  // 2. It filters the local mock/sandbox data (MOCK_LISTINGS and LocalStorage listings)
+  //    loaded in development mode, ensuring the search UI functions correctly offline.
   const filteredListings = listings.filter((item) => {
     // Intent type filter
     const mappedType = filterType === "pg" || filterType === "commercial" ? "buy" : filterType;
@@ -574,6 +593,33 @@ function ListingsContent() {
                 })
               )}
             </div>
+
+            {/* Pagination Controls (Priority 5) */}
+            {filteredListings.length > 0 && (
+              <div className="pagination-controls" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "24px 0", padding: "12px", borderTop: "1px solid var(--border)" }}>
+                <button
+                  type="button"
+                  className="btn btn--ghost"
+                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  style={{ opacity: currentPage === 1 ? 0.5 : 1, cursor: currentPage === 1 ? "not-allowed" : "pointer" }}
+                >
+                  &larr; Previous Page
+                </button>
+                <span style={{ fontSize: "14px", color: "var(--muted-slate)", fontWeight: "500" }}>
+                  Page {currentPage}
+                </span>
+                <button
+                  type="button"
+                  className="btn btn--ghost"
+                  onClick={() => setCurrentPage((prev) => prev + 1)}
+                  disabled={filteredListings.length < listingsPerPage}
+                  style={{ opacity: filteredListings.length < listingsPerPage ? 0.5 : 1, cursor: filteredListings.length < listingsPerPage ? "not-allowed" : "pointer" }}
+                >
+                  Next Page &rarr;
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Right Column: Map visualization (Sticky) */}

@@ -131,7 +131,7 @@ export default function PostProperty() {
           city: postCity,
           locality: postLocality,
           address: postAddress,
-          is_rera_approved: !!reraId,
+          is_rera_approved: false, // Default to false; must be verified by admin.
           rera_id: reraId || undefined,
           created_by: user.id,
           image_urls: ["/hero_house.webp"],
@@ -505,6 +505,9 @@ export default function PostProperty() {
                         placeholder="e.g. PRM/KA/RERA/1251/..."
                         required
                       />
+                      <span className="form-help-text" style={{ fontSize: "12px", color: "var(--muted-slate)", marginTop: "4px", display: "block" }}>
+                        Submitted for verification. The RERA Approved badge will be visible once reviewed by moderators.
+                      </span>
                       {errors.reraId && (
                         <div className="invalid-feedback" style={{ display: "block" }}>
                           RERA Registration ID is required for builders and commercial listings.

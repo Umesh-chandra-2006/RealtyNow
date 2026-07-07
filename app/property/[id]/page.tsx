@@ -140,20 +140,19 @@ export default function PropertyDetailPage({ params }: PageProps) {
       // C. Check Supabase Database
       if (isSupabaseConfigured()) {
         try {
+          // Gated Select: Only select phone column if user is logged in
+          const selectFields = user
+            ? "*, profiles(full_name, role, phone)"
+            : "*, profiles(full_name, role)";
+
           const { data, error } = await supabase
             .from("properties")
-            .select("*, public_profiles(full_name, role)")
+            .select(selectFields)
             .eq("id", id)
             .maybeSingle();
 
           if (error) throw error;
           if (data) {
-            let phone = null;
-            if (user) {
-              const { data: phoneData } = await supabase.rpc("get_owner_phone", { prop_id: id });
-              phone = phoneData;
-            }
-
             setProperty({
               title: data.title,
               loc: `${data.locality}, ${data.city}`,
@@ -161,9 +160,9 @@ export default function PropertyDetailPage({ params }: PageProps) {
               bhk: `${data.bhk} BHK ${data.sub_type}`,
               area: `${data.area_sqft} sq.ft`,
               img: data.image_urls?.[0] || "/hero_house.webp",
-              owner: data.public_profiles?.full_name || "Verified Member",
-              label: data.public_profiles?.role || "Owner",
-              phone: phone, // Gated phone (only returned if user has contact request)
+              owner: data.profiles?.full_name || "Verified Member",
+              label: data.profiles?.role || "Owner",
+              phone: user ? (data.profiles?.phone || "+91 99999 99999") : null, // Mask number for unauthenticated users
               age: data.is_rera_approved ? "Under Construction" : "Ready to Move",
               floor: "Middle Floor",
               facing: "East-Facing",
