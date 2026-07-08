@@ -25,21 +25,26 @@ test.describe("RealtyNow New Routes and Auxiliary Pages E2E Tests", () => {
     
     // Check form fields
     const nameInput = page.locator("#fullName");
+    const emailInput = page.locator("#email");
+    const passwordInput = page.locator("#password");
     const phoneInput = page.locator("#phone");
     await expect(nameInput).toBeVisible();
+    await expect(emailInput).toBeVisible();
+    await expect(passwordInput).toBeVisible();
     await expect(phoneInput).toBeVisible();
     
     // Try empty submit
     await page.click("button[type='submit']");
-    // Verify inputs have validation markings or page remains
     await expect(page).toHaveURL(/\/register/);
 
     // Fill details and submit
     await nameInput.fill("Test Applicant");
+    await emailInput.fill("test.applicant@gmail.com");
+    await passwordInput.fill("password123");
     await phoneInput.fill("9999988888");
     await page.click("button[type='submit']");
     
-    // Verifies it redirects to login verification flow pre-populated
+    // Verifies it redirects to login
     await expect(page).toHaveURL(/\/login/);
   });
 
