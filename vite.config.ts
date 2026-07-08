@@ -10,7 +10,9 @@ export default defineConfig({
     tanstackStart({
       server: { entry: "src/server.ts" },
     }),
-    react(),
+    react({
+      jsxRuntime: "automatic"
+    }),
     tailwindcss(),
   ],
 });

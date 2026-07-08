@@ -18,8 +18,8 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
 
-  --font-display: "Fraunces", Georgia, serif;
-  --font-sans: "Poppins", ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--next-font-display), "Fraunces", Georgia, serif;
+  --font-sans: var(--next-font-sans), "Poppins", ui-sans-serif, system-ui, sans-serif;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -43,6 +43,7 @@
   --color-ring: var(--ring);
 
   --color-navy: var(--navy);
+  --color-navy-dark: #0B1020;
   --color-navy-foreground: var(--navy-foreground);
   --color-sky: var(--sky);
   --color-coral: var(--coral);
@@ -71,7 +72,63 @@
 :root {
   --radius: 0.75rem;
 
-  /* Core */
+  /* Core Light Mode */
+  --background: #F8FAFC;
+  --surface: #F1F5F9;
+  --foreground: #0B1020;
+
+  --card: #FFFFFF;
+  --card-foreground: #0B1020;
+  --popover: #FFFFFF;
+  --popover-foreground: #0B1020;
+
+  /* Deep navy — text + primary */
+  --navy: #0B1020;
+  --navy-foreground: #ffffff;
+
+  /* Crimson red — primary CTA */
+  --primary: #ED1C24;
+  --primary-foreground: #ffffff;
+
+  /* Sky accent — interactive, focus */
+  --sky: #3B82F6;
+
+  /* Coral — Verified moment only */
+  --coral: #ED1C24;
+  --coral-foreground: #ffffff;
+
+  --secondary: #F1F5F9;
+  --secondary-foreground: #0B1020;
+  --muted: #F1F5F9;
+  --muted-foreground: #64748B;
+  --accent: #F1F5F9;
+  --accent-foreground: #0B1020;
+
+  --destructive: #EF4444;
+  --destructive-foreground: #ffffff;
+
+  --border: #E2E8F0;
+  --input: #E2E8F0;
+  --ring: #ED1C24;
+
+  --chart-1: #ED1C24;
+  --chart-2: #0B1020;
+  --chart-3: #ED1C24;
+  --chart-4: #64748B;
+  --chart-5: #E2E8F0;
+
+  --sidebar: #0B1020;
+  --sidebar-foreground: #F8FAFC;
+  --sidebar-primary: #ED1C24;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #131B35;
+  --sidebar-accent-foreground: #F8FAFC;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: #ED1C24;
+}
+
+.dark {
+  /* Core Dark Mode */
   --background: #0B1020;
   --surface: #131B35;
   --foreground: #F8FAFC;
@@ -81,22 +138,19 @@
   --popover: #131B35;
   --popover-foreground: #F8FAFC;
 
-  /* Deep navy — text + primary */
-  --navy: #060A17;
-  --navy-foreground: #ffffff;
+  /* Text switches to light under dark mode */
+  --navy: #FFFFFF;
+  --navy-foreground: #0B1020;
 
-  /* Crimson red — primary CTA */
   --primary: #ED1C24;
   --primary-foreground: #ffffff;
 
-  /* Sky accent — interactive, focus */
   --sky: #ED1C24;
 
-  /* Coral — Verified moment only */
   --coral: #ED1C24;
   --coral-foreground: #ffffff;
 
-  --secondary: #060A17;
+  --secondary: #172346;
   --secondary-foreground: #ffffff;
   --muted: #172346;
   --muted-foreground: #94A3B8;
@@ -115,15 +169,6 @@
   --chart-3: #ED1C24;
   --chart-4: #94A3B8;
   --chart-5: rgba(255, 255, 255, 0.08);
-
-  --sidebar: #0B1020;
-  --sidebar-foreground: #F8FAFC;
-  --sidebar-primary: #ED1C24;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #131B35;
-  --sidebar-accent-foreground: #F8FAFC;
-  --sidebar-border: rgba(255, 255, 255, 0.08);
-  --sidebar-ring: #ED1C24;
 }
 
 @layer base {

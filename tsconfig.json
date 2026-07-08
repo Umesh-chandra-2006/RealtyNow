@@ -1,18 +1,31 @@
 {
-  "include": ["src/**/*.ts", "src/**/*.tsx", "vite.config.ts", "eslint.config.js"],
+  "include": [
+    "eslint.config.js",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    "vite.config.ts",
+    "next-env.d.ts",
+    ".next/types/**/*.ts"
+  ],
   "compilerOptions": {
     "target": "ES2022",
-    "jsx": "react-jsx",
+    "jsx": "preserve",
     "module": "ESNext",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["vite/client"],
-
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "types": [
+      "vite/client"
+    ],
     /* Bundler mode */
     "moduleResolution": "Bundler",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": false,
     "noEmit": true,
-
     /* Linting */
     "skipLibCheck": true,
     "strict": true,
@@ -21,7 +34,28 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
     "paths": {
-      "@/*": ["./src/*"]
-    }
-  }
+      "@/*": [
+        "./src/*"
+      ]
+    },
+    "allowJs": true,
+    "incremental": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
+  },
+  "exclude": [
+    "node_modules",
+    "src/routes/**/*",
+    "src/components/SiteHeader.tsx",
+    "src/components/SiteFooter.tsx",
+    "src/components/ListingCard.tsx",
+    "src/start.ts",
+    "src/server.ts"
+  ]
 }
