@@ -94,10 +94,8 @@ export default function Footer({ onCityClick }: FooterProps) {
         <div>
           <h4>Company</h4>
           <ul>
-            <li><a href="#about-us">About Us</a></li>
-            <li><a href="#careers">Careers</a></li>
-            <li><a href="#press">Press</a></li>
-            <li><a href="#contact">Contact Us</a></li>
+            <li><Link href="/about">About Us</Link></li>
+            <li><Link href="/contact">Contact Us</Link></li>
           </ul>
         </div>
 

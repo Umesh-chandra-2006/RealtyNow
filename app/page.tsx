@@ -18,7 +18,7 @@ export default function Home() {
 
       {/* Hero Section with Luxury Backdrop */}
       <section className="hero" id="heroSection">
-        <div className="hero__background aurora-container" aria-hidden="true">
+        <div className="hero__background aurora-container" style={{ position: "absolute", width: "100%", height: "100%" }} aria-hidden="true">
           <div className="aurora-glow aurora-glow--crimson" style={{ top: "-10%", left: "10%", opacity: 0.15 }}></div>
           <div className="aurora-glow aurora-glow--navy" style={{ bottom: "-20%", right: "-10%", opacity: 0.2 }}></div>
           <Image
@@ -86,7 +86,7 @@ export default function Home() {
                   width={368}
                   height={200}
                   sizes="(max-width: 768px) 100vw, 368px"
-                  style={{ objectFit: "cover" }}
+                  style={{ objectFit: "cover", width: "100%", height: "100%" }}
                 />
                 <span className="project-card__badge">For Sale</span>
                 <FavoriteButton propertyId="1" />
@@ -134,7 +134,7 @@ export default function Home() {
                   width={368}
                   height={200}
                   sizes="(max-width: 768px) 100vw, 368px"
-                  style={{ objectFit: "cover" }}
+                  style={{ objectFit: "cover", width: "100%", height: "100%" }}
                 />
                 <span className="project-card__badge">For Sale</span>
                 <FavoriteButton propertyId="2" />
@@ -182,7 +182,7 @@ export default function Home() {
                   width={368}
                   height={200}
                   sizes="(max-width: 768px) 100vw, 368px"
-                  style={{ objectFit: "cover" }}
+                  style={{ objectFit: "cover", width: "100%", height: "100%" }}
                 />
                 <span className="project-card__badge">For Rent</span>
                 <FavoriteButton propertyId="3" />

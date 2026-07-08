@@ -73,22 +73,27 @@ function HeaderContent() {
           <Link href="/listings?type=projects" className={isLinkActive("/listings?type=projects") ? "active" : ""}>
             New Projects
           </Link>
+          <Link href="/services" className={pathname === "/services" ? "active" : ""}>
+            Services
+          </Link>
         </nav>
 
         <div className="nav__actions">
           {!loading && user ? (
             <div className="user-profile-badge">
-              <div className="owner-avatar owner-avatar--header">
-                {getInitials()}
-              </div>
-              <div className="user-profile-badge__info">
-                <span className="user-profile-badge__name">
-                  {profile?.full_name || user.phone || "User"}
-                </span>
-                <span className="user-profile-badge__role">
-                  {profile?.role || "Buyer"}
-                </span>
-              </div>
+              <Link href="/profile" style={{ display: "flex", alignItems: "center", gap: "10px", color: "inherit", textDecoration: "none" }}>
+                <div className="owner-avatar owner-avatar--header">
+                  {getInitials()}
+                </div>
+                <div className="user-profile-badge__info">
+                  <span className="user-profile-badge__name">
+                    {profile?.full_name || user.phone || "User"}
+                  </span>
+                  <span className="user-profile-badge__role">
+                    {profile?.role || "Buyer"}
+                  </span>
+                </div>
+              </Link>
               <button
                 type="button"
                 className="btn btn--ghost btn--logout"
@@ -130,6 +135,7 @@ function HeaderContent() {
         <Link href="/listings?type=pg" className={isLinkActive("/listings?type=pg") ? "active" : ""}>PG / Co-living</Link>
         <Link href="/listings?type=commercial" className={isLinkActive("/listings?type=commercial") ? "active" : ""}>Commercial</Link>
         <Link href="/listings?type=projects" className={isLinkActive("/listings?type=projects") ? "active" : ""}>New Projects</Link>
+        <Link href="/services" className={pathname === "/services" ? "active" : ""}>Services</Link>
         {!loading && user ? (
           <button
             type="button"

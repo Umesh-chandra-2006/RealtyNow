@@ -235,12 +235,7 @@ export default function PropertyDetailPage({ params }: PageProps) {
   }
 
   return (
-    <main className="detail-page-main relative">
-      {/* Ambient background glows */}
-      <div className="aurora-container" style={{ position: "fixed", inset: 0, zIndex: -1, pointerEvents: "none", overflow: "hidden" }}>
-        <div className="aurora-glow aurora-glow--crimson" style={{ top: "30%", left: "-15%", opacity: 0.08 }}></div>
-        <div className="aurora-glow aurora-glow--navy" style={{ bottom: "20%", right: "-15%", opacity: 0.1 }}></div>
-      </div>
+    <main className="detail-page-main">
       <div className="wrap">
         {/* Breadcrumbs */}
         <nav className="breadcrumbs" aria-label="Breadcrumb">
@@ -360,13 +355,13 @@ export default function PropertyDetailPage({ params }: PageProps) {
             <section className="detail-section">
               <h2>RealtyNow Partner Services</h2>
               <div className="partner-services-grid">
-                <div className="partner-card sheen-glow gradient-border">
+                <div className="partner-card">
                   <span className="partner-card__icon">📦</span>
                   <h3 className="partner-card__title">Kaam Kaaka — Home Services</h3>
                   <p className="partner-card__desc">Book verified movers & packers, professional painters, and plumbers to set up your new home seamlessly.</p>
                   <Link href="/services/kaam-kaaka" className="btn btn--ghost partner-card__link">Book Services</Link>
                 </div>
-                <div className="partner-card sheen-glow gradient-border">
+                <div className="partner-card">
                   <span className="partner-card__icon">✨</span>
                   <h3 className="partner-card__title">Interior Design Studio</h3>
                   <p className="partner-card__desc">Get customized, high-end interior layouts and modular fit-outs for your apartment or commercial showroom.</p>
@@ -378,7 +373,7 @@ export default function PropertyDetailPage({ params }: PageProps) {
 
           {/* Right Column: Owner/Broker Details (Sticky Sidebar) */}
           <aside className="detail-sidebar-col">
-            <div className="sidebar-contact-card sheen-glow gradient-border">
+            <div className="sidebar-contact-card">
               <div className="sidebar-contact-card__head">
                 <span className="owner-tag">
                   <span className="badge__pulse"></span>

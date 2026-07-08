@@ -1,34 +1,46 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# RealtyNow — Zero Brokerage Property Marketplace
 
-## Getting Started
+RealtyNow is a premium real estate portal designed to facilitate direct owner-to-buyer property transactions in India, bypassing middleman networks and brokerage overheads.
 
-First, run the development server:
+## 🚀 Key Features
 
+* **Zero Brokerage Search**: Direct contact details of property owners.
+* **Ambient Aurora Design**: Highly visual dark-mode headers with interactive neon-aurora glow elements, sheen-glow cards, and clean typography.
+* **Interactive Phone Mockup Switcher**: Live mobile view toggle on the landing page showing listing steps.
+* **Chat Advisor Widget**: Smart interactive assistant available globally on all pages.
+* **Auxiliary Services Index**: Legal verifications (Kaam Kaaka), custom interior designs consults, loans, and rental agreement drafts.
+* **User Dashboard / Profiles**: Logged-in view tracking credentials, saved listings (favorites), and property post quotas (max 5).
+* **Playwright E2E Test Suite**: Rigorous automated regression testing validating responsive views, interactive mockups, and forms routing.
+
+---
+
+## 📁 Directory Structure
+
+* `/app` - Next.js App router containing page routes and components.
+  * `/services` - Auxiliary services index page.
+  * `/profile` - User dashboard (Saved listings, posted properties).
+  * `/register` - Account creation page.
+  * `/about`, `/contact`, `/careers`, `/press` - Corporate pages.
+  * `/listings` - Property search page directory.
+* `/lib` - Database schemas, Supabase credentials, and local fallback actions.
+* `/e2e` - Playwright automation test specifications.
+
+---
+
+## 🛠️ Getting Started
+
+### 1. Run Development Server
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
+Open [http://localhost:3000](http://localhost:3000) to view the application locally.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### 2. Execute Playwright Tests
+To verify all pages and form submittals work as expected, execute:
+```bash
+npx playwright test
+```
+To run tests sequentially (recommended in dev mode to avoid Turbopack timeouts):
+```bash
+npx playwright test --workers=1
+```

@@ -131,10 +131,7 @@ p {
 
 .site-header--opaque {
   position: sticky;
-  background: rgba(10, 17, 40, 0.85) !important;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--ink-slate) !important;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
@@ -1794,9 +1791,7 @@ p {
 
 .map-pin {
   position: absolute;
-  background: rgba(10, 17, 40, 0.85);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: var(--ink);
   color: #fff;
   padding: 6px 12px;
   border-radius: var(--radius-full);
@@ -1805,24 +1800,23 @@ p {
   font-weight: 800;
   box-shadow: 0 8px 16px -4px rgba(4, 8, 21, 0.2);
   cursor: pointer;
-  transition: transform 0.2s var(--ease-out), background-color 0.2s var(--ease-out), border-color 0.2s var(--ease-out);
+  transition: transform 0.2s var(--ease-out), background-color 0.2s var(--ease-out);
 }
 
 .map-pin::after {
   content: '';
   position: absolute;
-  bottom: -5px;
+  bottom: -4px;
   left: 50%;
   transform: translateX(-50%);
-  border-width: 5px 5px 0;
+  border-width: 4px 4px 0;
   border-style: solid;
-  border-color: rgba(10, 17, 40, 0.85) transparent transparent;
+  border-color: var(--ink) transparent transparent;
 }
 
 .map-pin:hover,
 .map-pin.is-active {
   background: var(--accent);
-  border-color: var(--accent);
   transform: scale(1.08);
 }
 

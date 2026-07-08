@@ -184,15 +184,9 @@ function LoginContent() {
   };
 
   return (
-    <main className="login-page-main relative">
-      {/* Ambient background glows */}
-      <div className="aurora-container" style={{ position: "fixed", inset: 0, zIndex: -1, pointerEvents: "none", overflow: "hidden" }}>
-        <div className="aurora-glow aurora-glow--crimson" style={{ top: "25%", left: "-10%", opacity: 0.08 }}></div>
-        <div className="aurora-glow aurora-glow--navy" style={{ bottom: "15%", right: "-10%", opacity: 0.1 }}></div>
-      </div>
-
+    <main className="login-page-main">
       <div className="wrap login-centered-wrap">
-        <div className="login-card sheen-glow gradient-border">
+        <div className="login-card">
           <div className="login-card__head">
             <div className="logo logo--centered">
               <span className="logo__mark"></span>RealtyNow
