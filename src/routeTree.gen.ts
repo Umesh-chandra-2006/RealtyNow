@@ -9,7 +9,10 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as RegisterRouteImport } from './routes/register'
+import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as OwnerRouteImport } from './routes/owner'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as BrowseRouteImport } from './routes/browse'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as OwnerIndexRouteImport } from './routes/owner.index'
@@ -17,9 +20,24 @@ import { Route as OwnerSubmitRouteImport } from './routes/owner.submit'
 import { Route as ListingIdRouteImport } from './routes/listing.$id'
 import { Route as OwnerTrackIdRouteImport } from './routes/owner.track.$id'
 
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OwnerRoute = OwnerRouteImport.update({
   id: '/owner',
   path: '/owner',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BrowseRoute = BrowseRouteImport.update({
@@ -56,7 +74,10 @@ const OwnerTrackIdRoute = OwnerTrackIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/browse': typeof BrowseRoute
+  '/login': typeof LoginRoute
   '/owner': typeof OwnerRouteWithChildren
+  '/profile': typeof ProfileRoute
+  '/register': typeof RegisterRoute
   '/listing/$id': typeof ListingIdRoute
   '/owner/submit': typeof OwnerSubmitRoute
   '/owner/': typeof OwnerIndexRoute
@@ -65,6 +86,9 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/browse': typeof BrowseRoute
+  '/login': typeof LoginRoute
+  '/profile': typeof ProfileRoute
+  '/register': typeof RegisterRoute
   '/listing/$id': typeof ListingIdRoute
   '/owner/submit': typeof OwnerSubmitRoute
   '/owner': typeof OwnerIndexRoute
@@ -74,7 +98,10 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/browse': typeof BrowseRoute
+  '/login': typeof LoginRoute
   '/owner': typeof OwnerRouteWithChildren
+  '/profile': typeof ProfileRoute
+  '/register': typeof RegisterRoute
   '/listing/$id': typeof ListingIdRoute
   '/owner/submit': typeof OwnerSubmitRoute
   '/owner/': typeof OwnerIndexRoute
@@ -85,7 +112,10 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/browse'
+    | '/login'
     | '/owner'
+    | '/profile'
+    | '/register'
     | '/listing/$id'
     | '/owner/submit'
     | '/owner/'
@@ -94,6 +124,9 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/browse'
+    | '/login'
+    | '/profile'
+    | '/register'
     | '/listing/$id'
     | '/owner/submit'
     | '/owner'
@@ -102,7 +135,10 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/browse'
+    | '/login'
     | '/owner'
+    | '/profile'
+    | '/register'
     | '/listing/$id'
     | '/owner/submit'
     | '/owner/'
@@ -112,17 +148,41 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   BrowseRoute: typeof BrowseRoute
+  LoginRoute: typeof LoginRoute
   OwnerRoute: typeof OwnerRouteWithChildren
+  ProfileRoute: typeof ProfileRoute
+  RegisterRoute: typeof RegisterRoute
   ListingIdRoute: typeof ListingIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/owner': {
       id: '/owner'
       path: '/owner'
       fullPath: '/owner'
       preLoaderRoute: typeof OwnerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/browse': {
@@ -187,7 +247,10 @@ const OwnerRouteWithChildren = OwnerRoute._addFileChildren(OwnerRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BrowseRoute: BrowseRoute,
+  LoginRoute: LoginRoute,
   OwnerRoute: OwnerRouteWithChildren,
+  ProfileRoute: ProfileRoute,
+  RegisterRoute: RegisterRoute,
   ListingIdRoute: ListingIdRoute,
 }
 export const routeTree = rootRouteImport

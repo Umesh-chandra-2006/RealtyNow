@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
 
 const nav = [
   { to: "/browse", label: "Browse verified" },
@@ -11,6 +12,19 @@ const nav = [
 
 export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
   const [open, setOpen] = useState(false);
+  const { user, profile, loading, signOut } = useAuth();
+
+  const getInitials = () => {
+    if (profile?.full_name) {
+      return profile.full_name
+        .split(" ")
+        .map((n: string) => n[0])
+        .join("")
+        .toUpperCase();
+    }
+    return "U";
+  };
+
   return (
     <header
       className={cn(
@@ -61,18 +75,38 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
           ))}
         </nav>
 
-        <div className="hidden items-center gap-2 md:flex">
-          <Link
-            to="/browse"
-            className={cn(
-              "rounded-full px-4 py-2 text-sm font-medium transition-colors",
-              transparent
-                ? "text-white/85 hover:text-white"
-                : "text-navy hover:text-primary",
-            )}
-          >
-            Sign in
-          </Link>
+        <div className="hidden items-center gap-4 md:flex">
+          {!loading && user ? (
+            <div className="flex items-center gap-3">
+              <Link
+                to="/profile"
+                className="flex items-center gap-2 text-sm font-medium text-white hover:text-primary transition-colors"
+              >
+                <div className="grid h-8 w-8 place-items-center rounded-full bg-primary text-white font-display font-semibold text-xs">
+                  {getInitials()}
+                </div>
+                <span>{profile?.full_name || "Profile"}</span>
+              </Link>
+              <button
+                onClick={signOut}
+                className="rounded-full px-3 py-1.5 text-xs font-semibold text-white/70 hover:text-white transition-colors border border-white/10 hover:bg-white/5"
+              >
+                Sign out
+              </button>
+            </div>
+          ) : (
+            <Link
+              to="/login"
+              className={cn(
+                "rounded-full px-4 py-2 text-sm font-medium transition-colors",
+                transparent
+                  ? "text-white/85 hover:text-white"
+                  : "text-navy hover:text-primary",
+              )}
+            >
+              Sign in
+            </Link>
+          )}
           <Link
             to="/owner/submit"
             className="inline-flex items-center rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-crisp transition-transform hover:scale-[1.02] active:scale-[0.98]"
@@ -106,6 +140,37 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
                 {item.label}
               </Link>
             ))}
+            {!loading && user ? (
+              <>
+                <Link
+                  to="/profile"
+                  onClick={() => setOpen(false)}
+                  className="rounded-lg px-3 py-3 text-sm font-medium text-navy hover:bg-accent flex items-center gap-2"
+                >
+                  <div className="grid h-6 w-6 place-items-center rounded-full bg-primary text-white font-display font-semibold text-xs">
+                    {getInitials()}
+                  </div>
+                  <span>{profile?.full_name || "Profile"}</span>
+                </Link>
+                <button
+                  onClick={() => {
+                    signOut();
+                    setOpen(false);
+                  }}
+                  className="rounded-lg px-3 py-3 text-sm font-medium text-left text-navy hover:bg-accent"
+                >
+                  Sign out
+                </button>
+              </>
+            ) : (
+              <Link
+                to="/login"
+                onClick={() => setOpen(false)}
+                className="rounded-lg px-3 py-3 text-sm font-medium text-navy hover:bg-accent"
+              >
+                Sign in
+              </Link>
+            )}
             <Link
               to="/owner/submit"
               onClick={() => setOpen(false)}
