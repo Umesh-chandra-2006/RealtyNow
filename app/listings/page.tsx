@@ -425,6 +425,12 @@ function ListingsContent() {
 
   return (
     <>
+      {/* Ambient background glows */}
+      <div className="aurora-container" style={{ position: "fixed", inset: 0, zIndex: -1, pointerEvents: "none", overflow: "hidden" }}>
+        <div className="aurora-glow aurora-glow--crimson" style={{ top: "20%", left: "-10%", opacity: 0.08 }}></div>
+        <div className="aurora-glow aurora-glow--navy" style={{ bottom: "10%", right: "-10%", opacity: 0.1 }}></div>
+      </div>
+
       {/* Filter Sub-Nav Bar */}
       <section className="filter-bar">
         <div className="wrap filter-bar__container">
@@ -519,7 +525,7 @@ function ListingsContent() {
                   const isFavorited = userFavorites.includes(String(item.id));
                   return (
                     <article
-                      className={`listing-item ${highlightedId === item.id ? "is-highlighted" : ""}`}
+                      className={`listing-item sheen-glow gradient-border ${highlightedId === item.id ? "is-highlighted" : ""}`}
                       id={`listing-${item.id}`}
                       key={item.id}
                       onClick={() => setHighlightedId(item.id)}

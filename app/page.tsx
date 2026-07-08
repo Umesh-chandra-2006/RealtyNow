@@ -7,6 +7,8 @@ import HeroSearchWidget from "@/app/components/HeroSearchWidget";
 import FavoriteButton from "@/app/components/FavoriteButton";
 import LeadCaptureForm from "@/app/components/LeadCaptureForm";
 import ScrollRevealInit from "@/app/components/ScrollRevealInit";
+import AppShowcase from "@/app/components/AppShowcase";
+
 
 export default function Home() {
   return (
@@ -16,7 +18,9 @@ export default function Home() {
 
       {/* Hero Section with Luxury Backdrop */}
       <section className="hero" id="heroSection">
-        <div className="hero__background" aria-hidden="true">
+        <div className="hero__background aurora-container" aria-hidden="true">
+          <div className="aurora-glow aurora-glow--crimson" style={{ top: "-10%", left: "10%", opacity: 0.15 }}></div>
+          <div className="aurora-glow aurora-glow--navy" style={{ bottom: "-20%", right: "-10%", opacity: 0.2 }}></div>
           <Image
             src="/zoomed_out_villa.jpg"
             alt="Luxury modern property with pool at night"
@@ -73,7 +77,7 @@ export default function Home() {
 
           <div className="project-grid reveal-scroll">
             {/* Property Card 1 */}
-            <article className="project-card">
+            <article className="project-card sheen-glow gradient-border">
               <div className="project-card__thumb">
                 <Image
                   src="/hero_house.webp"
@@ -121,7 +125,7 @@ export default function Home() {
             </article>
 
             {/* Property Card 2 */}
-            <article className="project-card">
+            <article className="project-card sheen-glow gradient-border">
               <div className="project-card__thumb">
                 <Image
                   src="/bengaluru.webp"
@@ -169,7 +173,7 @@ export default function Home() {
             </article>
 
             {/* Property Card 3 */}
-            <article className="project-card">
+            <article className="project-card sheen-glow gradient-border">
               <div className="project-card__thumb">
                 <Image
                   src="/delhi.webp"
@@ -220,7 +224,9 @@ export default function Home() {
       </section>
 
       {/* Why Choose Us Section with Dark Background */}
-      <section className="section--why-choose-us section--why-choose-us--dark" id="whyChooseUsSection">
+      <section className="section--why-choose-us section--why-choose-us--dark aurora-container" id="whyChooseUsSection">
+        <div className="aurora-glow aurora-glow--crimson" style={{ top: "-10%", right: "-10%", opacity: 0.12 }}></div>
+        <div className="aurora-glow aurora-glow--navy" style={{ bottom: "-15%", left: "-10%", opacity: 0.15 }}></div>
         <div className="wrap">
           <div className="section-head section-head--center reveal-scroll">
             <div className="section-head__title-group section-head__title-group--center">
@@ -231,7 +237,7 @@ export default function Home() {
 
           <div className="why-grid why-grid--home reveal-scroll">
             {/* Column 1 */}
-            <div className="why-card why-card--dark">
+            <div className="why-card why-card--dark sheen-glow gradient-border">
               <div className="why-card__icon why-card__icon--dark" aria-hidden="true">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
@@ -245,7 +251,7 @@ export default function Home() {
             </div>
 
             {/* Column 2 */}
-            <div className="why-card why-card--dark">
+            <div className="why-card why-card--dark sheen-glow gradient-border">
               <div className="why-card__icon why-card__icon--dark" aria-hidden="true">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
@@ -258,7 +264,7 @@ export default function Home() {
             </div>
 
             {/* Column 3 */}
-            <div className="why-card why-card--dark">
+            <div className="why-card why-card--dark sheen-glow gradient-border">
               <div className="why-card__icon why-card__icon--dark" aria-hidden="true">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
@@ -274,7 +280,7 @@ export default function Home() {
             </div>
 
             {/* Column 4 */}
-            <div className="why-card why-card--dark">
+            <div className="why-card why-card--dark sheen-glow gradient-border">
               <div className="why-card__icon why-card__icon--dark" aria-hidden="true">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <circle cx="12" cy="12" r="10"/>
@@ -347,6 +353,10 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+
+      {/* Mobile App Showcase Section */}
+      <AppShowcase />
 
       {/* Pre-Footer Lead Capture Banner with Luxury Backdrop */}
       <section className="section--lead-cta" id="ctaSection">

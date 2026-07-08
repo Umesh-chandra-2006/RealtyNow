@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Playfair_Display, Inter, JetBrains_Mono } from "next/font/google";
 import "./styles.css";
 import Header from "./components/Header";
+import ChatWidget from "./components/ChatWidget";
 import { AuthProvider } from "./context/AuthContext";
 import { ToastProvider } from "./context/ToastContext";
 
@@ -44,6 +45,7 @@ export default function RootLayout({
           <ToastProvider>
             <Header />
             {children}
+            <ChatWidget />
           </ToastProvider>
         </AuthProvider>
       </body>

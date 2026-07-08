@@ -158,8 +158,14 @@ export default function PostProperty() {
 
   if (!user) {
     return (
-      <main className="post-property-main" style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div className="post-form-card" style={{ maxWidth: "480px", textAlign: "center", padding: "40px", border: "1px solid var(--line)", background: "var(--surface)", borderRadius: "12px" }}>
+      <main className="post-property-main relative" style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {/* Ambient background glows */}
+        <div className="aurora-container" style={{ position: "fixed", inset: 0, zIndex: -1, pointerEvents: "none", overflow: "hidden" }}>
+          <div className="aurora-glow aurora-glow--crimson" style={{ top: "15%", left: "-10%", opacity: 0.08 }}></div>
+          <div className="aurora-glow aurora-glow--navy" style={{ bottom: "25%", right: "-10%", opacity: 0.1 }}></div>
+        </div>
+
+        <div className="post-form-card sheen-glow gradient-border" style={{ maxWidth: "480px", textAlign: "center", padding: "40px", border: "1px solid var(--line)", background: "var(--surface)", borderRadius: "12px" }}>
           <h2>Login Required</h2>
           <p style={{ color: "var(--muted-slate)", margin: "15px 0", lineHeight: "1.5" }}>
             You must log in to list property postings on RealtyNow. The first 5 listings are 100% verified and free.
@@ -176,7 +182,12 @@ export default function PostProperty() {
   const isBuilder = profile?.role === "builder";
 
   return (
-    <main className="post-property-main">
+    <main className="post-property-main relative">
+      {/* Ambient background glows */}
+      <div className="aurora-container" style={{ position: "fixed", inset: 0, zIndex: -1, pointerEvents: "none", overflow: "hidden" }}>
+        <div className="aurora-glow aurora-glow--crimson" style={{ top: "15%", left: "-10%", opacity: 0.08 }}></div>
+        <div className="aurora-glow aurora-glow--navy" style={{ bottom: "25%", right: "-10%", opacity: 0.1 }}></div>
+      </div>
       <div className="wrap post-grid-layout">
         {/* Left Column: Trust Info */}
         <div className="post-info-col">
@@ -217,7 +228,7 @@ export default function PostProperty() {
 
         {/* Right Column: Multi-step Form */}
         <div className="post-form-col">
-          <div className="post-form-card">
+          <div className="post-form-card sheen-glow gradient-border">
             {/* Step indicator bar */}
             <div className="step-indicator">
               <div className={`step-dot ${step >= 1 ? "active" : ""}`} data-step="1"></div>
