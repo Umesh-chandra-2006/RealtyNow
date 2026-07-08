@@ -52,7 +52,7 @@ function OwnerHome() {
               <Link
                 to="/owner/track/$id"
                 params={{ id: "bandra-loft" }}
-                className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-navy ring-1 ring-border transition-colors hover:bg-accent"
+                className="inline-flex items-center gap-2 rounded-full bg-white/10 px-6 py-3 text-sm font-semibold text-white ring-1 ring-white/25 transition-colors hover:bg-white/20"
               >
                 See a sample tracker
               </Link>
@@ -66,7 +66,7 @@ function OwnerHome() {
               ].map((s) => (
                 <li
                   key={s.label}
-                  className="rounded-2xl bg-white p-5 ring-1 ring-border"
+                  className="rounded-2xl bg-card p-5 ring-1 ring-border"
                 >
                   <s.icon className="h-5 w-5 text-primary" />
                   <p className="mt-4 text-xs uppercase tracking-[0.16em] text-muted-foreground">

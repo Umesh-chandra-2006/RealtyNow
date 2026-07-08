@@ -131,7 +131,7 @@ function Hero() {
 
         {/* Search card */}
         <div
-          className="mt-10 max-w-4xl rounded-2xl bg-white p-2 shadow-elevated ring-1 ring-white/40 animate-fade-rise"
+          className="mt-10 max-w-4xl rounded-2xl bg-card p-2 shadow-elevated ring-1 ring-white/10 animate-fade-rise"
           style={{ animationDelay: "240ms" }}
         >
           <div className="flex items-center gap-1 border-b border-border px-3 pt-2">

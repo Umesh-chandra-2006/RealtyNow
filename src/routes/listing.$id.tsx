@@ -168,7 +168,7 @@ function ListingDetail() {
         {/* Sticky contact rail */}
         <aside>
           <div className="sticky top-24 space-y-4">
-            <div className="rounded-2xl bg-white p-6 shadow-card ring-1 ring-border">
+            <div className="rounded-2xl bg-card p-6 shadow-card ring-1 ring-border">
               <div className="flex items-center gap-4">
                 <div className="grid h-12 w-12 place-items-center rounded-full bg-primary/10 font-display text-lg font-semibold text-primary">
                   {listing.owner.name.charAt(0)}
@@ -255,7 +255,7 @@ function ContactSheet({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-t-3xl bg-white p-6 shadow-elevated sm:rounded-3xl animate-fade-rise"
+        className="w-full max-w-md rounded-t-3xl bg-card p-6 shadow-elevated sm:rounded-3xl animate-fade-rise"
       >
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
           Contact

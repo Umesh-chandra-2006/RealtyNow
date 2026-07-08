@@ -12,7 +12,7 @@ export function VerificationChecklist({
 }) {
   const [open, setOpen] = useState<string | null>(checks[0]?.key ?? null);
   return (
-    <section className="overflow-hidden rounded-2xl bg-white ring-1 ring-border">
+    <section className="overflow-hidden rounded-2xl bg-card ring-1 ring-border">
       <header className="flex items-center justify-between gap-4 border-b border-border bg-surface px-6 py-5">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-coral">

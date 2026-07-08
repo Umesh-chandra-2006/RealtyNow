@@ -220,7 +220,7 @@ function Stat({
   tint: "coral" | "primary" | "muted";
 }) {
   return (
-    <div className="rounded-2xl bg-white p-5 ring-1 ring-border">
+    <div className="rounded-2xl bg-card p-5 ring-1 ring-border">
       <span
         className={cn(
           "grid h-9 w-9 place-items-center rounded-lg",

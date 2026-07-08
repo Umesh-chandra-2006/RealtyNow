@@ -60,7 +60,7 @@ function Submit() {
                         ? "bg-coral text-coral-foreground ring-coral"
                         : state === "active"
                           ? "bg-primary text-primary-foreground ring-primary"
-                          : "bg-white text-muted-foreground ring-border",
+                          : "bg-surface text-muted-foreground ring-border",
                     )}
                   >
                     {state === "done" ? <Check className="h-4 w-4" strokeWidth={3} /> : i + 1}
@@ -93,7 +93,7 @@ function Submit() {
         </aside>
 
         {/* Form panel */}
-        <div className="rounded-3xl bg-white p-8 ring-1 ring-border md:p-10">
+        <div className="rounded-3xl bg-card p-8 ring-1 ring-border md:p-10">
           {done ? <Success /> : renderStep(step, setStep, setDone)}
         </div>
       </div>

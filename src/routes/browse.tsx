@@ -273,8 +273,8 @@ function FilterSelect<T extends string>({
 
 function EmptyState({ onReset }: { onReset: () => void }) {
   return (
-    <div className={cn("flex flex-col items-center justify-center rounded-2xl bg-surface px-6 py-20 text-center ring-1 ring-border")}>
-      <div className="grid h-14 w-14 place-items-center rounded-full bg-white ring-1 ring-border">
+    <div className={cn("flex flex-col items-center justify-center rounded-2xl bg-card px-6 py-20 text-center ring-1 ring-border")}>
+      <div className="grid h-14 w-14 place-items-center rounded-full bg-surface ring-1 ring-border">
         <MapPin className="h-6 w-6 text-primary" />
       </div>
       <h3 className="mt-6 font-display text-2xl font-semibold text-navy">
