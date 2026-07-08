@@ -407,7 +407,7 @@ function OwnerBand() {
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
                 to="/owner/submit"
-                className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-navy transition-transform hover:scale-[1.02]"
+                className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-[#060A17] transition-transform hover:scale-[1.02]"
               >
                 Start a listing
                 <ArrowRight className="h-4 w-4" />
