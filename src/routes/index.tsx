@@ -16,6 +16,8 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { ListingCard } from "@/components/ListingCard";
 import { VerifiedPill } from "@/components/VerifiedPill";
 import { listings, cities } from "@/data/listings";
+import AppShowcase from "@/components/AppShowcase";
+import LeadCaptureForm from "@/components/LeadCaptureForm";
 import hero from "@/assets/hero-skyline.jpg";
 import cMumbai from "@/assets/city-mumbai.jpg";
 import cBengaluru from "@/assets/city-bengaluru.jpg";
@@ -64,7 +66,21 @@ function Home() {
       <HowItWorks />
       <FeaturedListings />
       <CitiesStrip />
+      <AppShowcase />
       <OwnerBand />
+      <section className="section--lead-cta" id="ctaSection">
+        <div className="container-page">
+          <div className="lead-cta lead-cta--home">
+            <div className="lead-cta__content">
+              <h2 className="font-display">Ready to Find Your Dream Home?</h2>
+              <p>
+                Let us help you find the perfect space for you and your family. Enter your email below to connect with verified listings.
+              </p>
+              <LeadCaptureForm />
+            </div>
+          </div>
+        </div>
+      </section>
       <SiteFooter />
     </div>
   );
@@ -91,24 +107,23 @@ function Hero() {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-coral opacity-80" />
               <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-coral" />
             </span>
-            India&rsquo;s verification-first property platform
+            FIND YOUR PERFECT SPACE
           </div>
 
           <h1
             className="mt-6 font-display text-5xl font-bold leading-[1.02] text-white md:text-7xl animate-fade-rise"
             style={{ animationDelay: "80ms" }}
           >
-            Only verified homes.
+            Find Your
             <br />
-            <span className="text-white/70">Nothing else.</span>
+            <span className="text-white/70">Dream Home</span>
           </h1>
 
           <p
             className="mt-6 max-w-xl text-lg text-white/85 animate-fade-rise"
             style={{ animationDelay: "160ms" }}
           >
-            Every listing on RealtyNow clears a four-step check — RERA, owner identity, photo
-            authenticity, and a duplicate scan — before it&rsquo;s allowed to go public.
+            Premium properties. Prime locations. Unmatched lifestyle.
           </p>
         </div>
 
