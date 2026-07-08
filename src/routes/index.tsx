@@ -18,6 +18,7 @@ import { VerifiedPill } from "@/components/VerifiedPill";
 import { listings, cities } from "@/data/listings";
 import AppShowcase from "@/components/AppShowcase";
 import LeadCaptureForm from "@/components/LeadCaptureForm";
+import ScrollRevealInit from "@/components/ScrollRevealInit";
 import hero from "@/assets/hero-skyline.jpg";
 import cMumbai from "@/assets/city-mumbai.jpg";
 import cBengaluru from "@/assets/city-bengaluru.jpg";
@@ -58,6 +59,7 @@ export const Route = createFileRoute("/")({
 function Home() {
   return (
     <div className="min-h-screen bg-background">
+      <ScrollRevealInit />
       <div className="relative">
         <SiteHeader transparent />
         <Hero />
@@ -68,7 +70,7 @@ function Home() {
       <CitiesStrip />
       <AppShowcase />
       <OwnerBand />
-      <section className="section--lead-cta" id="ctaSection">
+      <section className="section--lead-cta reveal-scroll" id="ctaSection">
         <div className="container-page">
           <div className="lead-cta lead-cta--home">
             <div className="lead-cta__content">
@@ -209,7 +211,7 @@ function Hero() {
 
 function TrustStrip() {
   return (
-    <section className="border-y border-border bg-surface">
+    <section className="border-y border-border bg-surface reveal-scroll">
       <div className="container-page flex items-center gap-8 overflow-hidden py-6">
         <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
           Checked against
@@ -266,7 +268,7 @@ const steps = [
 
 function HowItWorks() {
   return (
-    <section className="container-page py-24">
+    <section className="container-page py-24 reveal-scroll">
       <div className="max-w-2xl">
         <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">
           How verification works
@@ -311,7 +313,7 @@ function HowItWorks() {
 
 function FeaturedListings() {
   return (
-    <section className="container-page py-16">
+    <section className="container-page py-16 reveal-scroll">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">
@@ -341,7 +343,7 @@ function FeaturedListings() {
 
 function CitiesStrip() {
   return (
-    <section className="container-page py-16">
+    <section className="container-page py-16 reveal-scroll">
       <div className="max-w-2xl">
         <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">
           Where we&rsquo;re active
@@ -380,7 +382,7 @@ function CitiesStrip() {
 
 function OwnerBand() {
   return (
-    <section className="container-page py-16">
+    <section className="container-page py-16 reveal-scroll">
       <div className="relative overflow-hidden rounded-3xl bg-navy px-8 py-16 text-white md:px-16 md:py-20">
         <div
           className="absolute inset-0 opacity-[0.08]"

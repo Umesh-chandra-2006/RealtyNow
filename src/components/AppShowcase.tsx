@@ -114,7 +114,7 @@ export default function AppShowcase() {
   };
 
   return (
-    <section className="showcase-section">
+    <section className="showcase-section reveal-scroll">
       <div className="container-page showcase-grid">
         <div className="showcase__text-content">
           <span className="showcase__tagline">The Mobile Application</span>
