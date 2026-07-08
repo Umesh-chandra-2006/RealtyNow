@@ -1,0 +1,185 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * RealtyNow design tokens.
+ * Light, 99acres-inspired palette: crisp whites, deep navy, trust blue,
+ * sky-blue accent, and a coral moment reserved for Verified state.
+ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+
+  --font-display: "Urbanist", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Epilogue", ui-sans-serif, system-ui, sans-serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-navy: var(--navy);
+  --color-navy-foreground: var(--navy-foreground);
+  --color-sky: var(--sky);
+  --color-coral: var(--coral);
+  --color-coral-foreground: var(--coral-foreground);
+
+  --color-ring-offset-background: var(--background);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --shadow-elevated: 0 24px 60px -20px oklch(0.2 0.08 260 / 0.25);
+  --shadow-card: 0 8px 30px -12px oklch(0.2 0.08 260 / 0.15);
+  --shadow-crisp: 0 2px 8px -2px oklch(0.2 0.08 260 / 0.12);
+}
+
+:root {
+  --radius: 0.75rem;
+
+  /* Core */
+  --background: #F8FAFC;
+  --surface: #FFFFFF;
+  --foreground: #0F172A;
+
+  --card: #FFFFFF;
+  --card-foreground: #0F172A;
+  --popover: #FFFFFF;
+  --popover-foreground: #0F172A;
+
+  /* Deep navy — text + primary */
+  --navy: #0A1128;
+  --navy-foreground: #ffffff;
+
+  /* Crimson red — primary CTA */
+  --primary: #8B0000;
+  --primary-foreground: #ffffff;
+
+  /* Sky accent — interactive, focus */
+  --sky: #8B0000;
+
+  /* Coral — Verified moment only */
+  --coral: #8B0000;
+  --coral-foreground: #ffffff;
+
+  --secondary: #0A1128;
+  --secondary-foreground: #ffffff;
+  --muted: #F8FAFC;
+  --muted-foreground: #64748B;
+  --accent: #8B0000;
+  --accent-foreground: #ffffff;
+
+  --destructive: #DC2626;
+  --destructive-foreground: #ffffff;
+
+  --border: #E2E8F0;
+  --input: #E2E8F0;
+  --ring: #8B0000;
+
+  --chart-1: #8B0000;
+  --chart-2: #0A1128;
+  --chart-3: #8B0000;
+  --chart-4: #64748B;
+  --chart-5: #E2E8F0;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0F172A;
+  --sidebar-primary: #8B0000;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #F8FAFC;
+  --sidebar-accent-foreground: #0F172A;
+  --sidebar-border: #E2E8F0;
+  --sidebar-ring: #8B0000;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-primary) 25%, transparent);
+    color: var(--color-navy);
+  }
+}
+
+@utility font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+@utility container-page {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 80rem;
+  padding-inline: 1.25rem;
+}
+
+@keyframes fade-rise {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes coral-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-coral) 45%, transparent); }
+  50% { box-shadow: 0 0 0 8px color-mix(in oklab, var(--color-coral) 0%, transparent); }
+}
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@utility animate-fade-rise {
+  animation: fade-rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@utility animate-coral-pulse {
+  animation: coral-pulse 2.4s ease-in-out infinite;
+}
+@utility animate-marquee {
+  animation: marquee 40s linear infinite;
+}
