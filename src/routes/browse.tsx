@@ -192,18 +192,18 @@ function Browse() {
         {/* Sticky sidebar */}
         <aside className="hidden lg:block">
           <div className="sticky top-40 space-y-4">
-            <div className="rounded-2xl bg-navy p-6 text-white">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-coral">
+            <div className="rounded-2xl bg-card p-6 text-card-foreground ring-1 ring-border">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">
                 Verification standard
               </p>
               <h3 className="mt-3 font-display text-xl font-semibold">
                 Why you don&rsquo;t see &ldquo;pending&rdquo; listings here
               </h3>
-              <p className="mt-3 text-sm text-white/70">
+              <p className="mt-3 text-sm text-muted-foreground">
                 A listing has to pass every check before we allow it into public search. No
                 fainter badges, no half-visible inventory.
               </p>
-              <ul className="mt-6 space-y-3 text-sm">
+              <ul className="mt-6 space-y-3 text-sm text-foreground">
                 {[
                   "RERA registration",
                   "Owner identity",

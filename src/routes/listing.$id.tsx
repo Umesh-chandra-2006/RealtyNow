@@ -205,11 +205,11 @@ function ListingDetail() {
               </p>
             </div>
 
-            <div className="rounded-2xl bg-navy p-6 text-white">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-coral">
+            <div className="rounded-2xl bg-card p-6 text-card-foreground ring-1 ring-border">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
                 Trust note
               </p>
-              <p className="mt-3 text-sm text-white/80">
+              <p className="mt-3 text-sm text-muted-foreground">
                 If anything about this listing changes — price, RERA status, ownership — we
                 re-run the checks. If any fail, the listing is pulled the same day.
               </p>
@@ -250,7 +250,7 @@ function ContactSheet({
 }) {
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-end bg-navy/50 backdrop-blur-sm sm:place-items-center"
+      className="fixed inset-0 z-50 grid place-items-end bg-[#0B1020]/50 backdrop-blur-sm sm:place-items-center"
       onClick={onClose}
     >
       <div

@@ -383,7 +383,7 @@ function CitiesStrip() {
 function OwnerBand() {
   return (
     <section className="container-page py-16 reveal-scroll">
-      <div className="relative overflow-hidden rounded-3xl bg-navy px-8 py-16 text-white md:px-16 md:py-20">
+      <div className="relative overflow-hidden rounded-3xl bg-[#0B1020] px-8 py-16 text-white md:px-16 md:py-20">
         <div
           className="absolute inset-0 opacity-[0.08]"
           style={{

@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
-import { Menu, X } from "lucide-react";
-import { useState } from "react";
+import { Menu, X, Sun, Moon } from "lucide-react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 
@@ -12,7 +12,33 @@ const nav = [
 
 export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
   const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [isDark, setIsDark] = useState(false);
   const { user, profile, loading, signOut } = useAuth();
+
+  useEffect(() => {
+    setMounted(true);
+    setIsDark(document.documentElement.classList.contains("dark"));
+
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 20);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const toggleTheme = () => {
+    const nextDark = !isDark;
+    setIsDark(nextDark);
+    if (nextDark) {
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("realtynow-theme", "dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("realtynow-theme", "light");
+    }
+  };
 
   const getInitials = () => {
     if (profile?.full_name) {
@@ -25,13 +51,15 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
     return "U";
   };
 
+  const isHeaderTransparent = transparent && !scrolled;
+
   return (
     <header
       className={cn(
-        "sticky top-0 z-50 w-full border-b transition-colors",
-        transparent
-          ? "border-white/10 bg-white/5 backdrop-blur-md"
-          : "border-border bg-background/85 backdrop-blur-xl",
+        "fixed top-0 left-0 z-50 w-full transition-all duration-300",
+        isHeaderTransparent
+          ? "border-b border-white/10 bg-transparent text-white"
+          : "border-b border-border bg-background/85 backdrop-blur-xl shadow-crisp"
       )}
     >
       <div className="container-page flex h-16 items-center justify-between gap-4">
@@ -45,8 +73,8 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
           </span>
           <span
             className={cn(
-              "font-display text-lg font-bold tracking-tight",
-              transparent ? "text-white" : "text-navy",
+              "font-display text-lg font-bold tracking-tight transition-colors",
+              isHeaderTransparent ? "text-white" : "text-navy"
             )}
           >
             Realty<span className="text-primary">Now</span>
@@ -60,12 +88,12 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
               to={item.to}
               className={cn(
                 "rounded-full px-4 py-2 text-sm font-medium transition-colors",
-                transparent
+                isHeaderTransparent
                   ? "text-white/85 hover:bg-white/10 hover:text-white"
                   : "text-muted-foreground hover:bg-accent hover:text-navy",
               )}
               activeProps={{
-                className: transparent
+                className: isHeaderTransparent
                   ? "bg-white/15 text-white"
                   : "bg-accent text-navy",
               }}
@@ -76,11 +104,32 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
         </nav>
 
         <div className="hidden items-center gap-4 md:flex">
+          {/* Theme Toggle */}
+          {mounted ? (
+            <button
+              onClick={toggleTheme}
+              aria-label="Toggle Theme"
+              className={cn(
+                "grid h-9 w-9 place-items-center rounded-full transition-colors",
+                isHeaderTransparent
+                  ? "text-white/80 hover:bg-white/10 hover:text-white"
+                  : "text-muted-foreground hover:bg-accent hover:text-navy"
+              )}
+            >
+              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
+          ) : (
+            <span className="h-9 w-9 shrink-0" />
+          )}
+
           {!loading && user ? (
             <div className="flex items-center gap-3">
               <Link
                 to="/profile"
-                className="flex items-center gap-2 text-sm font-medium text-white hover:text-primary transition-colors"
+                className={cn(
+                  "flex items-center gap-2 text-sm font-medium transition-colors",
+                  isHeaderTransparent ? "text-white hover:text-primary" : "text-navy hover:text-primary"
+                )}
               >
                 <div className="grid h-8 w-8 place-items-center rounded-full bg-primary text-white font-display font-semibold text-xs">
                   {getInitials()}
@@ -89,7 +138,12 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
               </Link>
               <button
                 onClick={signOut}
-                className="rounded-full px-3 py-1.5 text-xs font-semibold text-white/70 hover:text-white transition-colors border border-white/10 hover:bg-white/5"
+                className={cn(
+                  "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors border",
+                  isHeaderTransparent
+                    ? "text-white/70 hover:text-white border-white/10 hover:bg-white/5"
+                    : "text-muted-foreground hover:text-navy border-border hover:bg-surface"
+                )}
               >
                 Sign out
               </button>
@@ -99,7 +153,7 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
               to="/login"
               className={cn(
                 "rounded-full px-4 py-2 text-sm font-medium transition-colors",
-                transparent
+                isHeaderTransparent
                   ? "text-white/85 hover:text-white"
                   : "text-navy hover:text-primary",
               )}
@@ -115,16 +169,31 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
           </Link>
         </div>
 
-        <button
-          onClick={() => setOpen((v) => !v)}
-          aria-label="Toggle menu"
-          className={cn(
-            "grid h-10 w-10 place-items-center rounded-full md:hidden",
-            transparent ? "text-white" : "text-navy",
+        <div className="flex items-center gap-2 md:hidden">
+          {/* Mobile Theme Toggle */}
+          {mounted && (
+            <button
+              onClick={toggleTheme}
+              aria-label="Toggle Theme"
+              className={cn(
+                "grid h-10 w-10 place-items-center rounded-full transition-colors",
+                isHeaderTransparent ? "text-white" : "text-navy"
+              )}
+            >
+              {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </button>
           )}
-        >
-          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
+          <button
+            onClick={() => setOpen((v) => !v)}
+            aria-label="Toggle menu"
+            className={cn(
+              "grid h-10 w-10 place-items-center rounded-full",
+              isHeaderTransparent ? "text-white" : "text-navy",
+            )}
+          >
+            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
       </div>
 
       {open && (

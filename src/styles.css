@@ -1,6 +1,7 @@
 @import "tailwindcss" source(none);
 @import "tw-animate-css";
 @source "../src";
+@source "../app";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -141,7 +142,7 @@
   --popover-foreground: #F8FAFC;
 
   /* Text switches to light under dark mode */
-  --navy: #FFFFFF;
+  --navy: #0B1020;
   --navy-foreground: #0B1020;
 
   --primary: #ED1C24;
