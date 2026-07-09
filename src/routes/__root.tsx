@@ -15,6 +15,17 @@ import { SiteHeader } from "../components/SiteHeader";
 import { SiteFooter } from "../components/SiteFooter";
 import { AuthProvider } from "../context/AuthContext";
 
+const themeBootstrapScript = `
+(() => {
+  try {
+    const stored = localStorage.getItem("realtynow-theme");
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const shouldUseDark = stored ? stored === "dark" : prefersDark;
+    document.documentElement.classList.toggle("dark", shouldUseDark);
+  } catch {}
+})();
+`;
+
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen flex-col">
@@ -128,6 +139,7 @@ function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
         <HeadContent />
       </head>
       <body>

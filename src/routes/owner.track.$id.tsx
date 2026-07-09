@@ -191,11 +191,11 @@ function Tracker() {
                 </Link>
               </div>
             </div>
-            <div className="rounded-2xl bg-navy p-5 text-white">
+            <div className="rounded-2xl bg-card p-5 text-foreground ring-1 ring-border">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-coral">
                 If a check ever fails
               </p>
-              <p className="mt-3 text-sm text-white/75">
+              <p className="mt-3 text-sm text-muted-foreground">
                 We&rsquo;ll tell you exactly what to fix. Specific and human — e.g.
                 &ldquo;photo timestamp older than 12 months, please re-upload.&rdquo; Not a
                 generic error.

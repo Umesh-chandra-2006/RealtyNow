@@ -140,9 +140,8 @@
   --popover: #131B35;
   --popover-foreground: #F8FAFC;
 
-  /* Text switches to light under dark mode */
-  --navy: #FFFFFF;
-  --navy-foreground: #0B1020;
+  --navy: #0B1020;
+  --navy-foreground: #FFFFFF;
 
   --primary: #ED1C24;
   --primary-foreground: #ffffff;

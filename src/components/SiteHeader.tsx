@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
-import { Menu, X } from "lucide-react";
-import { useState } from "react";
+import { Menu, X, Sun, Moon } from "lucide-react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 
@@ -9,6 +9,44 @@ const nav = [
   { to: "/owner", label: "List a property" },
   { to: "/owner/track/bandra-loft", label: "Track a listing" },
 ] as const;
+
+function ThemeToggle({ transparent = false }: { transparent?: boolean }) {
+  const [mounted, setMounted] = useState(false);
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    setIsDark(document.documentElement.classList.contains("dark"));
+  }, []);
+
+  const toggle = () => {
+    const next = !isDark;
+    setIsDark(next);
+    document.documentElement.classList.toggle("dark", next);
+    localStorage.setItem("realtynow-theme", next ? "dark" : "light");
+  };
+
+  if (!mounted) return <span className="h-9 w-9 shrink-0" />;
+
+  return (
+    <button
+      onClick={toggle}
+      className={cn(
+        "grid h-9 w-9 shrink-0 place-items-center rounded-full border transition-colors",
+        transparent
+          ? "bg-white/10 border-white/10 text-white hover:bg-white/20"
+          : "bg-surface border-border text-navy hover:bg-accent",
+      )}
+      aria-label="Toggle theme"
+    >
+      {isDark ? (
+        <Sun className="h-4.5 w-4.5 text-primary" />
+      ) : (
+        <Moon className="h-4.5 w-4.5 text-navy" />
+      )}
+    </button>
+  );
+}
 
 export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
   const [open, setOpen] = useState(false);
@@ -76,11 +114,15 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
         </nav>
 
         <div className="hidden items-center gap-4 md:flex">
+          <ThemeToggle transparent={transparent} />
           {!loading && user ? (
             <div className="flex items-center gap-3">
               <Link
                 to="/profile"
-                className="flex items-center gap-2 text-sm font-medium text-white hover:text-primary transition-colors"
+                className={cn(
+                  "flex items-center gap-2 text-sm font-medium transition-colors",
+                  transparent ? "text-white hover:text-primary" : "text-navy hover:text-primary",
+                )}
               >
                 <div className="grid h-8 w-8 place-items-center rounded-full bg-primary text-white font-display font-semibold text-xs">
                   {getInitials()}
@@ -89,7 +131,12 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
               </Link>
               <button
                 onClick={signOut}
-                className="rounded-full px-3 py-1.5 text-xs font-semibold text-white/70 hover:text-white transition-colors border border-white/10 hover:bg-white/5"
+                className={cn(
+                  "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors border",
+                  transparent
+                    ? "text-white/70 hover:text-white border-white/10 hover:bg-white/5"
+                    : "text-muted-foreground hover:text-navy border-border hover:bg-surface",
+                )}
               >
                 Sign out
               </button>
@@ -129,6 +176,12 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
 
       {open && (
         <div className="border-t border-border bg-background px-5 py-4 md:hidden">
+          <div className="mb-4 flex items-center justify-between border-b border-border pb-3">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Theme
+            </span>
+            <ThemeToggle transparent={false} />
+          </div>
           <nav className="flex flex-col gap-1">
             {nav.map((item) => (
               <Link

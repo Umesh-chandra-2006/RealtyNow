@@ -383,7 +383,7 @@ function CitiesStrip() {
 function OwnerBand() {
   return (
     <section className="container-page py-16 reveal-scroll">
-      <div className="relative overflow-hidden rounded-3xl bg-navy px-8 py-16 text-white md:px-16 md:py-20">
+      <div className="relative overflow-hidden rounded-3xl bg-card px-8 py-16 text-foreground ring-1 ring-border md:px-16 md:py-20">
         <div
           className="absolute inset-0 opacity-[0.08]"
           style={{
@@ -400,31 +400,31 @@ function OwnerBand() {
             <h2 className="mt-3 font-display text-4xl font-semibold md:text-5xl">
               List your property. Get verified in 48 hours. No broker.
             </h2>
-            <p className="mt-5 max-w-xl text-white/75">
+            <p className="mt-5 max-w-xl text-muted-foreground">
               Submit your listing through a four-step flow that mirrors the verification pipeline
               itself. You watch every check happen. No hidden state.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
                 to="/owner/submit"
-                className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-[#060A17] transition-transform hover:scale-[1.02]"
+                className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-transform hover:scale-[1.02]"
               >
                 Start a listing
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
                 to="/owner"
-                className="inline-flex items-center gap-2 rounded-full bg-white/10 px-6 py-3 text-sm font-semibold text-white ring-1 ring-white/20 transition-colors hover:bg-white/15"
+                className="inline-flex items-center gap-2 rounded-full bg-surface px-6 py-3 text-sm font-semibold text-foreground ring-1 ring-border transition-colors hover:bg-accent"
               >
                 How the portal works
               </Link>
             </div>
           </div>
 
-          <div className="rounded-2xl bg-white/[0.06] p-6 ring-1 ring-white/15 backdrop-blur-md">
-            <div className="flex items-center justify-between text-xs uppercase tracking-[0.18em] text-white/70">
+          <div className="rounded-2xl bg-surface p-6 ring-1 ring-border">
+            <div className="flex items-center justify-between text-xs uppercase tracking-[0.18em] text-muted-foreground">
               <span>Live pipeline sample</span>
-              <VerifiedPill variant="onDark" />
+              <VerifiedPill variant="solid" />
             </div>
             <ul className="mt-6 space-y-4 text-sm">
               {[
@@ -439,8 +439,8 @@ function OwnerBand() {
                       row.status === "Done"
                         ? "bg-coral text-coral-foreground"
                         : row.status === "Running"
-                          ? "bg-white/20 text-white"
-                          : "bg-white/10 text-white/60"
+                         ? "bg-primary/15 text-primary"
+                         : "bg-muted text-muted-foreground"
                     }`}
                   >
                     {i + 1}
@@ -451,8 +451,8 @@ function OwnerBand() {
                       row.status === "Done"
                         ? "text-coral"
                         : row.status === "Running"
-                          ? "text-white"
-                          : "text-white/50"
+                          ? "text-primary"
+                          : "text-muted-foreground"
                     }`}
                   >
                     {row.status}

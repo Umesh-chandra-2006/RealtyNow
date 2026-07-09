@@ -52,7 +52,7 @@ function OwnerHome() {
               <Link
                 to="/owner/track/$id"
                 params={{ id: "bandra-loft" }}
-                className="inline-flex items-center gap-2 rounded-full bg-white/10 px-6 py-3 text-sm font-semibold text-white ring-1 ring-white/25 transition-colors hover:bg-white/20"
+                className="inline-flex items-center gap-2 rounded-full bg-surface px-6 py-3 text-sm font-semibold text-foreground ring-1 ring-border transition-colors hover:bg-accent"
               >
                 See a sample tracker
               </Link>
@@ -81,17 +81,17 @@ function OwnerHome() {
           </div>
 
           {/* Sample tracker card */}
-          <div className="rounded-3xl bg-navy p-8 text-white ring-1 ring-navy shadow-elevated">
+          <div className="rounded-3xl bg-card p-8 text-foreground ring-1 ring-border shadow-elevated">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-white/60">
+              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                 Sample pipeline
               </span>
-              <VerifiedPill variant="onDark" />
+              <VerifiedPill variant="solid" />
             </div>
             <h3 className="mt-4 font-display text-2xl font-semibold">
               Sunlit two-storey loft, Bandra
             </h3>
-            <p className="text-sm text-white/60">Submitted 3 days ago</p>
+            <p className="text-sm text-muted-foreground">Submitted 3 days ago</p>
             <div className="mt-8 space-y-5">
               {[
                 { label: "Documents received", status: "Done", time: "Jun 11" },
@@ -106,12 +106,12 @@ function OwnerHome() {
                       ✓
                     </span>
                     {i < arr.length - 1 && (
-                      <span className="mt-1 h-8 w-px bg-white/15" />
+                      <span className="mt-1 h-8 w-px bg-border" />
                     )}
                   </div>
                   <div className="flex-1 pt-0.5">
                     <p className="text-sm font-medium">{row.label}</p>
-                    <p className="text-xs text-white/60">{row.time}</p>
+                    <p className="text-xs text-muted-foreground">{row.time}</p>
                   </div>
                 </div>
               ))}

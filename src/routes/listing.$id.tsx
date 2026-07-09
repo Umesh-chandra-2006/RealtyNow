@@ -205,11 +205,11 @@ function ListingDetail() {
               </p>
             </div>
 
-            <div className="rounded-2xl bg-navy p-6 text-white">
+            <div className="rounded-2xl bg-card p-6 text-foreground ring-1 ring-border">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-coral">
                 Trust note
               </p>
-              <p className="mt-3 text-sm text-white/80">
+              <p className="mt-3 text-sm text-muted-foreground">
                 If anything about this listing changes — price, RERA status, ownership — we
                 re-run the checks. If any fail, the listing is pulled the same day.
               </p>
