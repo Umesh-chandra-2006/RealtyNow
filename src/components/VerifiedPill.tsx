@@ -12,8 +12,7 @@ export function VerifiedPill({
     "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em]";
   const styles = {
     solid: "bg-coral text-coral-foreground shadow-crisp",
-    ghost:
-      "bg-white/95 text-coral ring-1 ring-coral/25 backdrop-blur-md animate-coral-pulse",
+    ghost: "bg-white/95 text-coral ring-1 ring-coral/25 backdrop-blur-md animate-coral-pulse",
     onDark: "bg-coral/15 text-coral ring-1 ring-coral/40",
   };
   return (

@@ -1,14 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
+import { cache } from "react";
 
-const envUrl =
-  (typeof process !== "undefined" ? process.env.NEXT_PUBLIC_SUPABASE_URL : "") ||
-  (typeof window !== "undefined" ? (import.meta.env?.VITE_SUPABASE_URL as string) : "") ||
-  "";
-
-const envAnonKey =
-  (typeof process !== "undefined" ? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY : "") ||
-  (typeof window !== "undefined" ? (import.meta.env?.VITE_SUPABASE_ANON_KEY as string) : "") ||
-  "";
+const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const envAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
 // Decode JWT to extract project reference ID
 const getSupabaseRefFromKey = (key: string): string | null => {
@@ -44,6 +38,15 @@ const isValidUrl = (url: string) => {
 const derivedRef = getSupabaseRefFromKey(envAnonKey);
 const derivedUrl = derivedRef ? `https://${derivedRef}.supabase.co` : "";
 
+if (
+  process.env.NODE_ENV === "production" &&
+  (!envAnonKey || (!isValidUrl(envUrl) && !isValidUrl(derivedUrl)))
+) {
+  throw new Error(
+    "Missing or invalid Supabase configurations in production. Check NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
+  );
+}
+
 const supabaseUrl = isValidUrl(envUrl)
   ? envUrl
   : isValidUrl(derivedUrl)
@@ -52,7 +55,30 @@ const supabaseUrl = isValidUrl(envUrl)
 
 const supabaseAnonKey = envAnonKey || "placeholder-anon-key";
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Safe clients creation
+const clientSupabase =
+  typeof window !== "undefined" ? createClient(supabaseUrl, supabaseAnonKey) : null;
+
+// React-cache scopes this instance to a single request lifecycle on the server
+const getServerSupabase = cache(() => {
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: false,
+    },
+  });
+});
+
+// Proxy handler to intercept properties/methods dynamically
+export const supabase = new Proxy({} as any, {
+  get(target, prop) {
+    const activeClient = typeof window !== "undefined" ? clientSupabase : getServerSupabase();
+    const val = Reflect.get(activeClient as any, prop);
+    if (typeof val === "function") {
+      return val.bind(activeClient);
+    }
+    return val;
+  },
+});
 
 export const isSupabaseConfigured = () => {
   return envAnonKey !== "" && (isValidUrl(envUrl) || isValidUrl(derivedUrl));

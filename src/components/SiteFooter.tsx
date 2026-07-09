@@ -1,11 +1,11 @@
-import { Link } from "@tanstack/react-router";
+import Link from "next/link";
 
 export function SiteFooter() {
   return (
     <footer className="mt-24 border-t border-white/5 bg-[#090B11] text-white/70">
       <div className="container-page grid gap-12 py-16 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
         <div>
-          <Link to="/" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2">
             <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-primary-foreground font-display text-sm font-bold">
               R
             </span>
@@ -25,26 +25,26 @@ export function SiteFooter() {
         <FooterCol
           title="Browse"
           links={[
-            { to: "/browse", label: "All verified homes" },
-            { to: "/browse?city=Mumbai", label: "Mumbai" },
-            { to: "/browse?city=Bengaluru", label: "Bengaluru" },
-            { to: "/browse?city=Pune", label: "Pune" },
+            { href: "/browse", label: "All verified homes" },
+            { href: "/browse?city=Mumbai", label: "Mumbai" },
+            { href: "/browse?city=Bengaluru", label: "Bengaluru" },
+            { href: "/browse?city=Pune", label: "Pune" },
           ]}
         />
         <FooterCol
           title="Owners"
           links={[
-            { to: "/owner", label: "Owner portal" },
-            { to: "/owner/submit", label: "Submit a listing" },
-            { to: "/owner/track/bandra-loft", label: "Track a listing" },
+            { href: "/owner", label: "Owner portal" },
+            { href: "/owner/submit", label: "Submit a listing" },
+            { href: "/owner/track/bandra-loft", label: "Track a listing" },
           ]}
         />
         <FooterCol
           title="Company"
           links={[
-            { to: "/", label: "Verification standard" },
-            { to: "/", label: "Trust & safety" },
-            { to: "/", label: "Contact" },
+            { href: "/", label: "Verification standard" },
+            { href: "/", label: "Trust & safety" },
+            { href: "/", label: "Contact" },
           ]}
         />
       </div>
@@ -61,13 +61,7 @@ export function SiteFooter() {
   );
 }
 
-function FooterCol({
-  title,
-  links,
-}: {
-  title: string;
-  links: { to: string; label: string }[];
-}) {
+function FooterCol({ title, links }: { title: string; links: { href: string; label: string }[] }) {
   return (
     <div>
       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white">{title}</p>
@@ -75,7 +69,7 @@ function FooterCol({
         {links.map((l) => (
           <li key={l.label}>
             <Link
-              to={l.to}
+              href={l.href}
               className="text-sm text-white/60 transition-colors hover:text-white"
             >
               {l.label}

@@ -1,8 +1,8 @@
-import { Link } from "@tanstack/react-router";
+import Link from "next/link";
 import { MapPin, BedDouble, Bath, Maximize2 } from "lucide-react";
 import { VerifiedPill } from "./VerifiedPill";
-import type { Listing } from "@/data/listings";
-import { cn } from "@/lib/utils";
+import type { Listing } from "../data/listings";
+import { cn, getImgSrc } from "../lib/utils";
 
 export function ListingCard({
   listing,
@@ -15,8 +15,7 @@ export function ListingCard({
 }) {
   return (
     <Link
-      to="/listing/$id"
-      params={{ id: listing.id }}
+      href={`/listing/${listing.id}`}
       className={cn(
         "group relative flex flex-col overflow-hidden rounded-2xl bg-card ring-1 ring-border transition-all duration-300 hover:-translate-y-1 hover:shadow-elevated animate-fade-rise",
         className,
@@ -25,7 +24,7 @@ export function ListingCard({
     >
       <div className="relative aspect-[4/3] overflow-hidden">
         <img
-          src={listing.photo}
+          src={getImgSrc(listing.photo)}
           alt={listing.title}
           loading="lazy"
           width={1200}

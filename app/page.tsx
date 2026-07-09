@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Search,
   MapPin,
@@ -13,11 +13,12 @@ import {
   Clock,
   Building2,
 } from "lucide-react";
-import { SiteHeader } from "../src/components/SiteHeader.next";
-import { SiteFooter } from "../src/components/SiteFooter.next";
-import { ListingCard } from "../src/components/ListingCard.next";
+import { SiteHeader } from "../src/components/SiteHeader";
+import { SiteFooter } from "../src/components/SiteFooter";
+import { ListingCard } from "../src/components/ListingCard";
 import { VerifiedPill } from "../src/components/VerifiedPill";
 import { listings, cities } from "../src/data/listings";
+import { supabase, isSupabaseConfigured } from "../src/lib/supabase";
 import AppShowcase from "../src/components/AppShowcase";
 import LeadCaptureForm from "../src/components/LeadCaptureForm";
 import ScrollRevealInit from "../src/components/ScrollRevealInit";
@@ -76,7 +77,8 @@ export default function Home() {
             <div className="lead-cta__content">
               <h2 className="font-display">Ready to Find Your Dream Home?</h2>
               <p>
-                Let us help you find the perfect space for you and your family. Enter your email below to connect with verified listings.
+                Let us help you find the perfect space for you and your family. Enter your email
+                below to connect with verified listings.
               </p>
               <LeadCaptureForm />
             </div>
@@ -144,9 +146,7 @@ function Hero() {
                 }`}
               >
                 {t}
-                {tab === t && (
-                  <span className="absolute inset-x-3 -bottom-px h-0.5 bg-primary" />
-                )}
+                {tab === t && <span className="absolute inset-x-3 -bottom-px h-0.5 bg-primary" />}
               </button>
             ))}
           </div>
@@ -312,6 +312,45 @@ function HowItWorks() {
 }
 
 function FeaturedListings() {
+  const [activeListings, setActiveListings] = useState<any[]>(listings);
+
+  useEffect(() => {
+    async function loadProperties() {
+      if (!isSupabaseConfigured()) return;
+      try {
+        const { data, error } = await supabase.from("properties").select("*").limit(3);
+        if (!error && data && data.length > 0) {
+          const mapped = data.map((p: any) => ({
+            id: p.id,
+            title: p.title,
+            city: p.city,
+            locality: p.locality,
+            price: p.price,
+            priceLabel: `₹ ${(p.price / 10000000).toFixed(2)} Cr`,
+            cadence: p.type === "buy" ? "sale" : "rent",
+            propertyType: p.sub_type.charAt(0).toUpperCase() + p.sub_type.slice(1),
+            bedrooms: p.bhk,
+            bathrooms: p.bhk - 1 > 0 ? p.bhk - 1 : 1,
+            areaSqft: p.area_sqft,
+            furnishing: "Semi-furnished",
+            photo: p.image_urls?.[0] || "",
+            owner: { name: "Owner", joinedYear: 2026 },
+            verifiedOn: p.created_at
+              ? p.created_at.split("T")[0]
+              : new Date().toISOString().split("T")[0],
+            reraNumber: p.rera_id || "N/A",
+            reraState: "Maharashtra",
+            verificationChecks: [],
+          }));
+          setActiveListings(mapped);
+        }
+      } catch (err) {
+        console.error("Failed to load featured properties:", err);
+      }
+    }
+    loadProperties();
+  }, []);
+
   return (
     <section className="container-page py-16 reveal-scroll">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -333,7 +372,7 @@ function FeaturedListings() {
       </div>
 
       <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {listings.map((l, i) => (
+        {activeListings.map((l, i) => (
           <ListingCard key={l.id} listing={l} index={i} />
         ))}
       </div>

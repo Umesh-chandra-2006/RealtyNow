@@ -1,4 +1,10 @@
 import { supabase, isSupabaseConfigured } from "./supabase";
+import { logger } from "./logger";
+
+// Helper to determine if mock credentials and OTP bypass backdoors are active
+const isMockAuthEnabled = () => {
+  return typeof process !== "undefined" && process.env.ENABLE_MOCK_AUTH === "true";
+};
 
 // Interfaces
 export interface PropertyListing {
@@ -24,7 +30,13 @@ export interface PropertyListing {
 // ----------------------------------------------------
 // 1. Authentication Services
 // ----------------------------------------------------
-export async function signUpWithEmail(email: string, password: string, fullName: string, phone: string, role: string) {
+export async function signUpWithEmail(
+  email: string,
+  password: string,
+  fullName: string,
+  phone: string,
+  role: string,
+) {
   if (isSupabaseConfigured()) {
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -32,25 +44,32 @@ export async function signUpWithEmail(email: string, password: string, fullName:
         password,
       });
       if (error) {
-        if (process.env.NODE_ENV !== "production") {
-          console.warn("Supabase signup failed, falling back to mock user:", error.message);
-          return { success: true, user: { id: "mock-user-uuid-123", email, phone: `+91${phone}` }, simulated: true };
+        if (isMockAuthEnabled()) {
+          logger.warn("Supabase signup failed, falling back to mock user (simulated).", {
+            email,
+            phone,
+            error: error.message,
+          });
+          return {
+            success: true,
+            user: { id: "mock-user-uuid-123", email, phone: `+91${phone}` },
+            simulated: true,
+          };
         }
         throw error;
       }
       if (data.user) {
         // Create user public profile
-        const { error: profileError } = await supabase
-          .from("profiles")
-          .insert([{
+        const { error: profileError } = await supabase.from("profiles").insert([
+          {
             id: data.user.id,
             phone: `+91${phone}`,
             full_name: fullName,
             role,
-          }]);
+          },
+        ]);
         if (profileError) {
-          // If profile insert fails (e.g. duplicate key or triggers), throw or fall back
-          if (process.env.NODE_ENV !== "production") {
+          if (isMockAuthEnabled()) {
             return { success: true, user: data.user, simulated: true };
           }
           throw profileError;
@@ -58,37 +77,47 @@ export async function signUpWithEmail(email: string, password: string, fullName:
       }
       return { success: true, user: data.user };
     } catch (err: any) {
-      if (process.env.NODE_ENV !== "production") {
-        console.warn("Supabase signup catch, falling back to mock user:", err.message);
-        return { success: true, user: { id: "mock-user-uuid-123", email, phone: `+91${phone}` }, simulated: true };
+      if (isMockAuthEnabled()) {
+        logger.warn("Supabase signup catch, falling back to mock user.", {
+          email,
+          error: err.message,
+        });
+        return {
+          success: true,
+          user: { id: "mock-user-uuid-123", email, phone: `+91${phone}` },
+          simulated: true,
+        };
       }
       throw err;
     }
   } else {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("Supabase service is not configured. Check environment configurations.");
+    if (!isMockAuthEnabled()) {
+      throw new Error(
+        "Supabase service is not configured. Real database connections are required in production.",
+      );
     }
     // Offline Simulation
     const localUsersKey = "realtynow_registered_users";
-    const existingStr = typeof window !== "undefined" ? localStorage.getItem(localUsersKey) || "[]" : "[]";
+    const existingStr =
+      typeof window !== "undefined" ? localStorage.getItem(localUsersKey) || "[]" : "[]";
     const existing = JSON.parse(existingStr);
 
     if (existing.some((u: any) => u.email.toLowerCase() === email.toLowerCase())) {
       throw new Error("An account with this email address already exists.");
     }
 
-    const mockId = `mock-user-${Date.now()}`;
+    const mockId = crypto.randomUUID ? crypto.randomUUID() : `mock-user-${Date.now()}`;
     const newUser = {
       id: mockId,
       email,
-      password, // Note: In sandbox mock code only
       phone: `+91${phone}`,
       profile: {
         full_name: fullName,
         role,
-      }
+      },
     };
 
+    // Store user securely without cleartext password
     existing.push(newUser);
     if (typeof window !== "undefined") {
       localStorage.setItem(localUsersKey, JSON.stringify(existing));
@@ -99,26 +128,41 @@ export async function signUpWithEmail(email: string, password: string, fullName:
 
 export async function signInWithEmail(email: string, password: string) {
   if (isSupabaseConfigured()) {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) {
-      // Local dev testing bypass fallback if Supabase is configured but user is not in database yet
-      if (process.env.NODE_ENV !== "production" && email === "test@example.com" && password === "password123") {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) {
+        // Local dev testing bypass fallback if Supabase is configured but user is not in database yet
+        if (isMockAuthEnabled() && email === "test@example.com" && password === "password123") {
+          const mockUser = {
+            id: "mock-user-uuid-123",
+            email: "test@example.com",
+            phone: "+91 98765 43210",
+            profile: { role: "buyer", full_name: "Sandbox User" },
+          };
+          logger.warn("Simulated test login credentials bypass activated.", { email });
+          return { success: true, user: mockUser, simulated: true };
+        }
+        throw error;
+      }
+      return { success: true, user: data.user };
+    } catch (err: any) {
+      if (isMockAuthEnabled() && email === "test@example.com" && password === "password123") {
         const mockUser = {
           id: "mock-user-uuid-123",
           email: "test@example.com",
           phone: "+91 98765 43210",
           profile: { role: "buyer", full_name: "Sandbox User" },
         };
+        logger.warn("Simulated test login credentials bypass catch activated.", { email });
         return { success: true, user: mockUser, simulated: true };
       }
-      throw error;
+      throw err;
     }
-    return { success: true, user: data.user };
   } else {
-    if (process.env.NODE_ENV === "production") {
+    if (!isMockAuthEnabled()) {
       throw new Error("Supabase service is not configured.");
     }
     // Local Bypass Sandbox
@@ -134,12 +178,16 @@ export async function signInWithEmail(email: string, password: string) {
 
     // Check offline registered users
     const localUsersKey = "realtynow_registered_users";
-    const existingStr = typeof window !== "undefined" ? localStorage.getItem(localUsersKey) || "[]" : "[]";
+    const existingStr =
+      typeof window !== "undefined" ? localStorage.getItem(localUsersKey) || "[]" : "[]";
     const existing = JSON.parse(existingStr);
-    const matched = existing.find((u: any) => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
+    // Since we no longer store passwords, offline mock login simply matches the email
+    const matched = existing.find((u: any) => u.email.toLowerCase() === email.toLowerCase());
 
     if (!matched) {
-      throw new Error("Invalid email or password. (For testing, use test@example.com / password123)");
+      throw new Error(
+        "Invalid email or password. (For testing, use test@example.com / password123)",
+      );
     }
 
     return { success: true, user: matched };
@@ -155,29 +203,37 @@ export async function signInWithOtp(phone: string) {
       if (error) {
         // Catch SMS provider/gateway issues and trigger simulated fallbacks for dev purposes
         if (
-          process.env.NODE_ENV !== "production" &&
-          (error.message.toLowerCase().includes("sms") || 
-           error.message.toLowerCase().includes("provider") || 
-           error.status === 429)
+          isMockAuthEnabled() &&
+          (error.message.toLowerCase().includes("sms") ||
+            error.message.toLowerCase().includes("provider") ||
+            error.status === 429)
         ) {
-          console.warn("Supabase Phone provider issues detected. Redirecting to Sandbox simulation.");
+          logger.warn(
+            "Supabase Phone provider issues detected. Redirecting to Sandbox simulation.",
+            { phone },
+          );
           return { success: true, simulated: true, warning: error.message };
         }
         throw error;
       }
       return { success: true, data };
     } catch (err: any) {
-      if (process.env.NODE_ENV !== "production") {
-        console.warn("Supabase Auth request error, falling back to sandbox:", err.message);
+      if (isMockAuthEnabled()) {
+        logger.warn("Supabase Auth request error, falling back to sandbox.", {
+          phone,
+          error: err.message,
+        });
         return { success: true, simulated: true, warning: err.message };
       }
       throw err;
     }
   } else {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("Supabase service is not configured. Please check server environment variables.");
+    if (!isMockAuthEnabled()) {
+      throw new Error(
+        "Supabase service is not configured. Please check server environment variables.",
+      );
     }
-    console.warn("Supabase not configured. Simulating OTP request for +91", phone.replace(/.(?=.{4})/g, "*"));
+    logger.warn("Supabase not configured. Simulating OTP request for +91.", { phone });
     return { success: true, simulated: true };
   }
 }
@@ -194,8 +250,10 @@ export async function verifyOtpCode(phone: string, token: string, isSimulated: b
       return { success: true, user: data.user, session: data.session };
     } catch (err: any) {
       // Backdoor bypass logic for dev tests (e.g. if SMS provider fails to register verification codes)
-      if (token === "123456" && process.env.NODE_ENV !== "production") {
-        console.warn("Supabase verification failed. Bypassing using mock session credentials.");
+      if (token === "123456" && isMockAuthEnabled()) {
+        logger.warn("Supabase verification failed. Bypassing using mock session credentials.", {
+          phone,
+        });
         const mockUser = {
           id: "mock-user-uuid-123",
           phone: `+91${phone}`,
@@ -206,8 +264,8 @@ export async function verifyOtpCode(phone: string, token: string, isSimulated: b
       throw err;
     }
   } else {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("Local simulator authentication is disabled in production.");
+    if (!isMockAuthEnabled()) {
+      throw new Error("Local simulator authentication is disabled.");
     }
     // Local / Simulator authentication
     if (token === "123456") {
@@ -228,7 +286,26 @@ export async function verifyOtpCode(phone: string, token: string, isSimulated: b
 // ----------------------------------------------------
 export async function createPropertyListing(listing: Omit<PropertyListing, "id" | "created_at">) {
   if (isSupabaseConfigured() && !listing.created_by.startsWith("mock-")) {
-    // A. Quota limit check
+    try {
+      // Try to execute atomically via database function RPC if configured on Supabase
+      const { data, error: rpcError } = await supabase.rpc("create_property_with_quota", {
+        p_listing: listing,
+      });
+      if (!rpcError) {
+        return { success: true, data };
+      }
+      // If the RPC fails due to quota limit trigger message, throw directly
+      if (rpcError.message.includes("posting limit exceeded") || rpcError.code === "P0001") {
+        throw rpcError;
+      }
+      // Otherwise fallback to client-side transactions if function is not defined
+    } catch (e: any) {
+      if (e.message && e.message.includes("posting limit exceeded")) {
+        throw e;
+      }
+    }
+
+    // Client-side fallback check (Time-of-Check to Time-of-Use race condition risk)
     const { count, error: countError } = await supabase
       .from("properties")
       .select("*", { count: "exact", head: true })
@@ -237,35 +314,38 @@ export async function createPropertyListing(listing: Omit<PropertyListing, "id" 
     if (countError) throw countError;
 
     if (count !== null && count >= 5) {
-      throw new Error(`Property posting limit exceeded. You have already posted ${count} properties.`);
+      throw new Error(
+        `Property posting limit exceeded. You have already posted ${count} properties.`,
+      );
     }
 
     // B. Save listing
-    const { data, error } = await supabase
-      .from("properties")
-      .insert([listing])
-      .select()
-      .single();
+    const { data, error } = await supabase.from("properties").insert([listing]).select().single();
 
     if (error) throw error;
     return { success: true, data };
   } else {
     // LocalStorage Fallback Simulation
-    console.warn("Supabase not configured or using mock user session. Saving locally.");
+    logger.warn("Supabase not configured or using mock user session. Saving locally.", {
+      created_by: listing.created_by,
+    });
     const localKey = "realtynow_properties";
-    const existingStr = typeof window !== "undefined" ? localStorage.getItem(localKey) || "[]" : "[]";
+    const existingStr =
+      typeof window !== "undefined" ? localStorage.getItem(localKey) || "[]" : "[]";
     const existing: PropertyListing[] = JSON.parse(existingStr);
 
     // Count user's current posts
     const userCount = existing.filter((item) => item.created_by === listing.created_by).length;
 
     if (userCount >= 5) {
-      throw new Error(`Property posting limit exceeded. You have already posted ${userCount} properties.`);
+      throw new Error(
+        `Property posting limit exceeded. You have already posted ${userCount} properties.`,
+      );
     }
 
     const newListing: PropertyListing = {
       ...listing,
-      id: `local-prop-${Date.now()}`,
+      id: crypto.randomUUID ? `local-prop-${crypto.randomUUID()}` : `local-prop-${Date.now()}`,
       created_at: new Date().toISOString(),
       is_verified: true, // Auto-verify locally for convenience
     };
@@ -283,6 +363,19 @@ export async function createPropertyListing(listing: Omit<PropertyListing, "id" 
 // ----------------------------------------------------
 export async function toggleFavorite(userId: string, propertyId: string) {
   if (isSupabaseConfigured() && !userId.startsWith("mock-")) {
+    try {
+      // Try to toggle atomic state using a database RPC function to prevent race conditions
+      const { data: rpcData, error: rpcError } = await supabase.rpc("toggle_favorite_atomic", {
+        p_user_id: userId,
+        p_property_id: propertyId,
+      });
+      if (!rpcError) {
+        return { success: true, isFavorited: rpcData };
+      }
+    } catch (e) {
+      // Fallback to client-side read-then-write
+    }
+
     // Check if already favorited
     const { data, error } = await supabase
       .from("favorites")
@@ -314,9 +407,13 @@ export async function toggleFavorite(userId: string, propertyId: string) {
     }
   } else {
     // LocalStorage Fallback Simulation
-    console.warn("Supabase not configured or using mock user session. Saving locally.");
+    logger.warn("Supabase not configured or using mock user session. Saving locally.", {
+      userId,
+      propertyId,
+    });
     const localKey = `realtynow_favs_${userId}`;
-    const existingStr = typeof window !== "undefined" ? localStorage.getItem(localKey) || "[]" : "[]";
+    const existingStr =
+      typeof window !== "undefined" ? localStorage.getItem(localKey) || "[]" : "[]";
     const existing: string[] = JSON.parse(existingStr);
 
     const index = existing.indexOf(propertyId);
@@ -339,7 +436,11 @@ export async function toggleFavorite(userId: string, propertyId: string) {
 // ----------------------------------------------------
 // 4. Contact Lead Submissions
 // ----------------------------------------------------
-export async function submitContactRequest(buyerId: string, propertyId: string | null, message: string) {
+export async function submitContactRequest(
+  buyerId: string,
+  propertyId: string | null,
+  message: string,
+) {
   if (isSupabaseConfigured() && !buyerId.startsWith("mock-")) {
     const { data, error } = await supabase
       .from("contact_requests")
@@ -351,13 +452,17 @@ export async function submitContactRequest(buyerId: string, propertyId: string |
     return { success: true, data };
   } else {
     // LocalStorage Fallback Simulation
-    console.warn("Supabase not configured or using mock user session. Saving locally.");
+    logger.warn("Supabase not configured or using mock user session. Saving locally.", {
+      buyerId,
+      propertyId,
+    });
     const localKey = "realtynow_leads";
-    const existingStr = typeof window !== "undefined" ? localStorage.getItem(localKey) || "[]" : "[]";
+    const existingStr =
+      typeof window !== "undefined" ? localStorage.getItem(localKey) || "[]" : "[]";
     const existing = JSON.parse(existingStr);
 
     const newLead = {
-      id: `lead-${Date.now()}`,
+      id: crypto.randomUUID ? `lead-${crypto.randomUUID()}` : `lead-${Date.now()}`,
       buyer_id: buyerId,
       property_id: propertyId,
       message,
@@ -393,32 +498,40 @@ export async function submitServiceBooking(booking: {
         .insert([booking])
         .select()
         .single();
-      
+
       if (error) {
-        console.warn("Dedicated service_bookings table not found. Storing in contact_requests lead framework.");
+        logger.warn(
+          "Dedicated service_bookings table not found. Storing in contact_requests lead framework.",
+          { error: error.message },
+        );
         return await submitContactRequest(
           booking.buyer_id,
           null,
-          `[Kaam Kaaka Booking] Service: ${booking.service_type}, BHK: ${booking.bhk_size}, Date: ${booking.preferred_date}, Estimate: ${booking.estimate}, Contact: ${booking.name} (${booking.phone})`
+          `[Kaam Kaaka Booking] Service: ${booking.service_type}, BHK: ${booking.bhk_size}, Date: ${booking.preferred_date}, Estimate: ${booking.estimate}, Contact: ${booking.name} (${booking.phone})`,
         );
       }
       return { success: true, data };
-    } catch (e) {
+    } catch (e: any) {
+      logger.error("Exception in submitServiceBooking, falling back to contact_requests:", e);
       return await submitContactRequest(
         booking.buyer_id,
         null,
-        `[Kaam Kaaka Booking] Service: ${booking.service_type}, BHK: ${booking.bhk_size}, Date: ${booking.preferred_date}, Estimate: ${booking.estimate}, Contact: ${booking.name} (${booking.phone})`
+        `[Kaam Kaaka Booking] Service: ${booking.service_type}, BHK: ${booking.bhk_size}, Date: ${booking.preferred_date}, Estimate: ${booking.estimate}, Contact: ${booking.name} (${booking.phone})`,
       );
     }
   } else {
     // LocalStorage Fallback Simulation
-    console.warn("Supabase not configured or using mock user session. Saving service booking locally.");
+    logger.warn(
+      "Supabase not configured or using mock user session. Saving service booking locally.",
+      { buyer_id: booking.buyer_id },
+    );
     const localKey = "realtynow_service_bookings";
-    const existingStr = typeof window !== "undefined" ? localStorage.getItem(localKey) || "[]" : "[]";
+    const existingStr =
+      typeof window !== "undefined" ? localStorage.getItem(localKey) || "[]" : "[]";
     const existing = JSON.parse(existingStr);
 
     const newBooking = {
-      id: `booking-${Date.now()}`,
+      id: crypto.randomUUID ? `booking-${crypto.randomUUID()}` : `booking-${Date.now()}`,
       ...booking,
       created_at: new Date().toISOString(),
     };
@@ -451,32 +564,40 @@ export async function submitInteriorConsultation(consult: {
         .insert([consult])
         .select()
         .single();
-      
+
       if (error) {
-        console.warn("Dedicated interior_consultations table not found. Storing in contact_requests lead framework.");
+        logger.warn(
+          "Dedicated interior_consultations table not found. Storing in contact_requests lead framework.",
+          { error: error.message },
+        );
         return await submitContactRequest(
           consult.buyer_id,
           null,
-          `[Interior Consultation] Style: ${consult.design_style}, BHK: ${consult.bhk_size}, Estimate: ${consult.estimate}, Contact: ${consult.name} (${consult.phone}, ${consult.email}), Msg: ${consult.message}`
+          `[Interior Consultation] Style: ${consult.design_style}, BHK: ${consult.bhk_size}, Estimate: ${consult.estimate}, Contact: ${consult.name} (${consult.phone}, ${consult.email}), Msg: ${consult.message}`,
         );
       }
       return { success: true, data };
-    } catch (e) {
+    } catch (e: any) {
+      logger.error("Exception in submitInteriorConsultation, falling back to contact_requests:", e);
       return await submitContactRequest(
         consult.buyer_id,
         null,
-        `[Interior Consultation] Style: ${consult.design_style}, BHK: ${consult.bhk_size}, Estimate: ${consult.estimate}, Contact: ${consult.name} (${consult.phone}, ${consult.email}), Msg: ${consult.message}`
+        `[Interior Consultation] Style: ${consult.design_style}, BHK: ${consult.bhk_size}, Estimate: ${consult.estimate}, Contact: ${consult.name} (${consult.phone}, ${consult.email}), Msg: ${consult.message}`,
       );
     }
   } else {
     // LocalStorage Fallback Simulation
-    console.warn("Supabase not configured or using mock user session. Saving consultation request locally.");
+    logger.warn(
+      "Supabase not configured or using mock user session. Saving consultation request locally.",
+      { buyer_id: consult.buyer_id },
+    );
     const localKey = "realtynow_interior_consultations";
-    const existingStr = typeof window !== "undefined" ? localStorage.getItem(localKey) || "[]" : "[]";
+    const existingStr =
+      typeof window !== "undefined" ? localStorage.getItem(localKey) || "[]" : "[]";
     const existing = JSON.parse(existingStr);
 
     const newConsult = {
-      id: `consult-${Date.now()}`,
+      id: crypto.randomUUID ? `consult-${crypto.randomUUID()}` : `consult-${Date.now()}`,
       ...consult,
       created_at: new Date().toISOString(),
     };

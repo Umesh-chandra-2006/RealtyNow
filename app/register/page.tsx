@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signUpWithEmail } from "../../src/lib/actions";
 import { toast } from "sonner";
-import { SiteHeader } from "../../src/components/SiteHeader.next";
-import { SiteFooter } from "../../src/components/SiteFooter.next";
+import { SiteHeader } from "../../src/components/SiteHeader";
+import { SiteFooter } from "../../src/components/SiteFooter";
 import { ArrowRight } from "lucide-react";
 
 export default function RegisterPage() {
@@ -74,8 +74,13 @@ export default function RegisterPage() {
         <div className="relative z-10 w-full max-w-[480px] rounded-3xl bg-card p-8 shadow-elevated ring-1 ring-border md:p-10">
           {/* Logo header */}
           <div className="mb-8 text-center">
-            <Link href="/" className="inline-flex items-center gap-2 font-display text-2xl font-bold tracking-tight text-foreground">
-              <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-primary-foreground text-sm font-bold">R</span>
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 font-display text-2xl font-bold tracking-tight text-foreground"
+            >
+              <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-primary-foreground text-sm font-bold">
+                R
+              </span>
               Realty<span className="text-primary">Now</span>
             </Link>
             <h1 className="mt-6 font-display text-2xl font-bold text-foreground">
@@ -121,7 +126,10 @@ export default function RegisterPage() {
 
             {/* Full Name */}
             <div>
-              <label htmlFor="fullName" className="block text-sm font-semibold text-foreground mb-1.5">
+              <label
+                htmlFor="fullName"
+                className="block text-sm font-semibold text-foreground mb-1.5"
+              >
                 Full Name
               </label>
               <input
@@ -180,7 +188,10 @@ export default function RegisterPage() {
 
             {/* Password */}
             <div>
-              <label htmlFor="password" className="block text-sm font-semibold text-foreground mb-1.5">
+              <label
+                htmlFor="password"
+                className="block text-sm font-semibold text-foreground mb-1.5"
+              >
                 Password
               </label>
               <input

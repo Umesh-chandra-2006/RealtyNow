@@ -1,28 +1,13 @@
 {
-  "include": [
-    "eslint.config.js",
-    "src/**/*.ts",
-    "src/**/*.tsx",
-    "app/**/*.ts",
-    "app/**/*.tsx",
-    "vite.config.ts",
-    "next-env.d.ts",
-    ".next/types/**/*.ts"
-  ],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
   "compilerOptions": {
-    "target": "ES2022",
+    "target": "es2022",
     "jsx": "preserve",
-    "module": "ESNext",
-    "lib": [
-      "ES2022",
-      "DOM",
-      "DOM.Iterable"
-    ],
-    "types": [
-      "vite/client"
-    ],
+    "module": "esnext",
+    "lib": ["es2022", "dom", "dom.iterable"],
+    "types": ["node"],
     /* Bundler mode */
-    "moduleResolution": "Bundler",
+    "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": false,
     "noEmit": true,
@@ -34,9 +19,7 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
     "paths": {
-      "@/*": [
-        "./src/*"
-      ]
+      "@/*": ["./src/*"]
     },
     "allowJs": true,
     "incremental": true,
@@ -49,13 +32,5 @@
       }
     ]
   },
-  "exclude": [
-    "node_modules",
-    "src/routes/**/*",
-    "src/components/SiteHeader.tsx",
-    "src/components/SiteFooter.tsx",
-    "src/components/ListingCard.tsx",
-    "src/start.ts",
-    "src/server.ts"
-  ]
+  "exclude": ["node_modules"]
 }

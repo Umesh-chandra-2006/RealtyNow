@@ -23,9 +23,7 @@ export function VerificationChecklist({
           </h3>
         </div>
         <div className="hidden text-right sm:block">
-          <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
-            RERA portal
-          </p>
+          <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">RERA portal</p>
           <p className="font-display text-sm font-semibold text-navy">{reraState}</p>
         </div>
       </header>
@@ -42,9 +40,7 @@ export function VerificationChecklist({
                   <Check className="h-4 w-4" strokeWidth={3} />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="font-display text-base font-semibold text-navy">
-                    {check.label}
-                  </p>
+                  <p className="font-display text-base font-semibold text-navy">{check.label}</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     {check.method} · Passed{" "}
                     {new Date(check.passedOn).toLocaleDateString("en-IN", {
@@ -71,8 +67,8 @@ export function VerificationChecklist({
         })}
       </ul>
       <footer className="border-t border-border bg-surface px-6 py-4 text-[11px] text-muted-foreground">
-        Every listing is re-checked when key details change. If a check ever fails, the listing
-        is pulled from public search the same day.
+        Every listing is re-checked when key details change. If a check ever fails, the listing is
+        pulled from public search the same day.
       </footer>
     </section>
   );

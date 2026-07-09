@@ -102,7 +102,9 @@ export default function AppShowcase() {
                   </div>
                   <div style={styles.chartBarRow}>
                     <span style={styles.barLabel}>2026</span>
-                    <div style={{ ...styles.barFill, width: "100%", background: "var(--primary)" }}></div>
+                    <div
+                      style={{ ...styles.barFill, width: "100%", background: "var(--primary)" }}
+                    ></div>
                     <span style={styles.barVal}>+15.3%</span>
                   </div>
                 </div>
@@ -120,7 +122,9 @@ export default function AppShowcase() {
           <span className="showcase__tagline">The Mobile Application</span>
           <h2 className="showcase__title font-display">RealtyNow in your pocket</h2>
           <p className="showcase__desc">
-            Experience India's most secure and direct property portal on the move. Built with lightning-fast real-time search, instant owner chat links, and legal document verification checks.
+            Experience India's most secure and direct property portal on the move. Built with
+            lightning-fast real-time search, instant owner chat links, and legal document
+            verification checks.
           </p>
 
           <div className="showcase__features">
@@ -128,21 +132,30 @@ export default function AppShowcase() {
               <div className="showcase-feat__icon">💬</div>
               <div className="showcase-feat__text">
                 <h4>Direct Owner Communication</h4>
-                <p>Chat directly with landlords and sellers. Absolutely zero broker intermediaries or spam calls.</p>
+                <p>
+                  Chat directly with landlords and sellers. Absolutely zero broker intermediaries or
+                  spam calls.
+                </p>
               </div>
             </div>
             <div className="showcase-feat">
               <div className="showcase-feat__icon">🛡️</div>
               <div className="showcase-feat__text">
                 <h4>Real-Time RERA Database Check</h4>
-                <p>Instantly fetch and check RERA registration ID validation status before you submit queries.</p>
+                <p>
+                  Instantly fetch and check RERA registration ID validation status before you submit
+                  queries.
+                </p>
               </div>
             </div>
             <div className="showcase-feat">
               <div className="showcase-feat__icon">📈</div>
               <div className="showcase-feat__text">
                 <h4>ROI & Appreciation Yield Logs</h4>
-                <p>Analyze verified historical appreciation indices and rental yield scores for all major micro-markets.</p>
+                <p>
+                  Analyze verified historical appreciation indices and rental yield scores for all
+                  major micro-markets.
+                </p>
               </div>
             </div>
           </div>

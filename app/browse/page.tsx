@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Filter, Info, SlidersHorizontal, MapPin, BedDouble, Maximize2 } from "lucide-react";
-import { SiteHeader } from "../../src/components/SiteHeader.next";
-import { SiteFooter } from "../../src/components/SiteFooter.next";
+import { SiteHeader } from "../../src/components/SiteHeader";
+import { SiteFooter } from "../../src/components/SiteFooter";
 import { VerifiedPill } from "../../src/components/VerifiedPill";
 import { listings } from "../../src/data/listings";
 import { cn, getImgSrc } from "../../src/lib/utils";
+import { supabase, isSupabaseConfigured } from "../../src/lib/supabase";
 
 const cityOptions = ["All cities", "Mumbai", "Bengaluru", "Pune", "Hyderabad"] as const;
 const typeOptions = ["All types", "Apartment", "Villa", "Penthouse", "Townhouse"] as const;
@@ -20,9 +21,51 @@ export default function Browse() {
   const [beds, setBeds] = useState<(typeof bedroomOptions)[number]>("Any");
   const [cadence, setCadence] = useState<(typeof cadenceOptions)[number]>("All");
   const [sort, setSort] = useState<"newest" | "price-asc" | "price-desc">("newest");
+  const [activeListings, setActiveListings] = useState<any[]>(listings);
+  const [dbLoading, setDbLoading] = useState(false);
+
+  useEffect(() => {
+    async function loadProperties() {
+      if (!isSupabaseConfigured()) return;
+      setDbLoading(true);
+      try {
+        const { data, error } = await supabase.from("properties").select("*");
+        if (!error && data && data.length > 0) {
+          const mapped = data.map((p: any) => ({
+            id: p.id,
+            title: p.title,
+            city: p.city,
+            locality: p.locality,
+            price: p.price,
+            priceLabel: `₹ ${(p.price / 10000000).toFixed(2)} Cr`,
+            cadence: p.type === "buy" ? "sale" : "rent",
+            propertyType: p.sub_type.charAt(0).toUpperCase() + p.sub_type.slice(1),
+            bedrooms: p.bhk,
+            bathrooms: p.bhk - 1 > 0 ? p.bhk - 1 : 1,
+            areaSqft: p.area_sqft,
+            furnishing: "Semi-furnished",
+            photo: p.image_urls?.[0] || "",
+            owner: { name: "Owner", joinedYear: 2026 },
+            verifiedOn: p.created_at
+              ? p.created_at.split("T")[0]
+              : new Date().toISOString().split("T")[0],
+            reraNumber: p.rera_id || "N/A",
+            reraState: "Maharashtra",
+            verificationChecks: [],
+          }));
+          setActiveListings(mapped);
+        }
+      } catch (err) {
+        console.error("Failed to load live properties:", err);
+      } finally {
+        setDbLoading(false);
+      }
+    }
+    loadProperties();
+  }, []);
 
   const filtered = useMemo(() => {
-    let out = listings.filter((l) => {
+    let out = activeListings.filter((l) => {
       if (city !== "All cities" && l.city !== city) return false;
       if (type !== "All types" && l.propertyType !== type) return false;
       if (beds !== "Any") {
@@ -38,7 +81,7 @@ export default function Browse() {
       return new Date(b.verifiedOn).getTime() - new Date(a.verifiedOn).getTime();
     });
     return out;
-  }, [city, type, beds, cadence, sort]);
+  }, [city, type, beds, cadence, sort, activeListings]);
 
   return (
     <div className="min-h-screen bg-background pt-16">
@@ -54,7 +97,8 @@ export default function Browse() {
             Explore verified listings
           </h1>
           <p className="mt-3 max-w-2xl text-muted-foreground">
-            Discover premium homes in prime localities. Every listing is thoroughly checked for authenticity.
+            Discover premium homes in prime localities. Every listing is thoroughly checked for
+            authenticity.
           </p>
         </div>
       </section>
@@ -66,10 +110,30 @@ export default function Browse() {
             <SlidersHorizontal className="h-4 w-4 text-primary" />
             Filters
           </div>
-          <FilterSelect label="City" value={city} onChange={(v) => setCity(v as any)} options={cityOptions} />
-          <FilterSelect label="Type" value={type} onChange={(v) => setType(v as any)} options={typeOptions} />
-          <FilterSelect label="Bedrooms" value={beds} onChange={(v) => setBeds(v as any)} options={bedroomOptions} />
-          <FilterSelect label="For" value={cadence} onChange={(v) => setCadence(v as any)} options={cadenceOptions} />
+          <FilterSelect
+            label="City"
+            value={city}
+            onChange={(v) => setCity(v as any)}
+            options={cityOptions}
+          />
+          <FilterSelect
+            label="Type"
+            value={type}
+            onChange={(v) => setType(v as any)}
+            options={typeOptions}
+          />
+          <FilterSelect
+            label="Bedrooms"
+            value={beds}
+            onChange={(v) => setBeds(v as any)}
+            options={bedroomOptions}
+          />
+          <FilterSelect
+            label="For"
+            value={cadence}
+            onChange={(v) => setCadence(v as any)}
+            options={cadenceOptions}
+          />
 
           <div className="ml-auto flex items-center gap-3">
             <span className="hidden items-center gap-2 rounded-full bg-coral/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-coral md:inline-flex">
@@ -96,16 +160,22 @@ export default function Browse() {
       <section className="container-page grid gap-8 py-10 lg:grid-cols-[1fr_320px]">
         <div>
           {filtered.length === 0 ? (
-            <EmptyState onReset={() => {
-              setCity("All cities");
-              setType("All types");
-              setBeds("Any");
-              setCadence("All");
-            }} />
+            <EmptyState
+              onReset={() => {
+                setCity("All cities");
+                setType("All types");
+                setBeds("Any");
+                setCadence("All");
+              }}
+            />
           ) : (
             <ul className="space-y-5">
               {filtered.map((l, i) => (
-                <li key={l.id} className="animate-fade-rise" style={{ animationDelay: `${i * 60}ms` }}>
+                <li
+                  key={l.id}
+                  className="animate-fade-rise"
+                  style={{ animationDelay: `${i * 60}ms` }}
+                >
                   <Link
                     href={`/listing/${l.id}`}
                     className="group grid grid-cols-1 gap-0 overflow-hidden rounded-2xl bg-card ring-1 ring-border transition-all hover:shadow-elevated md:grid-cols-[320px_1fr]"
@@ -132,9 +202,7 @@ export default function Browse() {
                           </p>
                         </div>
                         <div className="flex flex-wrap items-baseline gap-2 pt-1">
-                          <p className="font-display text-xl font-bold text-navy">
-                            {l.priceLabel}
-                          </p>
+                          <p className="font-display text-xl font-bold text-navy">{l.priceLabel}</p>
                           <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
                             &middot; {l.propertyType} &middot; For {l.cadence}
                           </span>
@@ -180,8 +248,8 @@ export default function Browse() {
                 Why you don&rsquo;t see &ldquo;pending&rdquo; listings here
               </h3>
               <p className="mt-3 text-sm text-muted-foreground">
-                A listing has to pass every check before we allow it into public search. No
-                fainter badges, no half-visible inventory.
+                A listing has to pass every check before we allow it into public search. No fainter
+                badges, no half-visible inventory.
               </p>
               <ul className="mt-6 space-y-3 text-sm text-foreground">
                 {[
@@ -201,9 +269,7 @@ export default function Browse() {
             </div>
 
             <div className="rounded-2xl bg-surface p-6 ring-1 ring-border">
-              <h4 className="font-display text-lg font-semibold text-navy">
-                Save this search
-              </h4>
+              <h4 className="font-display text-lg font-semibold text-navy">Save this search</h4>
               <p className="mt-2 text-sm text-muted-foreground">
                 Get notified when a new verified home matching your filters goes live.
               </p>
@@ -253,7 +319,11 @@ function FilterSelect<T extends string>({
 
 function EmptyState({ onReset }: { onReset: () => void }) {
   return (
-    <div className={cn("flex flex-col items-center justify-center rounded-2xl bg-card px-6 py-20 text-center ring-1 ring-border")}>
+    <div
+      className={cn(
+        "flex flex-col items-center justify-center rounded-2xl bg-card px-6 py-20 text-center ring-1 ring-border",
+      )}
+    >
       <div className="grid h-14 w-14 place-items-center rounded-full bg-surface ring-1 ring-border">
         <MapPin className="h-6 w-6 text-primary" />
       </div>

@@ -27,6 +27,10 @@ dist-ssr
 .DS_Store
 *.suo
 *.ntvs*
-*.njsproj
-*.sln
 *.sw?
+
+# Next.js
+.next/
+tsconfig.tsbuildinfo
+.dist/
+.env*.local

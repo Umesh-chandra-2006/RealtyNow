@@ -28,7 +28,7 @@ export type Listing = {
   bathrooms: number;
   areaSqft: number;
   furnishing: "Fully furnished" | "Semi-furnished" | "Unfurnished";
-  photo: string;
+  photo: any;
   owner: { name: string; joinedYear: number };
   verifiedOn: string;
   reraNumber: string;

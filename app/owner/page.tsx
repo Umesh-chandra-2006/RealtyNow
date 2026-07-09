@@ -17,9 +17,9 @@ export default function OwnerHome() {
               <span className="text-primary">Watch every check happen.</span>
             </h1>
             <p className="mt-5 max-w-xl text-lg text-muted-foreground">
-              Submit through a four-step flow that mirrors the verification pipeline itself.
-              No hidden queue, no black-box status. If a check needs your attention,
-              we&rsquo;ll tell you exactly what and why.
+              Submit through a four-step flow that mirrors the verification pipeline itself. No
+              hidden queue, no black-box status. If a check needs your attention, we&rsquo;ll tell
+              you exactly what and why.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
@@ -43,17 +43,12 @@ export default function OwnerHome() {
                 { icon: Eye, label: "Pipeline visibility", value: "Live" },
                 { icon: ShieldCheck, label: "Listing fee", value: "Free" },
               ].map((s) => (
-                <li
-                  key={s.label}
-                  className="rounded-2xl bg-card p-5 ring-1 ring-border"
-                >
+                <li key={s.label} className="rounded-2xl bg-card p-5 ring-1 ring-border">
                   <s.icon className="h-5 w-5 text-primary" />
                   <p className="mt-4 text-xs uppercase tracking-[0.16em] text-muted-foreground">
                     {s.label}
                   </p>
-                  <p className="mt-1 font-display text-xl font-semibold text-navy">
-                    {s.value}
-                  </p>
+                  <p className="mt-1 font-display text-xl font-semibold text-navy">{s.value}</p>
                 </li>
               ))}
             </ul>
@@ -84,9 +79,7 @@ export default function OwnerHome() {
                     <span className="grid h-6 w-6 place-items-center rounded-full bg-coral text-coral-foreground text-[10px] font-bold">
                       ✓
                     </span>
-                    {i < arr.length - 1 && (
-                      <span className="mt-1 h-8 w-px bg-border" />
-                    )}
+                    {i < arr.length - 1 && <span className="mt-1 h-8 w-px bg-border" />}
                   </div>
                   <div className="flex-1 pt-0.5">
                     <p className="text-sm font-medium text-foreground">{row.label}</p>
@@ -115,10 +108,7 @@ export default function OwnerHome() {
             { t: "RERA & documents", d: "Registration number and portal screenshot." },
             { t: "Identity", d: "Phone OTP and a government ID." },
           ].map((s, i) => (
-            <div
-              key={s.t}
-              className="rounded-2xl bg-surface p-6 ring-1 ring-border"
-            >
+            <div key={s.t} className="rounded-2xl bg-surface p-6 ring-1 ring-border">
               <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
                 Step {i + 1}
               </span>

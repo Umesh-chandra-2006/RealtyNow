@@ -31,13 +31,10 @@ export default function Submit() {
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">
             Submission
           </p>
-          <h1 className="mt-2 font-display text-3xl font-semibold text-navy">
-            Add your property
-          </h1>
+          <h1 className="mt-2 font-display text-3xl font-semibold text-navy">Add your property</h1>
           <ol className="mt-8 space-y-4">
             {steps.map((s, i) => {
-              const state =
-                done || i < step ? "done" : i === step ? "active" : "todo";
+              const state = done || i < step ? "done" : i === step ? "active" : "todo";
               return (
                 <li key={s.key} className="flex items-start gap-3">
                   <span
@@ -73,8 +70,8 @@ export default function Submit() {
               What happens next
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
-              Once you submit, checks kick off within minutes. You&rsquo;ll be able to track
-              every step from the owner portal.
+              Once you submit, checks kick off within minutes. You&rsquo;ll be able to track every
+              step from the owner portal.
             </p>
           </div>
         </aside>
@@ -88,11 +85,7 @@ export default function Submit() {
   );
 }
 
-function renderStep(
-  step: number,
-  setStep: (n: number) => void,
-  setDone: (v: boolean) => void,
-) {
+function renderStep(step: number, setStep: (n: number) => void, setDone: (v: boolean) => void) {
   const next = () => {
     if (step === 3) setDone(true);
     else setStep(step + 1);
@@ -195,12 +188,8 @@ function renderStep(
       >
         <label className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border bg-surface px-6 py-14 text-center transition-colors hover:border-primary hover:bg-accent cursor-pointer">
           <Upload className="h-8 w-8 text-primary" />
-          <p className="mt-3 font-display text-lg font-semibold text-navy">
-            Drop photos here
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            JPEG or PNG · Up to 12 MB each
-          </p>
+          <p className="mt-3 font-display text-lg font-semibold text-navy">Drop photos here</p>
+          <p className="mt-1 text-sm text-muted-foreground">JPEG or PNG · Up to 12 MB each</p>
           <input type="file" accept="image/*" multiple className="hidden" />
         </label>
       </StepShell>

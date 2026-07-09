@@ -1,37 +1,31 @@
-import { Link } from "@tanstack/react-router";
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Menu, X, Sun, Moon } from "lucide-react";
 import { useState, useEffect } from "react";
-import { cn } from "@/lib/utils";
-import { useAuth } from "@/context/AuthContext";
+import { cn } from "../lib/utils";
+import { useAuth } from "../context/AuthContext";
 
 const nav = [
-  { to: "/browse", label: "Browse verified" },
-  { to: "/owner", label: "List a property" },
-  { to: "/owner/track/bandra-loft", label: "Track a listing" },
+  { href: "/browse", label: "Browse verified" },
+  { href: "/owner", label: "List a property" },
+  { href: "/owner/track/bandra-loft", label: "Track a listing" },
 ] as const;
 
-export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
-  const [open, setOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
+function ThemeToggle({ transparent = false }: { transparent?: boolean }) {
   const [mounted, setMounted] = useState(false);
   const [isDark, setIsDark] = useState(false);
-  const { user, profile, loading, signOut } = useAuth();
 
   useEffect(() => {
     setMounted(true);
     setIsDark(document.documentElement.classList.contains("dark"));
-
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 20);
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const toggleTheme = () => {
-    const nextDark = !isDark;
-    setIsDark(nextDark);
-    if (nextDark) {
+  const toggle = () => {
+    const next = !isDark;
+    setIsDark(next);
+    if (next) {
       document.documentElement.classList.add("dark");
       localStorage.setItem("realtynow-theme", "dark");
     } else {
@@ -39,6 +33,44 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
       localStorage.setItem("realtynow-theme", "light");
     }
   };
+
+  if (!mounted) {
+    return <span className="h-9 w-9 shrink-0" />;
+  }
+
+  return (
+    <button
+      onClick={toggle}
+      className={cn(
+        "grid h-9 w-9 shrink-0 place-items-center rounded-full border transition-colors",
+        transparent
+          ? "bg-white/10 border-white/10 text-white hover:bg-white/20"
+          : "bg-surface border-border text-navy hover:bg-accent",
+      )}
+      aria-label="Toggle theme"
+    >
+      {isDark ? (
+        <Sun className="h-4.5 w-4.5 text-primary" />
+      ) : (
+        <Moon className="h-4.5 w-4.5 text-navy" />
+      )}
+    </button>
+  );
+}
+
+export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const { user, profile, loading, signOut } = useAuth();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 20);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   const getInitials = () => {
     if (profile?.full_name) {
@@ -58,23 +90,19 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
       className={cn(
         "fixed top-0 left-0 z-50 w-full transition-all duration-300",
         isHeaderTransparent
-          ? "border-b border-white/10 bg-transparent text-white"
-          : "border-b border-border bg-background/85 backdrop-blur-xl shadow-crisp"
+          ? "border-b border-white/10 bg-transparent"
+          : "border-b border-border bg-background/85 backdrop-blur-xl shadow-crisp",
       )}
     >
       <div className="container-page flex h-16 items-center justify-between gap-4">
-        <Link to="/" className="flex items-center gap-2">
-          <span
-            className={cn(
-              "grid h-8 w-8 place-items-center rounded-lg bg-primary text-primary-foreground font-display text-sm font-bold",
-            )}
-          >
+        <Link href="/" className="flex items-center gap-2">
+          <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-primary-foreground font-display text-sm font-bold">
             R
           </span>
           <span
             className={cn(
               "font-display text-lg font-bold tracking-tight transition-colors",
-              isHeaderTransparent ? "text-white" : "text-navy"
+              isHeaderTransparent ? "text-white" : "text-navy",
             )}
           >
             Realty<span className="text-primary">Now</span>
@@ -82,53 +110,40 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
         </Link>
 
         <nav className="hidden items-center gap-1 md:flex">
-          {nav.map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              className={cn(
-                "rounded-full px-4 py-2 text-sm font-medium transition-colors",
-                isHeaderTransparent
-                  ? "text-white/85 hover:bg-white/10 hover:text-white"
-                  : "text-muted-foreground hover:bg-accent hover:text-navy",
-              )}
-              activeProps={{
-                className: isHeaderTransparent
-                  ? "bg-white/15 text-white"
-                  : "bg-accent text-navy",
-              }}
-            >
-              {item.label}
-            </Link>
-          ))}
+          {nav.map((item) => {
+            const active = pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "rounded-full px-4 py-2 text-sm font-medium transition-all duration-200",
+                  isHeaderTransparent
+                    ? active
+                      ? "bg-white/15 text-white font-semibold"
+                      : "text-white/80 hover:bg-white/10 hover:text-white"
+                    : active
+                      ? "bg-accent text-navy font-semibold"
+                      : "text-muted-foreground hover:bg-accent hover:text-navy",
+                )}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="hidden items-center gap-4 md:flex">
-          {/* Theme Toggle */}
-          {mounted ? (
-            <button
-              onClick={toggleTheme}
-              aria-label="Toggle Theme"
-              className={cn(
-                "grid h-9 w-9 place-items-center rounded-full transition-colors",
-                isHeaderTransparent
-                  ? "text-white/80 hover:bg-white/10 hover:text-white"
-                  : "text-muted-foreground hover:bg-accent hover:text-navy"
-              )}
-            >
-              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </button>
-          ) : (
-            <span className="h-9 w-9 shrink-0" />
-          )}
-
+          <ThemeToggle transparent={isHeaderTransparent} />
           {!loading && user ? (
             <div className="flex items-center gap-3">
               <Link
-                to="/profile"
+                href="/profile"
                 className={cn(
                   "flex items-center gap-2 text-sm font-medium transition-colors",
-                  isHeaderTransparent ? "text-white hover:text-primary" : "text-navy hover:text-primary"
+                  isHeaderTransparent
+                    ? "text-white hover:text-primary"
+                    : "text-navy hover:text-primary",
                 )}
               >
                 <div className="grid h-8 w-8 place-items-center rounded-full bg-primary text-white font-display font-semibold text-xs">
@@ -142,7 +157,7 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
                   "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors border",
                   isHeaderTransparent
                     ? "text-white/70 hover:text-white border-white/10 hover:bg-white/5"
-                    : "text-muted-foreground hover:text-navy border-border hover:bg-surface"
+                    : "text-muted-foreground hover:text-navy border-border hover:bg-surface",
                 )}
               >
                 Sign out
@@ -150,11 +165,11 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
             </div>
           ) : (
             <Link
-              to="/login"
+              href="/login"
               className={cn(
                 "rounded-full px-4 py-2 text-sm font-medium transition-colors",
                 isHeaderTransparent
-                  ? "text-white/85 hover:text-white"
+                  ? "text-white/80 hover:text-white"
                   : "text-navy hover:text-primary",
               )}
             >
@@ -162,47 +177,38 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
             </Link>
           )}
           <Link
-            to="/owner/submit"
+            href="/owner/submit"
             className="inline-flex items-center rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-crisp transition-transform hover:scale-[1.02] active:scale-[0.98]"
           >
             List for free
           </Link>
         </div>
 
-        <div className="flex items-center gap-2 md:hidden">
-          {/* Mobile Theme Toggle */}
-          {mounted && (
-            <button
-              onClick={toggleTheme}
-              aria-label="Toggle Theme"
-              className={cn(
-                "grid h-10 w-10 place-items-center rounded-full transition-colors",
-                isHeaderTransparent ? "text-white" : "text-navy"
-              )}
-            >
-              {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-            </button>
+        <button
+          onClick={() => setOpen((v) => !v)}
+          aria-label="Toggle menu"
+          className={cn(
+            "grid h-10 w-10 place-items-center rounded-full md:hidden",
+            isHeaderTransparent ? "text-white" : "text-navy",
           )}
-          <button
-            onClick={() => setOpen((v) => !v)}
-            aria-label="Toggle menu"
-            className={cn(
-              "grid h-10 w-10 place-items-center rounded-full",
-              isHeaderTransparent ? "text-white" : "text-navy",
-            )}
-          >
-            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
-        </div>
+        >
+          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        </button>
       </div>
 
       {open && (
-        <div className="border-t border-border bg-background px-5 py-4 md:hidden">
+        <div className="border-t border-border bg-background px-5 py-4 md:hidden animate-fade-rise">
+          <div className="mb-4 flex items-center justify-between border-b border-border pb-3">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Theme
+            </span>
+            <ThemeToggle transparent={false} />
+          </div>
           <nav className="flex flex-col gap-1">
             {nav.map((item) => (
               <Link
-                key={item.to}
-                to={item.to}
+                key={item.href}
+                href={item.href}
                 onClick={() => setOpen(false)}
                 className="rounded-lg px-3 py-3 text-sm font-medium text-navy hover:bg-accent"
               >
@@ -212,7 +218,7 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
             {!loading && user ? (
               <>
                 <Link
-                  to="/profile"
+                  href="/profile"
                   onClick={() => setOpen(false)}
                   className="rounded-lg px-3 py-3 text-sm font-medium text-navy hover:bg-accent flex items-center gap-2"
                 >
@@ -233,7 +239,7 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
               </>
             ) : (
               <Link
-                to="/login"
+                href="/login"
                 onClick={() => setOpen(false)}
                 className="rounded-lg px-3 py-3 text-sm font-medium text-navy hover:bg-accent"
               >
@@ -241,7 +247,7 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
               </Link>
             )}
             <Link
-              to="/owner/submit"
+              href="/owner/submit"
               onClick={() => setOpen(false)}
               className="mt-2 inline-flex items-center justify-center rounded-full bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground"
             >

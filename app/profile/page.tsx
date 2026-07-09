@@ -8,8 +8,8 @@ import { isSupabaseConfigured, supabase } from "../../src/lib/supabase";
 import { PropertyListing } from "../../src/lib/actions";
 import { listings } from "../../src/data/listings";
 import { toast } from "sonner";
-import { SiteHeader } from "../../src/components/SiteHeader.next";
-import { SiteFooter } from "../../src/components/SiteFooter.next";
+import { SiteHeader } from "../../src/components/SiteHeader";
+import { SiteFooter } from "../../src/components/SiteFooter";
 import { User, Heart, Building, LogOut } from "lucide-react";
 import { getImgSrc } from "../../src/lib/utils";
 
@@ -47,7 +47,7 @@ export default function ProfilePage() {
             .select("property_id")
             .eq("user_id", activeUser.id);
 
-          bookmarkedIds = favsData?.map((f) => f.property_id) || [];
+          bookmarkedIds = favsData?.map((f: { property_id: string }) => f.property_id) || [];
 
           const { data: postsData } = await supabase
             .from("properties")
@@ -60,7 +60,9 @@ export default function ProfilePage() {
           bookmarkedIds = JSON.parse(localStorage.getItem(localFavsKey) || "[]");
 
           const localPropsKey = "realtynow_properties";
-          const allProps: PropertyListing[] = JSON.parse(localStorage.getItem(localPropsKey) || "[]");
+          const allProps: PropertyListing[] = JSON.parse(
+            localStorage.getItem(localPropsKey) || "[]",
+          );
           posts = allProps.filter((p) => p.created_by === activeUser.id);
         }
 
@@ -205,11 +207,15 @@ export default function ProfilePage() {
                 <div className="space-y-4">
                   <div className="flex justify-between items-center py-3 border-b border-border">
                     <span className="text-sm text-muted-foreground">Full Name</span>
-                    <strong className="text-sm text-foreground">{profile?.full_name || "Sandbox User"}</strong>
+                    <strong className="text-sm text-foreground">
+                      {profile?.full_name || "Sandbox User"}
+                    </strong>
                   </div>
                   <div className="flex justify-between items-center py-3 border-b border-border">
                     <span className="text-sm text-muted-foreground">Contact Phone</span>
-                    <strong className="text-sm text-foreground">{user.phone || "Mock Account"}</strong>
+                    <strong className="text-sm text-foreground">
+                      {user.phone || "Mock Account"}
+                    </strong>
                   </div>
                   <div className="flex justify-between items-center py-3 border-b border-border">
                     <span className="text-sm text-muted-foreground">Registered Role</span>
@@ -238,7 +244,9 @@ export default function ProfilePage() {
                   <p className="text-sm text-muted-foreground">Querying saved listings...</p>
                 ) : favoriteListings.length === 0 ? (
                   <div className="rounded-3xl border border-dashed border-border p-12 text-center">
-                    <p className="text-sm text-muted-foreground mb-6">You have not bookmarked any properties yet.</p>
+                    <p className="text-sm text-muted-foreground mb-6">
+                      You have not bookmarked any properties yet.
+                    </p>
                     <Link
                       href="/browse"
                       className="inline-flex items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-transform hover:scale-[1.01]"
@@ -272,9 +280,7 @@ export default function ProfilePage() {
                             </p>
                           </div>
                           <div className="mt-6 flex items-center justify-between">
-                            <strong className="text-base text-primary">
-                              {fav.priceLabel}
-                            </strong>
+                            <strong className="text-base text-primary">{fav.priceLabel}</strong>
                             <Link
                               href={`/listing/${fav.id}`}
                               className="text-xs font-semibold text-foreground hover:text-primary transition-colors"
@@ -297,7 +303,9 @@ export default function ProfilePage() {
                   <p className="text-sm text-muted-foreground">Querying property postings...</p>
                 ) : userPostings.length === 0 ? (
                   <div className="rounded-3xl border border-dashed border-border p-12 text-center">
-                    <p className="text-sm text-muted-foreground mb-6">You have not listed any properties yet.</p>
+                    <p className="text-sm text-muted-foreground mb-6">
+                      You have not listed any properties yet.
+                    </p>
                     <Link
                       href="/owner/submit"
                       className="inline-flex items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-transform hover:scale-[1.01]"

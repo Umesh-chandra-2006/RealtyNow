@@ -7,14 +7,21 @@ import { useAuth } from "../../src/context/AuthContext";
 import { signInWithEmail } from "../../src/lib/actions";
 import { supabase, isSupabaseConfigured } from "../../src/lib/supabase";
 import { toast } from "sonner";
-import { SiteHeader } from "../../src/components/SiteHeader.next";
-import { SiteFooter } from "../../src/components/SiteFooter.next";
+import { SiteHeader } from "../../src/components/SiteHeader";
+import { SiteFooter } from "../../src/components/SiteFooter";
 import { ArrowRight } from "lucide-react";
+
+function isValidRedirect(url: string): boolean {
+  if (!url) return false;
+  // Ensure it starts with / and does not start with // (protocol-relative) or \\ (Windows path-like bypasses)
+  return url.startsWith("/") && !url.startsWith("//") && !url.startsWith("\\");
+}
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectUrl = searchParams.get("redirect") || "/";
+  const rawRedirect = searchParams.get("redirect") || "/";
+  const redirectUrl = isValidRedirect(rawRedirect) ? rawRedirect : "/";
 
   const { user, profile, loading, refreshUser } = useAuth();
 
@@ -96,7 +103,8 @@ function LoginForm() {
         }
       } catch (err: any) {
         toast.error(
-          err.message || "Invalid credentials. Use test@example.com / password123 for sandbox testing."
+          err.message ||
+            "Invalid credentials. Use test@example.com / password123 for sandbox testing.",
         );
       } finally {
         setIsSubmitting(false);
@@ -162,15 +170,22 @@ function LoginForm() {
         <div className="relative z-10 w-full max-w-[450px] rounded-3xl bg-card p-8 shadow-elevated ring-1 ring-border md:p-10">
           {/* Logo header */}
           <div className="mb-8 text-center">
-            <Link href="/" className="inline-flex items-center gap-2 font-display text-2xl font-bold tracking-tight text-foreground">
-              <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-primary-foreground text-sm font-bold">R</span>
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 font-display text-2xl font-bold tracking-tight text-foreground"
+            >
+              <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-primary-foreground text-sm font-bold">
+                R
+              </span>
               Realty<span className="text-primary">Now</span>
             </Link>
             <h1 className="mt-6 font-display text-2xl font-bold text-foreground">
               {onboardingRequired ? "Complete Your Profile" : "Welcome Back"}
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              {onboardingRequired ? "Finish setting up your account details." : "Log in using your credentials."}
+              {onboardingRequired
+                ? "Finish setting up your account details."
+                : "Log in using your credentials."}
             </p>
           </div>
 
@@ -178,7 +193,12 @@ function LoginForm() {
             /* Onboarding Form */
             <form onSubmit={handleOnboardingSubmit} className="space-y-5">
               <div>
-                <label htmlFor="fullName" className="block text-sm font-semibold text-foreground mb-2">Full Name</label>
+                <label
+                  htmlFor="fullName"
+                  className="block text-sm font-semibold text-foreground mb-2"
+                >
+                  Full Name
+                </label>
                 <input
                   type="text"
                   id="fullName"
@@ -193,7 +213,9 @@ function LoginForm() {
               </div>
 
               <div>
-                <span className="block text-sm font-semibold text-foreground mb-2">Register as a...</span>
+                <span className="block text-sm font-semibold text-foreground mb-2">
+                  Register as a...
+                </span>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
@@ -232,7 +254,12 @@ function LoginForm() {
             /* Regular Login Form */
             <form onSubmit={handleSubmitAuth} className="space-y-5">
               <div>
-                <label htmlFor="loginEmail" className="block text-sm font-semibold text-foreground mb-2">Email Address</label>
+                <label
+                  htmlFor="loginEmail"
+                  className="block text-sm font-semibold text-foreground mb-2"
+                >
+                  Email Address
+                </label>
                 <input
                   type="email"
                   id="loginEmail"
@@ -247,7 +274,12 @@ function LoginForm() {
               </div>
 
               <div>
-                <label htmlFor="loginPassword" className="block text-sm font-semibold text-foreground mb-2">Password</label>
+                <label
+                  htmlFor="loginPassword"
+                  className="block text-sm font-semibold text-foreground mb-2"
+                >
+                  Password
+                </label>
                 <input
                   type="password"
                   id="loginPassword"
@@ -287,11 +319,13 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={
-      <div className="flex min-h-screen items-center justify-center bg-background text-foreground">
-        <h3 className="text-lg font-semibold animate-pulse">Loading login credentials...</h3>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-background text-foreground">
+          <h3 className="text-lg font-semibold animate-pulse">Loading login credentials...</h3>
+        </div>
+      }
+    >
       <LoginForm />
     </Suspense>
   );
