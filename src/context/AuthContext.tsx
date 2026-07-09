@@ -59,7 +59,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const parsed = JSON.parse(localUser);
           setUser(parsed);
           setProfile(parsed.profile || { role: "buyer", full_name: "Mock User" });
-          document.cookie = "realtynow_session=true; path=/; max-age=3600; SameSite=Lax";
+          document.cookie =
+            "realtynow_session=mock-session-jwt-xyz; path=/; max-age=3600; SameSite=Lax";
         } else {
           setUser(null);
           setProfile(null);
@@ -75,7 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session.user);
         const prof = await fetchProfile(session.user.id);
         setProfile(prof);
-        document.cookie = "realtynow_session=true; path=/; max-age=3600; SameSite=Lax";
+        document.cookie = `realtynow_session=${session.access_token}; path=/; max-age=3600; SameSite=Lax`;
       } else {
         setUser(null);
         setProfile(null);
@@ -104,7 +105,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(session.user);
           const prof = await fetchProfile(session.user.id);
           setProfile(prof);
-          document.cookie = "realtynow_session=true; path=/; max-age=3600; SameSite=Lax";
+          document.cookie = `realtynow_session=${session.access_token}; path=/; max-age=3600; SameSite=Lax`;
         } else {
           setUser(null);
           setProfile(null);

@@ -51,7 +51,10 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
               city: data.city,
               locality: data.locality,
               price: data.price,
-              priceLabel: `₹ ${(data.price / 10000000).toFixed(2)} Cr`,
+              priceLabel:
+                data.type === "rent"
+                  ? `₹ ${data.price.toLocaleString("en-IN")} / mo`
+                  : `₹ ${(data.price / 10000000).toFixed(2)} Cr`,
               cadence: data.type === "buy" ? "sale" : "rent",
               propertyType: data.sub_type.charAt(0).toUpperCase() + data.sub_type.slice(1),
               bedrooms: data.bhk,
@@ -65,7 +68,8 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
                 : new Date().toISOString().split("T")[0],
               reraNumber: data.rera_id || "N/A",
               reraState: "Maharashtra",
-              verificationChecks: [
+              highlights: data.highlights || [],
+              checks: [
                 {
                   key: "rera",
                   label: "RERA verification",

@@ -10,11 +10,13 @@ interface LogPayload {
 }
 
 // Helper to deeply scrub sensitive keys from objects
-function scrubSensitiveData(obj: any): any {
+function scrubSensitiveData(obj: any, visited = new WeakSet()): any {
   if (!obj || typeof obj !== "object") return obj;
+  if (visited.has(obj)) return "[Circular]";
+  visited.add(obj);
 
   if (Array.isArray(obj)) {
-    return obj.map(scrubSensitiveData);
+    return obj.map((item) => scrubSensitiveData(item, visited));
   }
 
   const scrubbed: any = {};
@@ -56,7 +58,7 @@ function scrubSensitiveData(obj: any): any {
         scrubbed[key] = "[REDACTED]";
       }
     } else {
-      scrubbed[key] = scrubSensitiveData(obj[key]);
+      scrubbed[key] = scrubSensitiveData(obj[key], visited);
     }
   }
 

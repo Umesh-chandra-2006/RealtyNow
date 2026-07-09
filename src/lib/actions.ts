@@ -24,6 +24,7 @@ export interface PropertyListing {
   rera_id?: string;
   created_by: string;
   image_urls?: string[];
+  highlights?: string[];
   created_at?: string;
 }
 
@@ -128,39 +129,12 @@ export async function signUpWithEmail(
 
 export async function signInWithEmail(email: string, password: string) {
   if (isSupabaseConfigured()) {
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      if (error) {
-        // Local dev testing bypass fallback if Supabase is configured but user is not in database yet
-        if (isMockAuthEnabled() && email === "test@example.com" && password === "password123") {
-          const mockUser = {
-            id: "mock-user-uuid-123",
-            email: "test@example.com",
-            phone: "+91 98765 43210",
-            profile: { role: "buyer", full_name: "Sandbox User" },
-          };
-          logger.warn("Simulated test login credentials bypass activated.", { email });
-          return { success: true, user: mockUser, simulated: true };
-        }
-        throw error;
-      }
-      return { success: true, user: data.user };
-    } catch (err: any) {
-      if (isMockAuthEnabled() && email === "test@example.com" && password === "password123") {
-        const mockUser = {
-          id: "mock-user-uuid-123",
-          email: "test@example.com",
-          phone: "+91 98765 43210",
-          profile: { role: "buyer", full_name: "Sandbox User" },
-        };
-        logger.warn("Simulated test login credentials bypass catch activated.", { email });
-        return { success: true, user: mockUser, simulated: true };
-      }
-      throw err;
-    }
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    if (error) throw error;
+    return { success: true, user: data.user, simulated: false };
   } else {
     if (!isMockAuthEnabled()) {
       throw new Error("Supabase service is not configured.");
@@ -173,7 +147,7 @@ export async function signInWithEmail(email: string, password: string) {
         phone: "+91 98765 43210",
         profile: { role: "buyer", full_name: "Sandbox User" },
       };
-      return { success: true, user: mockUser };
+      return { success: true, user: mockUser, simulated: true };
     }
 
     // Check offline registered users
@@ -190,7 +164,7 @@ export async function signInWithEmail(email: string, password: string) {
       );
     }
 
-    return { success: true, user: matched };
+    return { success: true, user: matched, simulated: true };
   }
 }
 
@@ -240,29 +214,13 @@ export async function signInWithOtp(phone: string) {
 
 export async function verifyOtpCode(phone: string, token: string, isSimulated: boolean = false) {
   if (isSupabaseConfigured() && !isSimulated) {
-    try {
-      const { data, error } = await supabase.auth.verifyOtp({
-        phone: `+91${phone}`,
-        token,
-        type: "sms",
-      });
-      if (error) throw error;
-      return { success: true, user: data.user, session: data.session };
-    } catch (err: any) {
-      // Backdoor bypass logic for dev tests (e.g. if SMS provider fails to register verification codes)
-      if (token === "123456" && isMockAuthEnabled()) {
-        logger.warn("Supabase verification failed. Bypassing using mock session credentials.", {
-          phone,
-        });
-        const mockUser = {
-          id: "mock-user-uuid-123",
-          phone: `+91${phone}`,
-          user_metadata: { role: "buyer", full_name: "Sandbox User" },
-        };
-        return { success: true, user: mockUser, session: {}, bypassed: true };
-      }
-      throw err;
-    }
+    const { data, error } = await supabase.auth.verifyOtp({
+      phone: `+91${phone}`,
+      token,
+      type: "sms",
+    });
+    if (error) throw error;
+    return { success: true, user: data.user, session: data.session };
   } else {
     if (!isMockAuthEnabled()) {
       throw new Error("Local simulator authentication is disabled.");

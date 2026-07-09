@@ -123,13 +123,11 @@ function LoginForm() {
       const isMock = !isSupabaseConfigured() || tempUser?.id.startsWith("mock-");
 
       if (isSupabaseConfigured() && !isMock && tempUser) {
-        const { error } = await supabase
-          .from("profiles")
-          .update({
-            full_name: fullName,
-            role: onboardRole,
-          })
-          .eq("id", tempUser.id);
+        const { error } = await supabase.from("profiles").upsert({
+          id: tempUser.id,
+          full_name: fullName,
+          role: onboardRole,
+        });
 
         if (error) throw error;
         localStorage.removeItem("realtynow_use_mock_session");

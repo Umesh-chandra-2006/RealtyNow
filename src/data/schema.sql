@@ -14,6 +14,16 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 -- Enable RLS on Profiles
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
+-- Create RLS Policies for Profiles
+CREATE POLICY "Allow public read access to profiles" ON public.profiles
+  FOR SELECT USING (true);
+
+CREATE POLICY "Allow users to insert own profile" ON public.profiles
+  FOR INSERT WITH CHECK (auth.uid() = id);
+
+CREATE POLICY "Allow users to update own profile" ON public.profiles
+  FOR UPDATE USING (auth.uid() = id);
+
 -- 2. Properties Listings Table Schema
 CREATE TABLE IF NOT EXISTS public.properties (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -32,11 +42,25 @@ CREATE TABLE IF NOT EXISTS public.properties (
   rera_id TEXT,
   created_by UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   image_urls TEXT[] DEFAULT '{}'::TEXT[] NOT NULL,
+  highlights TEXT[] DEFAULT '{}'::TEXT[] NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
 -- Enable RLS on Properties
 ALTER TABLE public.properties ENABLE ROW LEVEL SECURITY;
+
+-- Create RLS Policies for Properties
+CREATE POLICY "Allow public read access to properties" ON public.properties
+  FOR SELECT USING (true);
+
+CREATE POLICY "Allow users to insert own properties" ON public.properties
+  FOR INSERT WITH CHECK (auth.uid() = created_by);
+
+CREATE POLICY "Allow users to update own properties" ON public.properties
+  FOR UPDATE USING (auth.uid() = created_by);
+
+CREATE POLICY "Allow users to delete own properties" ON public.properties
+  FOR DELETE USING (auth.uid() = created_by);
 
 -- 3. Favorites Table Schema
 CREATE TABLE IF NOT EXISTS public.favorites (
@@ -50,6 +74,16 @@ CREATE TABLE IF NOT EXISTS public.favorites (
 -- Enable RLS on Favorites
 ALTER TABLE public.favorites ENABLE ROW LEVEL SECURITY;
 
+-- Create RLS Policies for Favorites
+CREATE POLICY "Allow users to read own favorites" ON public.favorites
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Allow users to insert own favorites" ON public.favorites
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Allow users to delete own favorites" ON public.favorites
+  FOR DELETE USING (auth.uid() = user_id);
+
 -- 4. Contact Requests Table Schema
 CREATE TABLE IF NOT EXISTS public.contact_requests (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -62,9 +96,15 @@ CREATE TABLE IF NOT EXISTS public.contact_requests (
 -- Enable RLS on Contact Requests
 ALTER TABLE public.contact_requests ENABLE ROW LEVEL SECURITY;
 
+-- Create RLS Policies for Contact Requests
+CREATE POLICY "Allow users to read own contact requests" ON public.contact_requests
+  FOR SELECT USING (auth.uid() = buyer_id);
+
+CREATE POLICY "Allow users to insert own contact requests" ON public.contact_requests
+  FOR INSERT WITH CHECK (auth.uid() = buyer_id);
 
 -- =========================================================================
--- INDEX OPTIMIZATIONS (Fixes B-4: Missing Database Indexes)
+-- INDEX OPTIMIZATIONS
 -- =========================================================================
 
 -- Optimizes property lookup filtered by owner/creator
@@ -82,9 +122,12 @@ CREATE INDEX IF NOT EXISTS idx_favorites_lookup ON public.favorites(user_id, pro
 -- Optimizes contact requests by buyer profile
 CREATE INDEX IF NOT EXISTS idx_contact_requests_buyer ON public.contact_requests(buyer_id);
 
+-- Optimizes properties by buy/rent type and pricing searches
+CREATE INDEX IF NOT EXISTS idx_properties_type_price ON public.properties(type, price);
+
 
 -- =========================================================================
--- DATABASE FUNCTIONS & RPCs (Fixes B-2 & B-3: Atomic Operations)
+-- DATABASE FUNCTIONS & RPCs
 -- =========================================================================
 
 -- RPC: Atomic Favorite Toggle (Deletes if exists, inserts otherwise)
@@ -110,7 +153,7 @@ BEGIN
     RETURN TRUE;
   END IF;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
 
 -- RPC: Create Property Listing with Atomic Quota Checks
 CREATE OR REPLACE FUNCTION public.create_property_with_quota(
@@ -120,6 +163,11 @@ DECLARE
   v_count INTEGER;
   v_inserted JSONB;
 BEGIN
+  -- Perform row-level locking on the profile to serialize quota checks and prevent race conditions (TOCTOU)
+  PERFORM 1 FROM public.profiles 
+  WHERE id = (p_listing->>'created_by')::UUID 
+  FOR UPDATE;
+
   -- Perform atomic count lock
   SELECT COUNT(*) INTO v_count 
   FROM public.properties 
@@ -131,7 +179,7 @@ BEGIN
 
   -- Insert and return single JSON
   INSERT INTO public.properties (
-    title, description, price, bhk, area_sqft, type, sub_type, city, locality, address, rera_id, created_by, image_urls
+    title, description, price, bhk, area_sqft, type, sub_type, city, locality, address, rera_id, created_by, image_urls, highlights
   ) VALUES (
     p_listing->>'title',
     p_listing->>'description',
@@ -145,9 +193,10 @@ BEGIN
     p_listing->>'address',
     p_listing->>'rera_id',
     (p_listing->>'created_by')::UUID,
-    COALESCE(ARRAY(SELECT jsonb_array_elements_text(p_listing->'image_urls')), '{}'::TEXT[])
+    COALESCE(ARRAY(SELECT jsonb_array_elements_text(p_listing->'image_urls')), '{}'::TEXT[]),
+    COALESCE(ARRAY(SELECT jsonb_array_elements_text(p_listing->'highlights')), '{}'::TEXT[])
   ) RETURNING to_jsonb(public.properties.*) INTO v_inserted;
 
   RETURN v_inserted;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;

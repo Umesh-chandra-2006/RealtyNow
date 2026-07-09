@@ -37,7 +37,10 @@ export default function Browse() {
             city: p.city,
             locality: p.locality,
             price: p.price,
-            priceLabel: `₹ ${(p.price / 10000000).toFixed(2)} Cr`,
+            priceLabel:
+              p.type === "rent"
+                ? `₹ ${p.price.toLocaleString("en-IN")} / mo`
+                : `₹ ${(p.price / 10000000).toFixed(2)} Cr`,
             cadence: p.type === "buy" ? "sale" : "rent",
             propertyType: p.sub_type.charAt(0).toUpperCase() + p.sub_type.slice(1),
             bedrooms: p.bhk,
@@ -51,7 +54,8 @@ export default function Browse() {
               : new Date().toISOString().split("T")[0],
             reraNumber: p.rera_id || "N/A",
             reraState: "Maharashtra",
-            verificationChecks: [],
+            highlights: p.highlights || [],
+            checks: [],
           }));
           setActiveListings(mapped);
         }
