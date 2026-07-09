@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite dev",
     "dev:next": "next dev",
-    "build": "vite build",
+    "build": "next build",
+    "build:vite": "vite build",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
