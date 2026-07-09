@@ -13,7 +13,7 @@ const nav = [
   { href: "/owner/track/bandra-loft", label: "Track a listing" },
 ] as const;
 
-function ThemeToggle() {
+function ThemeToggle({ transparent = false }: { transparent?: boolean }) {
   const [mounted, setMounted] = useState(false);
   const [isDark, setIsDark] = useState(false);
 
@@ -41,18 +41,36 @@ function ThemeToggle() {
   return (
     <button
       onClick={toggle}
-      className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-border bg-surface text-navy hover:bg-accent transition-colors"
+      className={cn(
+        "grid h-9 w-9 shrink-0 place-items-center rounded-full border transition-colors",
+        transparent
+          ? "bg-white/10 border-white/10 text-white hover:bg-white/20"
+          : "bg-surface border-border text-navy hover:bg-accent"
+      )}
       aria-label="Toggle theme"
     >
-      {isDark ? <Sun className="h-4.5 w-4.5 text-primary" /> : <Moon className="h-4.5 w-4.5 text-navy" />}
+      {isDark ? (
+        <Sun className="h-4.5 w-4.5 text-primary" />
+      ) : (
+        <Moon className="h-4.5 w-4.5 text-navy" />
+      )}
     </button>
   );
 }
 
 export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
   const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const { user, profile, loading, signOut } = useAuth();
   const pathname = usePathname();
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 20);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   const getInitials = () => {
     if (profile?.full_name) {
@@ -65,28 +83,30 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
     return "U";
   };
 
+  const isHeaderTransparent = transparent && !scrolled;
+
   return (
     <header
       className={cn(
-        "sticky top-0 z-50 w-full border-b transition-colors",
-        transparent
-          ? "border-white/10 bg-white/5 backdrop-blur-md"
-          : "border-border bg-background/85 backdrop-blur-xl",
+        "top-0 z-50 w-full transition-all duration-300",
+        transparent ? "fixed" : "sticky border-b border-border bg-background/85 backdrop-blur-xl shadow-crisp",
+        transparent && (scrolled
+          ? "border-b border-border bg-background/85 backdrop-blur-xl shadow-crisp"
+          : "border-b border-white/10 bg-transparent"
+        )
       )}
     >
       <div className="container-page flex h-16 items-center justify-between gap-4">
         <Link href="/" className="flex items-center gap-2">
           <span
-            className={cn(
-              "grid h-8 w-8 place-items-center rounded-lg bg-primary text-primary-foreground font-display text-sm font-bold",
-            )}
+            className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-primary-foreground font-display text-sm font-bold"
           >
             R
           </span>
           <span
             className={cn(
-              "font-display text-lg font-bold tracking-tight",
-              transparent ? "text-white" : "text-navy",
+              "font-display text-lg font-bold tracking-tight transition-colors",
+              isHeaderTransparent ? "text-white" : "text-navy"
             )}
           >
             Realty<span className="text-primary">Now</span>
@@ -101,14 +121,14 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "rounded-full px-4 py-2 text-sm font-medium transition-colors",
-                  transparent
+                  "rounded-full px-4 py-2 text-sm font-medium transition-all duration-200",
+                  isHeaderTransparent
                     ? active
-                      ? "bg-white/15 text-white"
-                      : "text-white/85 hover:bg-white/10 hover:text-white"
+                      ? "bg-white/15 text-white font-semibold"
+                      : "text-white/80 hover:bg-white/10 hover:text-white"
                     : active
-                      ? "bg-accent text-navy"
-                      : "text-muted-foreground hover:bg-accent hover:text-navy",
+                      ? "bg-accent text-navy font-semibold"
+                      : "text-muted-foreground hover:bg-accent hover:text-navy"
                 )}
               >
                 {item.label}
@@ -118,12 +138,15 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
         </nav>
 
         <div className="hidden items-center gap-4 md:flex">
-          <ThemeToggle />
+          <ThemeToggle transparent={isHeaderTransparent} />
           {!loading && user ? (
             <div className="flex items-center gap-3">
               <Link
                 href="/profile"
-                className="flex items-center gap-2 text-sm font-medium text-navy hover:text-primary transition-colors"
+                className={cn(
+                  "flex items-center gap-2 text-sm font-medium transition-colors",
+                  isHeaderTransparent ? "text-white hover:text-primary" : "text-navy hover:text-primary"
+                )}
               >
                 <div className="grid h-8 w-8 place-items-center rounded-full bg-primary text-white font-display font-semibold text-xs">
                   {getInitials()}
@@ -132,7 +155,12 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
               </Link>
               <button
                 onClick={signOut}
-                className="rounded-full px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-navy transition-colors border border-border hover:bg-surface"
+                className={cn(
+                  "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors border",
+                  isHeaderTransparent
+                    ? "text-white/70 hover:text-white border-white/10 hover:bg-white/5"
+                    : "text-muted-foreground hover:text-navy border-border hover:bg-surface"
+                )}
               >
                 Sign out
               </button>
@@ -142,9 +170,9 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
               href="/login"
               className={cn(
                 "rounded-full px-4 py-2 text-sm font-medium transition-colors",
-                transparent
-                  ? "text-white/85 hover:text-white"
-                  : "text-navy hover:text-primary",
+                isHeaderTransparent
+                  ? "text-white/80 hover:text-white"
+                  : "text-navy hover:text-primary"
               )}
             >
               Sign in
@@ -163,7 +191,7 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
           aria-label="Toggle menu"
           className={cn(
             "grid h-10 w-10 place-items-center rounded-full md:hidden",
-            transparent ? "text-white" : "text-navy",
+            isHeaderTransparent ? "text-white" : "text-navy"
           )}
         >
           {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -174,7 +202,7 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
         <div className="border-t border-border bg-background px-5 py-4 md:hidden animate-fade-rise">
           <div className="mb-4 flex items-center justify-between border-b border-border pb-3">
             <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Theme</span>
-            <ThemeToggle />
+            <ThemeToggle transparent={false} />
           </div>
           <nav className="flex flex-col gap-1">
             {nav.map((item) => (

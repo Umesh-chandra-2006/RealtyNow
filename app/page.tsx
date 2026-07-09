@@ -62,10 +62,8 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background">
       <ScrollRevealInit />
-      <div className="relative">
-        <SiteHeader transparent />
-        <Hero />
-      </div>
+      <SiteHeader transparent />
+      <Hero />
       <TrustStrip />
       <HowItWorks />
       <FeaturedListings />
@@ -101,8 +99,8 @@ function Hero() {
         height={1280}
         className="absolute inset-0 h-full w-full object-cover"
       />
-      <div className="absolute inset-0 bg-gradient-to-r from-navy/85 via-navy/60 to-navy/20" />
-      <div className="absolute inset-0 bg-gradient-to-t from-navy/70 via-transparent to-navy/30" />
+      <div className="absolute inset-0 bg-gradient-to-r from-navy-dark/85 via-navy-dark/60 to-navy-dark/20" />
+      <div className="absolute inset-0 bg-gradient-to-t from-navy-dark/70 via-transparent to-navy-dark/30" />
 
       <div className="container-page relative pt-32 pb-24 md:pt-44 md:pb-32">
         <div className="max-w-2xl">
@@ -370,7 +368,7 @@ function CitiesStrip() {
               height={1000}
               className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-navy/90 via-navy/20 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-navy-dark/90 via-navy-dark/20 to-transparent" />
             <div className="absolute inset-x-0 bottom-0 p-4 text-white">
               <p className="font-display text-lg font-semibold">{city.name}</p>
               <p className="text-xs text-white/75">{city.count} verified homes</p>

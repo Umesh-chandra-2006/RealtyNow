@@ -78,6 +78,7 @@
   --foreground: #0B1020;
 
   --card: #FFFFFF;
+  --color-navy-dark: #0B1020;
   --card-foreground: #0B1020;
   --popover: #FFFFFF;
   --popover-foreground: #0B1020;
@@ -134,6 +135,7 @@
   --foreground: #F8FAFC;
 
   --card: #131B35;
+  --color-navy-dark: #0B1020;
   --card-foreground: #F8FAFC;
   --popover: #131B35;
   --popover-foreground: #F8FAFC;
@@ -231,7 +233,7 @@
 
 /* ---------- Mobile App Showcase & Phone Mockup ---------- */
 .showcase-section {
-  background: var(--navy);
+  background: var(--color-navy-dark);
   color: #FFFFFF;
   padding: 100px 0;
   position: relative;
@@ -466,7 +468,7 @@
 }
 
 .lead-cta {
-  background: linear-gradient(135deg, var(--navy) 0%, #000000 100%);
+  background: linear-gradient(135deg, var(--color-navy-dark) 0%, #000000 100%);
   border-radius: var(--radius-lg);
   padding: 64px;
   color: #fff;

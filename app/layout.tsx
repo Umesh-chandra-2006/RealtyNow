@@ -48,7 +48,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${fraunces.variable} ${poppins.variable} ${jetbrains.variable}`}>
+    <html lang="en" className={`${fraunces.variable} ${poppins.variable} ${jetbrains.variable}`} suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{
