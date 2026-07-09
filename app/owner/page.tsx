@@ -60,7 +60,7 @@ export default function OwnerHome() {
           </div>
 
           {/* Sample tracker card */}
-          <div className="rounded-3xl bg-navy-dark p-8 text-white ring-1 ring-navy-dark shadow-elevated">
+          <div className="rounded-3xl bg-[#0B1020] p-8 text-white ring-1 ring-[#0B1020] shadow-elevated">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-[0.18em] text-white/60">
                 Sample pipeline

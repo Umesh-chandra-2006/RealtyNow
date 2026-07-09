@@ -32,7 +32,7 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
   const [contactOpen, setContactOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pt-16">
       <SiteHeader />
 
       <div className="container-page py-6">
@@ -185,7 +185,7 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
               </p>
             </div>
 
-            <div className="rounded-2xl bg-navy-dark p-6 text-white">
+            <div className="rounded-2xl bg-[#0B1020] p-6 text-white">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-coral">
                 Trust note
               </p>
@@ -230,7 +230,7 @@ function ContactSheet({
 }) {
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-end bg-navy-dark/50 backdrop-blur-sm sm:place-items-center"
+      className="fixed inset-0 z-50 grid place-items-end bg-[#0B1020]/50 backdrop-blur-sm sm:place-items-center"
       onClick={onClose}
     >
       <div

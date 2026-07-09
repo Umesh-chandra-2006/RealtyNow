@@ -174,7 +174,7 @@ export default function TrackerPage({ params }: { params: Promise<{ id: string }
                 </Link>
               </div>
             </div>
-            <div className="rounded-2xl bg-navy-dark p-5 text-white">
+            <div className="rounded-2xl bg-[#0B1020] p-5 text-white">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-coral">
                 If a check ever fails
               </p>

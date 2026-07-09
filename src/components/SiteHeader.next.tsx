@@ -88,12 +88,10 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
   return (
     <header
       className={cn(
-        "top-0 z-50 w-full transition-all duration-300",
-        transparent ? "fixed" : "sticky border-b border-border bg-background/85 backdrop-blur-xl shadow-crisp",
-        transparent && (scrolled
-          ? "border-b border-border bg-background/85 backdrop-blur-xl shadow-crisp"
-          : "border-b border-white/10 bg-transparent"
-        )
+        "fixed top-0 left-0 z-50 w-full transition-all duration-300",
+        isHeaderTransparent
+          ? "border-b border-white/10 bg-transparent"
+          : "border-b border-border bg-background/85 backdrop-blur-xl shadow-crisp"
       )}
     >
       <div className="container-page flex h-16 items-center justify-between gap-4">

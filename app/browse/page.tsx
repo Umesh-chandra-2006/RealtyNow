@@ -41,7 +41,7 @@ export default function Browse() {
   }, [city, type, beds, cadence, sort]);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pt-16">
       <SiteHeader />
 
       {/* Page header */}
@@ -172,7 +172,7 @@ export default function Browse() {
         {/* Sticky sidebar */}
         <aside className="hidden lg:block">
           <div className="sticky top-40 space-y-4">
-            <div className="rounded-2xl bg-navy-dark p-6 text-white">
+            <div className="rounded-2xl bg-[#0B1020] p-6 text-white">
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-coral">
                 Verification standard
               </p>

@@ -10,7 +10,7 @@
  * sky-blue accent, and a coral moment reserved for Verified state.
  */
 
-@theme inline {
+@theme {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
