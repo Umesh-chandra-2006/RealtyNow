@@ -19,8 +19,7 @@ export const Route = createFileRoute("/browse")({
       { property: "og:title", content: "Browse verified homes · RealtyNow" },
       {
         property: "og:description",
-        content:
-          "Only verified inventory. Filter by city, budget, property type, and bedrooms.",
+        content: "Only verified inventory. Filter by city, budget, property type, and bedrooms.",
       },
     ],
   }),
@@ -65,9 +64,7 @@ function Browse() {
       {/* Page header */}
       <section className="border-b border-border bg-surface">
         <div className="container-page py-10 md:py-14">
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">
-            Browse
-          </p>
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">Browse</p>
           <h1 className="mt-2 font-display text-4xl font-semibold text-navy md:text-5xl">
             {filtered.length} verified homes match your filters.
           </h1>
@@ -85,10 +82,30 @@ function Browse() {
             <SlidersHorizontal className="h-4 w-4 text-primary" />
             Filters
           </div>
-          <FilterSelect label="City" value={city} onChange={(v) => setCity(v as any)} options={cityOptions} />
-          <FilterSelect label="Type" value={type} onChange={(v) => setType(v as any)} options={typeOptions} />
-          <FilterSelect label="Bedrooms" value={beds} onChange={(v) => setBeds(v as any)} options={bedroomOptions} />
-          <FilterSelect label="For" value={cadence} onChange={(v) => setCadence(v as any)} options={cadenceOptions} />
+          <FilterSelect
+            label="City"
+            value={city}
+            onChange={(v) => setCity(v as any)}
+            options={cityOptions}
+          />
+          <FilterSelect
+            label="Type"
+            value={type}
+            onChange={(v) => setType(v as any)}
+            options={typeOptions}
+          />
+          <FilterSelect
+            label="Bedrooms"
+            value={beds}
+            onChange={(v) => setBeds(v as any)}
+            options={bedroomOptions}
+          />
+          <FilterSelect
+            label="For"
+            value={cadence}
+            onChange={(v) => setCadence(v as any)}
+            options={cadenceOptions}
+          />
 
           <div className="ml-auto flex items-center gap-3">
             <span className="hidden items-center gap-2 rounded-full bg-coral/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-coral md:inline-flex">
@@ -115,16 +132,22 @@ function Browse() {
       <section className="container-page grid gap-8 py-10 lg:grid-cols-[1fr_320px]">
         <div>
           {filtered.length === 0 ? (
-            <EmptyState onReset={() => {
-              setCity("All cities");
-              setType("All types");
-              setBeds("Any");
-              setCadence("All");
-            }} />
+            <EmptyState
+              onReset={() => {
+                setCity("All cities");
+                setType("All types");
+                setBeds("Any");
+                setCadence("All");
+              }}
+            />
           ) : (
             <ul className="space-y-5">
               {filtered.map((l, i) => (
-                <li key={l.id} className="animate-fade-rise" style={{ animationDelay: `${i * 60}ms` }}>
+                <li
+                  key={l.id}
+                  className="animate-fade-rise"
+                  style={{ animationDelay: `${i * 60}ms` }}
+                >
                   <Link
                     to="/listing/$id"
                     params={{ id: l.id }}
@@ -152,9 +175,7 @@ function Browse() {
                           </p>
                         </div>
                         <div className="text-right">
-                          <p className="font-display text-xl font-bold text-navy">
-                            {l.priceLabel}
-                          </p>
+                          <p className="font-display text-xl font-bold text-navy">{l.priceLabel}</p>
                           <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
                             {l.propertyType} · For {l.cadence}
                           </p>
@@ -200,8 +221,8 @@ function Browse() {
                 Why you don&rsquo;t see &ldquo;pending&rdquo; listings here
               </h3>
               <p className="mt-3 text-sm text-muted-foreground">
-                A listing has to pass every check before we allow it into public search. No
-                fainter badges, no half-visible inventory.
+                A listing has to pass every check before we allow it into public search. No fainter
+                badges, no half-visible inventory.
               </p>
               <ul className="mt-6 space-y-3 text-sm">
                 {[
@@ -221,9 +242,7 @@ function Browse() {
             </div>
 
             <div className="rounded-2xl bg-surface p-6 ring-1 ring-border">
-              <h4 className="font-display text-lg font-semibold text-navy">
-                Save this search
-              </h4>
+              <h4 className="font-display text-lg font-semibold text-navy">Save this search</h4>
               <p className="mt-2 text-sm text-muted-foreground">
                 Get notified when a new verified home matching your filters goes live.
               </p>
@@ -273,7 +292,11 @@ function FilterSelect<T extends string>({
 
 function EmptyState({ onReset }: { onReset: () => void }) {
   return (
-    <div className={cn("flex flex-col items-center justify-center rounded-2xl bg-card px-6 py-20 text-center ring-1 ring-border")}>
+    <div
+      className={cn(
+        "flex flex-col items-center justify-center rounded-2xl bg-card px-6 py-20 text-center ring-1 ring-border",
+      )}
+    >
       <div className="grid h-14 w-14 place-items-center rounded-full bg-surface ring-1 ring-border">
         <MapPin className="h-6 w-6 text-primary" />
       </div>

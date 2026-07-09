@@ -62,8 +62,7 @@ function Tracker() {
     },
     {
       label: "Photo authenticity + duplicate scan",
-      detail:
-        "EXIF data checked on every image. Perceptual hash cleared against the platform.",
+      detail: "EXIF data checked on every image. Perceptual hash cleared against the platform.",
       time: "Day 2 · 08:20",
       state: "done",
     },
@@ -105,7 +104,12 @@ function Tracker() {
           </div>
 
           <div className="mt-8 grid gap-3 sm:grid-cols-4">
-            <Stat icon={Check} label="Steps complete" value={`${doneCount} / ${total}`} tint="coral" />
+            <Stat
+              icon={Check}
+              label="Steps complete"
+              value={`${doneCount} / ${total}`}
+              tint="coral"
+            />
             <Stat icon={Clock} label="Elapsed" value="1d 3h" tint="primary" />
             <Stat icon={Eye} label="Visibility" value="Public search" tint="primary" />
             <Stat icon={AlertTriangle} label="Attention needed" value="None" tint="muted" />
@@ -124,10 +128,7 @@ function Tracker() {
             </p>
           </div>
           <div className="mb-8 h-1.5 overflow-hidden rounded-full bg-surface">
-            <div
-              className="h-full bg-primary transition-all"
-              style={{ width: `${pct}%` }}
-            />
+            <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />
           </div>
 
           <ol className="relative">
@@ -137,31 +138,20 @@ function Tracker() {
                   <span
                     className={cn(
                       "grid h-8 w-8 place-items-center rounded-full text-xs font-bold",
-                      row.state === "done" &&
-                        "bg-coral text-coral-foreground",
+                      row.state === "done" && "bg-coral text-coral-foreground",
                       row.state === "active" &&
                         "bg-primary text-primary-foreground ring-4 ring-primary/15",
-                      row.state === "todo" &&
-                        "bg-white ring-1 ring-border text-muted-foreground",
-                      row.state === "warn" &&
-                        "bg-destructive text-destructive-foreground",
+                      row.state === "todo" && "bg-white ring-1 ring-border text-muted-foreground",
+                      row.state === "warn" && "bg-destructive text-destructive-foreground",
                     )}
                   >
-                    {row.state === "done" ? (
-                      <Check className="h-4 w-4" strokeWidth={3} />
-                    ) : (
-                      i + 1
-                    )}
+                    {row.state === "done" ? <Check className="h-4 w-4" strokeWidth={3} /> : i + 1}
                   </span>
-                  {i < arr.length - 1 && (
-                    <span className="mt-2 flex-1 w-px bg-border" />
-                  )}
+                  {i < arr.length - 1 && <span className="mt-2 flex-1 w-px bg-border" />}
                 </div>
                 <div>
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <p className="font-display text-lg font-semibold text-navy">
-                      {row.label}
-                    </p>
+                    <p className="font-display text-lg font-semibold text-navy">{row.label}</p>
                     <p className="text-xs text-muted-foreground">{row.time}</p>
                   </div>
                   <p className="mt-1 text-sm text-muted-foreground">{row.detail}</p>
@@ -176,9 +166,7 @@ function Tracker() {
             <div className="overflow-hidden rounded-2xl ring-1 ring-border">
               <img src={listing.photo} alt="" className="h-48 w-full object-cover" />
               <div className="p-5">
-                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                  Listing
-                </p>
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Listing</p>
                 <p className="mt-1 font-display text-base font-semibold text-navy">
                   {listing.title}
                 </p>
@@ -196,9 +184,8 @@ function Tracker() {
                 If a check ever fails
               </p>
               <p className="mt-3 text-sm text-muted-foreground">
-                We&rsquo;ll tell you exactly what to fix. Specific and human — e.g.
-                &ldquo;photo timestamp older than 12 months, please re-upload.&rdquo; Not a
-                generic error.
+                We&rsquo;ll tell you exactly what to fix. Specific and human — e.g. &ldquo;photo
+                timestamp older than 12 months, please re-upload.&rdquo; Not a generic error.
               </p>
             </div>
           </div>

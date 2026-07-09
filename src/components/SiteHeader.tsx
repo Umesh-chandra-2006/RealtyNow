@@ -103,9 +103,7 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
                   : "text-muted-foreground hover:bg-accent hover:text-navy",
               )}
               activeProps={{
-                className: transparent
-                  ? "bg-white/15 text-white"
-                  : "bg-accent text-navy",
+                className: transparent ? "bg-white/15 text-white" : "bg-accent text-navy",
               }}
             >
               {item.label}
@@ -146,9 +144,7 @@ export function SiteHeader({ transparent = false }: { transparent?: boolean }) {
               to="/login"
               className={cn(
                 "rounded-full px-4 py-2 text-sm font-medium transition-colors",
-                transparent
-                  ? "text-white/85 hover:text-white"
-                  : "text-navy hover:text-primary",
+                transparent ? "text-white/85 hover:text-white" : "text-navy hover:text-primary",
               )}
             >
               Sign in

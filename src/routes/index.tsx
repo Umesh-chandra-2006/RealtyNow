@@ -76,7 +76,8 @@ function Home() {
             <div className="lead-cta__content">
               <h2 className="font-display">Ready to Find Your Dream Home?</h2>
               <p>
-                Let us help you find the perfect space for you and your family. Enter your email below to connect with verified listings.
+                Let us help you find the perfect space for you and your family. Enter your email
+                below to connect with verified listings.
               </p>
               <LeadCaptureForm />
             </div>
@@ -144,9 +145,7 @@ function Hero() {
                 }`}
               >
                 {t}
-                {tab === t && (
-                  <span className="absolute inset-x-3 -bottom-px h-0.5 bg-primary" />
-                )}
+                {tab === t && <span className="absolute inset-x-3 -bottom-px h-0.5 bg-primary" />}
               </button>
             ))}
           </div>
@@ -439,8 +438,8 @@ function OwnerBand() {
                       row.status === "Done"
                         ? "bg-coral text-coral-foreground"
                         : row.status === "Running"
-                         ? "bg-primary/15 text-primary"
-                         : "bg-muted text-muted-foreground"
+                          ? "bg-primary/15 text-primary"
+                          : "bg-muted text-muted-foreground"
                     }`}
                   >
                     {i + 1}

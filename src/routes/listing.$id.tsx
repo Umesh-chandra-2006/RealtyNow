@@ -210,8 +210,8 @@ function ListingDetail() {
                 Trust note
               </p>
               <p className="mt-3 text-sm text-muted-foreground">
-                If anything about this listing changes — price, RERA status, ownership — we
-                re-run the checks. If any fail, the listing is pulled the same day.
+                If anything about this listing changes — price, RERA status, ownership — we re-run
+                the checks. If any fail, the listing is pulled the same day.
               </p>
             </div>
           </div>
@@ -219,10 +219,7 @@ function ListingDetail() {
       </section>
 
       {contactOpen && (
-        <ContactSheet
-          ownerName={listing.owner.name}
-          onClose={() => setContactOpen(false)}
-        />
+        <ContactSheet ownerName={listing.owner.name} onClose={() => setContactOpen(false)} />
       )}
 
       <SiteFooter />
@@ -241,13 +238,7 @@ function Meta({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ContactSheet({
-  ownerName,
-  onClose,
-}: {
-  ownerName: string;
-  onClose: () => void;
-}) {
+function ContactSheet({ ownerName, onClose }: { ownerName: string; onClose: () => void }) {
   return (
     <div
       className="fixed inset-0 z-50 grid place-items-end bg-navy/50 backdrop-blur-sm sm:place-items-center"
@@ -257,17 +248,19 @@ function ContactSheet({
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-md rounded-t-3xl bg-card p-6 shadow-elevated sm:rounded-3xl animate-fade-rise"
       >
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
-          Contact
-        </p>
-        <h3 className="mt-2 font-display text-2xl font-semibold text-navy">
-          Message {ownerName}
-        </h3>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Contact</p>
+        <h3 className="mt-2 font-display text-2xl font-semibold text-navy">Message {ownerName}</h3>
         <p className="mt-2 text-sm text-muted-foreground">
-          Tell the owner a bit about you and when you&rsquo;d like to visit. They&rsquo;ll get
-          your message directly — no broker in between.
+          Tell the owner a bit about you and when you&rsquo;d like to visit. They&rsquo;ll get your
+          message directly — no broker in between.
         </p>
-        <form className="mt-5 space-y-3" onSubmit={(e) => { e.preventDefault(); onClose(); }}>
+        <form
+          className="mt-5 space-y-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            onClose();
+          }}
+        >
           <input
             className="w-full rounded-xl bg-surface px-4 py-3 text-sm text-navy focus:outline-none focus:ring-1 focus:ring-primary"
             placeholder="Your full name"

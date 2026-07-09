@@ -114,9 +114,21 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "RealtyNow — Only verified homes across India" },
-      { name: "twitter:description", content: "India's verification-first property platform. Every listing clears a 4-step check — RERA, identity, photo authenticity, duplicate scan — before going public." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/58577042-df69-4f8e-9839-a075d6aeccc0/id-preview-84e51c01--2cae08e4-3cb9-495a-ab7c-2e08050cbb06.lovable.app-1783514595383.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/58577042-df69-4f8e-9839-a075d6aeccc0/id-preview-84e51c01--2cae08e4-3cb9-495a-ab7c-2e08050cbb06.lovable.app-1783514595383.png" },
+      {
+        name: "twitter:description",
+        content:
+          "India's verification-first property platform. Every listing clears a 4-step check — RERA, identity, photo authenticity, duplicate scan — before going public.",
+      },
+      {
+        property: "og:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/58577042-df69-4f8e-9839-a075d6aeccc0/id-preview-84e51c01--2cae08e4-3cb9-495a-ab7c-2e08050cbb06.lovable.app-1783514595383.png",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/58577042-df69-4f8e-9839-a075d6aeccc0/id-preview-84e51c01--2cae08e4-3cb9-495a-ab7c-2e08050cbb06.lovable.app-1783514595383.png",
+      },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
