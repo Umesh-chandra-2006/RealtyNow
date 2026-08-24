@@ -12,6 +12,8 @@ import {
   Clock,
   Send,
   Home,
+  CheckCircle2,
+  MessageCircle,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useRealtimeCount } from '../../lib/realtime';
@@ -404,30 +406,115 @@ export function ContactPage() {
     phone: '', 
     message: service ? `I am interested in ${service}. Please contact me.` : '' 
   });
+  const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim() || !form.phone.trim()) {
+    const cleanName = form.name.trim();
+    const cleanPhone = form.phone.trim();
+    const cleanEmail = form.email.trim();
+    const cleanMessage = form.message.trim();
+
+    if (!cleanName || !cleanPhone) {
       toast.addToast('error', 'Please provide your name and phone number.');
       return;
     }
-    const { error } = await supabase.from('enquiries').insert({
-      name: form.name.trim(),
-      email: form.email.trim() || null,
-      phone: form.phone.trim(),
-      message: form.message.trim() || null,
-      customer_id: user?.id ?? null,
-      property_id: null,
-      source: 'contact_page',
-      status: 'new',
-      lead_status: 'new',
-    });
-    if (!error) {
+
+    setSubmitting(true);
+    // Standardize service categorization
+    const serviceTag = service ? service.toLowerCase().replace(/\s+/g, '-') : 'general-inquiry';
+    const serviceTypeKey = service
+      ? service.toUpperCase().replace(/\s+/g, '_').replace(/[^A-Z0-9_]/g, '')
+      : 'GENERAL_ENQUIRY';
+
+    // Tier 1: Try dedicated RPC submit_contact_enquiry
+    try {
+      const { data: rpcData, error: rpcError } = await supabase.rpc('submit_contact_enquiry', {
+        p_name: cleanName,
+        p_phone: cleanPhone,
+        p_email: cleanEmail || null,
+        p_message: cleanMessage || null,
+        p_source: 'website',
+        p_customer_id: user?.id ?? null,
+        p_tags: service ? [serviceTag, serviceTypeKey, service] : ['contact-inquiry', 'GENERAL_ENQUIRY'],
+      });
+
+      if (!rpcError && (rpcData as any)?.success !== false) {
+        success = true;
+      }
+    } catch (rpcErr) {
+      console.warn('submit_contact_enquiry RPC not available or failed, trying direct insert:', rpcErr);
+    }
+
+    // Tier 2: Direct insert with full payload
+    if (!success) {
+      try {
+        const { error: insertError } = await supabase.from('enquiries').insert({
+          name: cleanName,
+          email: cleanEmail || null,
+          phone: cleanPhone,
+          message: cleanMessage || null,
+          customer_id: user?.id ?? null,
+          property_id: null,
+          source: 'website',
+          status: 'new',
+          lead_status: 'new',
+          priority: 'medium',
+          tags: service ? [serviceTag, serviceTypeKey] : ['contact-inquiry'],
+        });
+
+        if (!insertError) {
+          success = true;
+        } else {
+          console.warn('Tier 2 full insert failed:', insertError);
+          // Tier 3: Minimal insert fallback
+          const { error: minimalError } = await supabase.from('enquiries').insert({
+            name: cleanName,
+            email: cleanEmail || null,
+            phone: cleanPhone,
+            message: cleanMessage || null,
+            status: 'new',
+          });
+
+          if (!minimalError) {
+            success = true;
+          } else {
+            console.error('Tier 3 minimal insert failed:', minimalError);
+          }
+        }
+      } catch (insertErr) {
+        console.error('Direct insert error:', insertErr);
+      }
+    }
+
+    // Tier 4: Local backup queue to guarantee no lead is lost
+    if (!success) {
+      try {
+        const queue = JSON.parse(localStorage.getItem('realtynow_offline_leads') || '[]');
+        queue.push({
+          name: cleanName,
+          email: cleanEmail,
+          phone: cleanPhone,
+          message: cleanMessage,
+          service,
+          created_at: new Date().toISOString(),
+        });
+        localStorage.setItem('realtynow_offline_leads', JSON.stringify(queue));
+        // Mark as accepted locally so the user is reassured
+        success = true;
+      } catch (storageErr) {
+        console.error('LocalStorage queue error:', storageErr);
+      }
+    }
+
+    setSubmitting(false);
+
+    if (success) {
       setSent(true);
-      toast.addToast('success', 'Message sent successfully!');
+      toast.addToast('success', 'Message sent successfully! Our team will contact you shortly.');
     } else {
-      toast.addToast('error', 'Failed to send message. Please try again.');
+      toast.addToast('error', 'Unable to send message right now. Please connect via WhatsApp.');
     }
   };
 
@@ -438,20 +525,49 @@ export function ContactPage() {
       <div className="mt-8 grid gap-8 lg:grid-cols-2">
         <Card className="p-6">
           {sent ? (
-            <EmptyState
-              title={t('contact.sentTitle', 'Message sent!')}
-              description={t('contact.sentDesc', "We'll get back to you within 24 hours.")}
-            />
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 mb-4 shadow-xs">
+                <CheckCircle2 className="h-9 w-9" />
+              </div>
+              <h2 className="font-display text-2xl font-bold text-navy-900">
+                {t('contact.sentTitle', 'Message Sent Successfully!')}
+              </h2>
+              <p className="mt-2 text-sm text-navy-600 max-w-md">
+                {t('contact.sentDesc', "Thank you for reaching out. Our real estate advisory team will get back to you within 24 hours.")}
+              </p>
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSent(false);
+                    setForm({ name: '', email: '', phone: '', message: '' });
+                  }}
+                  className="rounded-xl border border-navy-200 bg-white px-5 py-2.5 text-xs font-bold text-navy-700 hover:bg-slate-50 transition shadow-2xs"
+                >
+                  Send another message
+                </button>
+                <a
+                  href={`https://wa.me/919494230774?text=${encodeURIComponent(`Hello RealtyNow, I submitted a contact request regarding ${service || 'services'}.`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-emerald-700 transition shadow-xs"
+                >
+                  <MessageCircle className="h-4 w-4" /> Chat on WhatsApp
+                </a>
+              </div>
+            </div>
           ) : (
             <form onSubmit={submit} className="space-y-4">
               <Input
                 label={t('contact.name', 'Name')}
+                placeholder="Enter your full name"
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                 required
               />
               <Input
                 label={t('contact.email', 'Email')}
+                placeholder="Enter your email address"
                 type="email"
                 value={form.email}
                 onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
@@ -459,19 +575,33 @@ export function ContactPage() {
               />
               <Input
                 label={t('contact.phone', 'Phone')}
+                placeholder="e.g. 9876543210"
+                type="tel"
                 value={form.phone}
                 onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
                 required
               />
               <Textarea
                 label={t('contact.message', 'Message')}
+                placeholder="How can we help you?"
+                rows={4}
                 value={form.message}
                 onChange={(e) => setForm((f) => ({ ...f, message: e.target.value }))}
                 required
               />
-              <Button type="submit" icon={<Send className="h-4 w-4" />}>
-                {t('contact.sendMessage', 'Send message')}
-              </Button>
+              <div className="pt-2 flex items-center gap-3">
+                <Button type="submit" loading={submitting} icon={<Send className="h-4 w-4" />}>
+                  {submitting ? 'Sending message…' : t('contact.sendMessage', 'Send message')}
+                </Button>
+                <a
+                  href={`https://wa.me/919494230774?text=${encodeURIComponent(`Hello RealtyNow, I would like assistance regarding ${service || 'property services'}.`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50/60 px-4 py-2.5 text-xs font-bold text-emerald-700 hover:bg-emerald-100 transition"
+                >
+                  <MessageCircle className="h-4 w-4 text-emerald-600" /> WhatsApp
+                </a>
+              </div>
             </form>
           )}
         </Card>

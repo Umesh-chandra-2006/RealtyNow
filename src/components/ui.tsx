@@ -176,20 +176,23 @@ Select.displayName = 'Select';
 
 export function Modal({
   open,
+  isOpen,
   onClose,
   title,
   children,
   size = 'md',
   footer,
 }: {
-  open: boolean;
+  open?: boolean;
+  isOpen?: boolean;
   onClose: () => void;
   title?: string;
   children: React.ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   footer?: React.ReactNode;
 }) {
-  if (!open) return null;
+  const isModalOpen = open ?? isOpen ?? false;
+  if (!isModalOpen) return null;
   const sizes = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' };
 
   const content = (

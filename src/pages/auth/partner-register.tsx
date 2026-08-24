@@ -664,11 +664,11 @@ export function PartnerRegisterPage() {
                         <FieldError message={errors.email} />
                       </div>
 
-                      {/* Company Name + Years of Experience */}
+                      {/* Company Name + Years of Experience (Optional) */}
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className={labelClass} htmlFor="company_name">
-                            {t('auth.companyNameLabel', 'Business / Company Name')} <span className="text-red-500">*</span>
+                            {t('auth.companyNameLabel', 'Business / Company Name')}
                           </label>
                           <input
                             id="company_name"
@@ -681,13 +681,12 @@ export function PartnerRegisterPage() {
                             className={inputClass(!!errors.company_name)}
                             placeholder={t('auth.companyNamePlaceholder', 'Your business or company name')}
                             maxLength={150}
-                            aria-required="true"
                           />
                           <FieldError message={errors.company_name} />
                         </div>
                         <div>
                           <label className={labelClass} htmlFor="years_of_experience">
-                            {t('auth.yearsOfExperienceLabel', 'Years of Experience')} <span className="text-red-500">*</span>
+                            {t('auth.yearsOfExperienceLabel', 'Years of Experience')}
                           </label>
                           <input
                             id="years_of_experience"
@@ -708,11 +707,11 @@ export function PartnerRegisterPage() {
                         </div>
                       </div>
 
-                      {/* GST + PAN */}
+                      {/* GST + PAN (Optional) */}
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className={labelClass} htmlFor="gst_number">
-                            {t('auth.gstNumberLabel', 'GST Number')} <span className="text-red-500">*</span>
+                            {t('auth.gstNumberLabel', 'GST Number')}
                           </label>
                           <input
                             id="gst_number"
@@ -725,13 +724,12 @@ export function PartnerRegisterPage() {
                             className={inputClass(!!errors.gst_number)}
                             placeholder="22AAAAA0000A1Z5"
                             maxLength={15}
-                            aria-required="true"
                           />
                           <FieldError message={errors.gst_number} />
                         </div>
                         <div>
                           <label className={labelClass} htmlFor="pan_number">
-                            {t('auth.panNumberLabel', 'PAN Number')} <span className="text-red-500">*</span>
+                            {t('auth.panNumberLabel', 'PAN Number')}
                           </label>
                           <input
                             id="pan_number"
@@ -744,16 +742,15 @@ export function PartnerRegisterPage() {
                             className={inputClass(!!errors.pan_number)}
                             placeholder="ABCDE1234F"
                             maxLength={10}
-                            aria-required="true"
                           />
                           <FieldError message={errors.pan_number} />
                         </div>
                       </div>
 
-                      {/* Website */}
+                      {/* Website (Optional) */}
                       <div>
                         <label className={labelClass} htmlFor="website">
-                          {t('auth.websiteLabel', 'Website')} <span className="text-red-500">*</span>
+                          {t('auth.websiteLabel', 'Website')}
                         </label>
                         <input
                           id="website"

@@ -185,8 +185,8 @@ export function validateEmail(raw: string, required: boolean = true): string | n
   return null;
 }
 
-/** 5 — Business / Company Name (always required) */
-export function validateCompanyName(raw: string, required = true): string | null {
+/** 5 — Business / Company Name (optional) */
+export function validateCompanyName(raw: string, required = false): string | null {
   const value = raw.trim();
   if (!value) {
     return required ? 'Business / Company Name is required.' : null;
@@ -204,10 +204,12 @@ export function validateCompanyName(raw: string, required = true): string | null
   return null;
 }
 
-/** 6 — Years of Experience (always required) */
-export function validateYearsOfExperience(raw: string): string | null {
+/** 6 — Years of Experience (optional) */
+export function validateYearsOfExperience(raw: string, required = false): string | null {
   const value = raw.trim();
-  if (!value) return 'Years of experience is required.';
+  if (!value) {
+    return required ? 'Years of experience is required.' : null;
+  }
   // No letters
   if (/[a-zA-Z]/.test(value)) return 'Please enter a valid number of years (0–60).';
   // No special characters (decimals, negatives, etc.)
@@ -219,8 +221,8 @@ export function validateYearsOfExperience(raw: string): string | null {
   return null;
 }
 
-/** 7 — GSTIN (always required) */
-export function validateGSTIN(raw: string, required = true): string | null {
+/** 7 — GSTIN (optional) */
+export function validateGSTIN(raw: string, required = false): string | null {
   const value = raw.trim().toUpperCase();
   if (!value) {
     return required ? 'GST Number is required.' : null;
@@ -256,8 +258,8 @@ export function validateGSTStateMatch(gstin: string, formState: string): string 
   return null;
 }
 
-/** 8 — PAN Number (always required) */
-export function validatePAN(raw: string, required = true): string | null {
+/** 8 — PAN Number (optional) */
+export function validatePAN(raw: string, required = false): string | null {
   const value = raw.trim().toUpperCase();
   if (!value) {
     return required ? 'PAN Number is required.' : null;
@@ -287,10 +289,12 @@ export function validateBankAccountNumber(raw: string): string | null {
   return null;
 }
 
-/** 9 — Website URL (always required) */
-export function validateWebsiteUrl(raw: string): string | null {
+/** 9 — Website URL (optional) */
+export function validateWebsiteUrl(raw: string, required = false): string | null {
   const value = raw.trim();
-  if (!value) return 'Website URL is required.';
+  if (!value) {
+    return required ? 'Website URL is required.' : null;
+  }
 
   // Reject bare protocol strings that are clearly invalid
   const OBVIOUSLY_INVALID = ['http', 'https', 'http:', 'https:', 'http://', 'https://', 'www', 'ftp'];
@@ -298,10 +302,16 @@ export function validateWebsiteUrl(raw: string): string | null {
     return 'Please enter a valid website URL, e.g. https://example.com';
   }
 
+  // Auto-prefix https:// if user didn't type protocol
+  let urlToTest = value;
+  if (!/^https?:\/\//i.test(urlToTest)) {
+    urlToTest = `https://${urlToTest}`;
+  }
+
   // Try parsing as URL
   let parsed: URL;
   try {
-    parsed = new URL(value);
+    parsed = new URL(urlToTest);
   } catch {
     return 'Please enter a valid website URL, e.g. https://example.com';
   }
@@ -385,12 +395,12 @@ export function validatePartnerDetailsStep(form: PartnerDetailsForm): PartnerDet
   set('partner_type', validatePartnerType(form.partner_type));
   set('full_name', validateFullName(form.full_name));
   set('mobile_number', validateMobileNumber(form.mobile_number));
-  set('email', validateEmail(form.email, true));               // required
-  set('company_name', validateCompanyName(form.company_name, true)); // required
-  set('years_of_experience', validateYearsOfExperience(form.years_of_experience)); // required
-  set('gst_number', validateGSTIN(form.gst_number, true));     // required
-  set('pan_number', validatePAN(form.pan_number, true));       // required
-  set('website', validateWebsiteUrl(form.website));            // required
+  set('email', validateEmail(form.email, true));                       // required
+  set('company_name', validateCompanyName(form.company_name, false));  // optional
+  set('years_of_experience', validateYearsOfExperience(form.years_of_experience, false)); // optional
+  set('gst_number', validateGSTIN(form.gst_number, false));            // optional
+  set('pan_number', validatePAN(form.pan_number, false));              // optional
+  set('website', validateWebsiteUrl(form.website, false));             // optional
 
   return errs;
 }

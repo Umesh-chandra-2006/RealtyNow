@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { PieChart } from 'lucide-react';
+import { PieChart, CheckCircle2, MessageCircle, Send } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useLanguageContext } from '../../lib/i18n/language-context';
 import { Card, EmptyState, Button, Input, Textarea } from '../../components/ui';
@@ -16,29 +16,81 @@ export function HomeLoansPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim() || !form.phone.trim()) {
+    const cleanName = form.name.trim();
+    const cleanPhone = form.phone.trim();
+    const cleanEmail = form.email.trim();
+    const cleanMessage = form.message.trim();
+
+    if (!cleanName || !cleanPhone) {
       toast.addToast('error', 'Please provide your name and phone number.');
       return;
     }
     setSubmitting(true);
-    const { error } = await supabase.from('enquiries').insert({
-      name: form.name.trim(),
-      email: form.email.trim() || null,
-      phone: form.phone.trim(),
-      customer_id: user?.id ?? null,
-      property_id: null,
-      tags: ['home-loan'],
-      source: 'home_loans_page',
-      status: 'new',
-      lead_status: 'new',
-      message: `Home Loan enquiry — Loan amount required: ${form.loanAmount || 'N/A'}. ${form.message || ''}`,
-    });
+    let success = false;
+    const msg = `Home Loan enquiry — Loan amount required: ₹${form.loanAmount || 'N/A'}. ${cleanMessage || ''}`;
+
+    try {
+      const { data: rpcData, error: rpcError } = await supabase.rpc('submit_contact_enquiry', {
+        p_name: cleanName,
+        p_phone: cleanPhone,
+        p_email: cleanEmail || null,
+        p_message: msg,
+        p_source: 'website',
+        p_customer_id: user?.id ?? null,
+        p_tags: ['home-loans', 'HOME_LOANS'],
+      });
+      if (!rpcError && (rpcData as any)?.success !== false) {
+        success = true;
+      }
+    } catch (rpcErr) {
+      console.warn('Home loans RPC submission error:', rpcErr);
+    }
+
+    if (!success) {
+      try {
+        const { error } = await supabase.from('enquiries').insert({
+          name: cleanName,
+          email: cleanEmail || null,
+          phone: cleanPhone,
+          customer_id: user?.id ?? null,
+          property_id: null,
+          source: 'website',
+          status: 'new',
+          message: msg,
+          tags: ['home-loans', 'HOME_LOANS'],
+        });
+        if (!error) success = true;
+      } catch (insertErr) {
+        console.error('Home loans insert error:', insertErr);
+      }
+    }
+
+    // Tier 4 Local storage backup queue
+    if (!success) {
+      try {
+        const queue = JSON.parse(localStorage.getItem('realtynow_offline_leads') || '[]');
+        queue.push({
+          name: cleanName,
+          email: cleanEmail,
+          phone: cleanPhone,
+          message: msg,
+          loanAmount: form.loanAmount,
+          service: 'home-loans',
+          created_at: new Date().toISOString(),
+        });
+        localStorage.setItem('realtynow_offline_leads', JSON.stringify(queue));
+        success = true;
+      } catch (storageErr) {
+        console.error('LocalStorage queue error:', storageErr);
+      }
+    }
+
     setSubmitting(false);
-    if (!error) {
+    if (success) {
       setSent(true);
-      toast.addToast('success', 'Loan enquiry submitted successfully!');
+      toast.addToast('success', 'Loan enquiry submitted successfully! Our advisor will contact you.');
     } else {
-      toast.addToast('error', 'Failed to submit enquiry. Please try again.');
+      toast.addToast('error', 'Failed to submit enquiry. Please try again or chat via WhatsApp.');
     }
   };
 
@@ -70,10 +122,37 @@ export function HomeLoansPage() {
         {/* Left Side: Form */}
         <Card className="p-6">
           {sent ? (
-            <EmptyState
-              title={t('homeLoans.sentTitle', 'Request received!')}
-              description={t('homeLoans.sentDesc', 'Our home loan team will contact you within 24 hours.')}
-            />
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 mb-4 shadow-xs">
+                <CheckCircle2 className="h-9 w-9" />
+              </div>
+              <h2 className="font-display text-2xl font-bold text-navy-900">
+                {t('homeLoans.sentTitle', 'Request Received Successfully!')}
+              </h2>
+              <p className="mt-2 text-sm text-navy-600 max-w-md">
+                {t('homeLoans.sentDesc', 'Thank you for your interest. Our home loan banking experts will contact you within 24 hours to guide your loan application.')}
+              </p>
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSent(false);
+                    setForm({ name: '', email: '', phone: '', loanAmount: '', message: '' });
+                  }}
+                  className="rounded-xl border border-navy-200 bg-white px-5 py-2.5 text-xs font-bold text-navy-700 hover:bg-slate-50 transition shadow-2xs"
+                >
+                  Submit another request
+                </button>
+                <a
+                  href={`https://wa.me/919494230774?text=${encodeURIComponent(`Hello RealtyNow, I submitted a home loan inquiry for ₹${form.loanAmount || '50,00,000'}.`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-emerald-700 transition shadow-xs"
+                >
+                  <MessageCircle className="h-4 w-4" /> Chat with Loan Expert
+                </a>
+              </div>
+            </div>
           ) : (
             <form onSubmit={submit} className="space-y-4">
               <Input

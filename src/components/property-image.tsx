@@ -1,33 +1,54 @@
+import { useState } from 'react';
 import { cn } from '../lib/utils';
 import { DEFAULT_PROPERTY_IMAGE, handleImageError } from '../lib/property-images';
 
+export interface PropertyImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
+  src?: string | null;
+  alt: string;
+  fallbackSrc?: string;
+}
+
 /**
- * Drop-in <img> replacement for property card/carousel thumbnails.
- * Always fills its parent container and crops via object-cover, so any
- * uploaded image (portrait, landscape, ultra-wide, etc.) is centered and
- * cropped to fit rather than distorting or changing the card's height.
- * The parent element must supply its own fixed size (aspect-ratio, h-full,
- * or a fixed height) plus `overflow-hidden` — this component only owns the
- * fill/crop/fallback behavior, not layout.
+ * Unified Property Image Component
+ * Ensures every property image renders inside its parent's fixed aspect frame with:
+ * - object-fit: cover, object-position: center (never stretched or distorted)
+ * - Zero layout shifts with smooth opacity fade-in
+ * - Instant fallback on network error without collapsing frame dimensions
  */
 export function PropertyImage({
   src,
   alt,
   className,
   onError,
+  fallbackSrc = DEFAULT_PROPERTY_IMAGE,
   ...rest
-}: React.ImgHTMLAttributes<HTMLImageElement> & { src?: string | null; alt: string }) {
+}: PropertyImageProps) {
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [hasError, setHasError] = useState(false);
+
+  const imgSrc = hasError || !src ? fallbackSrc : src;
+
   return (
     <img
       {...rest}
-      src={src || DEFAULT_PROPERTY_IMAGE}
+      src={imgSrc}
       alt={alt}
       loading={rest.loading ?? 'lazy'}
-      onError={(e) => {
-        onError?.(e);
-        handleImageError(e, DEFAULT_PROPERTY_IMAGE);
+      decoding="async"
+      onLoad={(e) => {
+        setIsLoaded(true);
+        rest.onLoad?.(e);
       }}
-      className={cn('h-full w-full object-cover object-center', className)}
+      onError={(e) => {
+        setHasError(true);
+        onError?.(e);
+        handleImageError(e, fallbackSrc);
+      }}
+      className={cn(
+        'block h-full w-full object-cover object-center transition-opacity duration-300',
+        !isLoaded ? 'opacity-90' : 'opacity-100',
+        className,
+      )}
     />
   );
 }

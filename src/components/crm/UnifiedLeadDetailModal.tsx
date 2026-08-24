@@ -62,6 +62,7 @@ interface UnifiedLeadDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   onLeadUpdated?: () => void;
+  onStatusChange?: () => void;
   sourceType?: 'builder' | 'agent' | 'admin';
 }
 
@@ -70,6 +71,7 @@ export function UnifiedLeadDetailModal({
   isOpen,
   onClose,
   onLeadUpdated,
+  onStatusChange,
   sourceType = 'agent',
 }: UnifiedLeadDetailModalProps) {
   const { user } = useAuth();
@@ -104,7 +106,8 @@ export function UnifiedLeadDetailModal({
   const isSavingRef = useRef(false);
 
   const leadId = initialLead?.id;
-  const isBuilder = sourceType === 'builder' || !!initialLead?.builder_id;
+  // A lead is only in builder_leads table if explicitly sourced from builder CRM or tagged with builder_leads table
+  const isBuilder = sourceType === 'builder' || initialLead?._table === 'builder_leads' || initialLead?.table_name === 'builder_leads';
   const targetTable = isBuilder ? 'builder_leads' : 'enquiries';
 
   const realtimeActivityTick = useRealtimeCount(
@@ -213,13 +216,17 @@ export function UnifiedLeadDetailModal({
           .eq('id', leadId);
         if (error) throw error;
 
-        // Log builder activity
-        await supabase.from('builder_lead_activities').insert({
-          lead_id: leadId,
-          builder_id: user?.id ?? lead.builder_id,
-          activity_type: 'status_change',
-          notes: `Stage updated from ${oldStatus.toUpperCase()} to ${newStatus.toUpperCase()}`,
-        });
+        // Log builder activity (non-blocking)
+        try {
+          await supabase.from('builder_lead_activities').insert({
+            lead_id: leadId,
+            builder_id: user?.id ?? lead?.builder_id,
+            activity_type: 'status_change',
+            notes: `Stage updated from ${oldStatus.toUpperCase()} to ${newStatus.toUpperCase()}`,
+          });
+        } catch {
+          // non-blocking
+        }
       } else {
         const { error } = await supabase
           .from('enquiries')
@@ -231,16 +238,24 @@ export function UnifiedLeadDetailModal({
           .eq('id', leadId);
         if (error) throw error;
 
-        // Log agent / admin activity
-        await supabase.from('lead_activities').insert({
-          lead_id: leadId,
-          actor_id: user?.id ?? null,
-          activity_type: newStatus === 'won' ? 'won' : newStatus === 'lost' ? 'lost' : 'status_changed',
-          title: `Stage changed to ${newStatus.replace('_', ' ').toUpperCase()}`,
-          old_value: oldStatus,
-          new_value: newStatus,
-          is_system: false,
-        });
+        // Log agent / admin activity (non-blocking with profile actor_id fallback)
+        try {
+          const actPayload: any = {
+            lead_id: leadId,
+            actor_id: user?.id ?? null,
+            activity_type: newStatus === 'won' ? 'won' : newStatus === 'lost' ? 'lost' : 'status_changed',
+            title: `Stage changed to ${newStatus.replace('_', ' ').toUpperCase()}`,
+            old_value: oldStatus,
+            new_value: newStatus,
+            is_system: false,
+          };
+          const { error: actErr } = await supabase.from('lead_activities').insert(actPayload);
+          if (actErr && actPayload.actor_id) {
+            await supabase.from('lead_activities').insert({ ...actPayload, actor_id: null });
+          }
+        } catch {
+          // non-blocking
+        }
       }
     },
     onSuccess: () => {
@@ -248,13 +263,17 @@ export function UnifiedLeadDetailModal({
       queryClient.invalidateQueries({ queryKey: ['builder-crm-leads'] });
       queryClient.invalidateQueries({ queryKey: ['agent-leads'] });
       queryClient.invalidateQueries({ queryKey: ['admin-crm-leads'] });
+      queryClient.invalidateQueries({ queryKey: ['crm-leads'] });
+      queryClient.invalidateQueries({ queryKey: ['role-crm-leads'] });
       queryClient.invalidateQueries({ queryKey: ['lead-detail-modal', targetTable, leadId] });
+      queryClient.invalidateQueries({ queryKey: ['lead-activities-modal', targetTable, leadId] });
       addToast('success', 'Lead stage updated successfully');
       onLeadUpdated?.();
+      onStatusChange?.();
     },
-    onError: (err) => {
+    onError: (err: any) => {
       console.error('Stage update error:', err);
-      addToast('error', 'Unable to update lead stage. Please try again.');
+      addToast('error', err?.message || 'Unable to update lead stage. Please try again.');
     },
     onSettled: () => {
       isMovingRef.current = false;
@@ -275,26 +294,39 @@ export function UnifiedLeadDetailModal({
       if (isBuilder) {
         const { error } = await supabase.from('builder_lead_activities').insert({
           lead_id: leadId,
-          builder_id: user?.id ?? lead.builder_id,
+          builder_id: user?.id ?? lead?.builder_id,
           activity_type: 'note',
           notes: noteText.trim(),
         });
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('lead_activities').insert({
+        const notePayload: any = {
           lead_id: leadId,
           actor_id: user?.id ?? null,
-          activity_type: 'note',
+          activity_type: 'note_added', // Satisfies lead_activities CHECK constraint
           title: 'Note Added',
           description: noteText.trim(),
-        });
-        if (error) throw error;
+        };
+        const { error } = await supabase.from('lead_activities').insert(notePayload);
+        if (error) {
+          if (notePayload.actor_id) {
+            // Retry with actor_id: null if foreign key on profile failed
+            const { error: retryErr } = await supabase.from('lead_activities').insert({
+              ...notePayload,
+              actor_id: null,
+            });
+            if (retryErr) throw retryErr;
+          } else {
+            throw error;
+          }
+        }
       }
 
       setNoteText('');
       queryClient.invalidateQueries({ queryKey: ['lead-activities-modal', targetTable, leadId] });
       addToast('success', 'Note added to lead timeline');
     } catch (err) {
+      console.error('Add note error:', err);
       addToast('error', err instanceof Error ? err.message : 'Failed to add note');
     } finally {
       setAddingNote(false);
@@ -314,33 +346,47 @@ export function UnifiedLeadDetailModal({
       if (isBuilder) {
         await supabase.from('builder_lead_activities').insert({
           lead_id: leadId,
-          builder_id: user?.id ?? lead.builder_id,
+          builder_id: user?.id ?? lead?.builder_id,
           activity_type: followUpType === 'visit' ? 'site_visit' : 'call',
           notes: `Follow-up scheduled: ${followUpType.toUpperCase()} on ${formatDateTime(followUpTimestamp)}`,
         });
       } else {
-        await supabase
+        const { error: updErr } = await supabase
           .from('enquiries')
           .update({
             follow_up_at: followUpTimestamp,
             updated_at: new Date().toISOString(),
           })
           .eq('id', leadId);
+        if (updErr) throw updErr;
 
-        await supabase.from('lead_activities').insert({
-          lead_id: leadId,
-          actor_id: user?.id ?? null,
-          activity_type: 'follow_up_scheduled',
-          title: `Follow-up ${followUpType.toUpperCase()} scheduled`,
-          description: `Scheduled for ${formatDateTime(followUpTimestamp)}`,
-        });
+        try {
+          const actPayload: any = {
+            lead_id: leadId,
+            actor_id: user?.id ?? null,
+            activity_type: 'follow_up_scheduled',
+            title: `Follow-up ${followUpType.toUpperCase()} scheduled`,
+            description: `Scheduled for ${formatDateTime(followUpTimestamp)}`,
+          };
+          const { error: actErr } = await supabase.from('lead_activities').insert(actPayload);
+          if (actErr && actPayload.actor_id) {
+            await supabase.from('lead_activities').insert({ ...actPayload, actor_id: null });
+          }
+        } catch {
+          // non-blocking
+        }
       }
 
       queryClient.invalidateQueries({ queryKey: ['lead-detail-modal', targetTable, leadId] });
       queryClient.invalidateQueries({ queryKey: ['lead-activities-modal', targetTable, leadId] });
       queryClient.invalidateQueries({ queryKey: ['agent-leads'] });
+      queryClient.invalidateQueries({ queryKey: ['crm-leads'] });
+      queryClient.invalidateQueries({ queryKey: ['role-crm-leads'] });
       addToast('success', 'Follow-up scheduled successfully');
+      onLeadUpdated?.();
+      onStatusChange?.();
     } catch (err) {
+      console.error('Schedule follow-up error:', err);
       addToast('error', err instanceof Error ? err.message : 'Failed to schedule follow-up');
     } finally {
       setSavingFollowUp(false);

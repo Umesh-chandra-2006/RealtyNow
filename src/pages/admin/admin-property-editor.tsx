@@ -6,6 +6,7 @@ import { useLanguageContext } from '../../lib/i18n/language-context';
 import { ListPropertyWizard } from '../portal/list-property';
 import { ChevronLeft } from 'lucide-react';
 import { Button } from '../../components/ui';
+import { PublishToSectionControl } from '../../components/admin/publish-to-section-control';
 
 export function AdminPropertyEditor() {
   const { id } = useParams<{ id: string }>();
@@ -24,7 +25,7 @@ export function AdminPropertyEditor() {
 
   return (
     <DashboardLayout sections={adminSections} title="Edit Property">
-      <div className="mb-4">
+      <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
         <Button 
           variant="ghost" 
           icon={<ChevronLeft className="h-4 w-4" />} 
@@ -32,6 +33,18 @@ export function AdminPropertyEditor() {
         >
           Back to Properties
         </Button>
+
+        {id && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-600 hidden sm:inline">
+              Publish to Homepage:
+            </span>
+            <PublishToSectionControl
+              property={{ id, title: `Property #${id.slice(0, 8)}` }}
+              compact={false}
+            />
+          </div>
+        )}
       </div>
       <div className="bg-white rounded-3xl shadow-sm border border-navy-100 min-h-[80vh] overflow-hidden relative z-0">
         <div className="absolute inset-0 overflow-y-auto">
@@ -41,3 +54,4 @@ export function AdminPropertyEditor() {
     </DashboardLayout>
   );
 }
+

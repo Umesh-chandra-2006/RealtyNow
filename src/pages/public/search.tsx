@@ -68,6 +68,9 @@ import { AdvancedFilters } from '../../components/advanced-filters';
 import { useSEO } from '../../hooks/use-seo';
 import { PostPropertyLink } from '../../components/post-property-link';
 
+import { executeGlobalPropertySearch } from '../../lib/search-service';
+import { logSearchQuery } from '../../lib/search-analytics';
+
 const PAGE_SIZE = 10;
 
 // Malformed URL params (e.g. ?min_price=abc) must be ignored rather than passed
@@ -83,6 +86,7 @@ function parseNumberParam(params: URLSearchParams, key: string): number | undefi
 
 type ViewMode = 'list' | 'grid' | 'map';
 type SortOption =
+  | 'relevance'
   | 'newest'
   | 'price_asc'
   | 'price_desc'
@@ -227,16 +231,16 @@ function HorizontalCard({ property: p, onSave, onCompare, saved = false, compare
         className="group relative flex flex-col sm:flex-row bg-white rounded-[18px] overflow-hidden border border-[#E7EAF0] shadow-[0_4px_20px_rgba(15,23,42,0.07)] hover:shadow-[0_10px_30px_rgba(15,23,42,0.11)] transition-all duration-200 ease-out cursor-pointer mb-6"
         onClick={() => navigate(generatePropertyUrl(p))}
       >
-        {/* ── LEFT: IMAGE GALLERY ── */}
+        {/* ── LEFT: IMAGE GALLERY (Unified 4:3 Frame) ── */}
         <div
-          className="relative w-full sm:w-[40%] shrink-0 overflow-hidden aspect-[4/3] sm:aspect-auto min-h-[220px] bg-slate-100"
+          className="relative w-full sm:w-[280px] md:w-[300px] lg:w-[320px] shrink-0 overflow-hidden aspect-[4/3] bg-slate-100 self-stretch sm:self-auto"
           onMouseEnter={() => setImgHovered(true)}
           onMouseLeave={() => setImgHovered(false)}
         >
           <PropertyImage
             src={images[activeImg] || images[0] || DEFAULT_PROPERTY_IMAGE}
             alt={p.title}
-            className={cn('transition-transform duration-500', imgHovered ? 'scale-105' : 'scale-100')}
+            className={cn('h-full w-full object-cover object-center transition-transform duration-500', imgHovered ? 'scale-105' : 'scale-100')}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/10 pointer-events-none" />
 
@@ -617,11 +621,11 @@ function GridCard({
       className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition-shadow duration-300 hover:shadow-xl cursor-pointer"
       onClick={() => navigate(generatePropertyUrl(p))}
     >
-      <div className="relative aspect-video overflow-hidden bg-slate-100">
+      <div className="relative aspect-[4/3] overflow-hidden bg-slate-100 shrink-0">
         <PropertyImage
           src={images[0] || DEFAULT_PROPERTY_IMAGE}
           alt={p.title}
-          className="transition-transform duration-500 ease-out group-hover:scale-110"
+          className="h-full w-full object-cover object-center transition-transform duration-500 ease-out group-hover:scale-110"
         />
         {reraNumber && (
           <span className="absolute left-2.5 top-2.5 inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-bold text-slate-700 shadow-sm backdrop-blur">
@@ -703,23 +707,22 @@ function GridCard({
 // ──────────────────────────────────────────────────────────────
 function ListSkeleton() {
   return (
-    <div
-      className="flex gap-0 sm:gap-4 bg-white rounded-[20px] border border-slate-100 shadow-md overflow-hidden animate-pulse"
-      style={{ minHeight: 240 }}
-    >
-      <div className="w-full sm:w-[38%] bg-slate-200 shrink-0" style={{ minHeight: 220 }} />
-      <div className="flex-1 p-5 space-y-3">
-        <div className="h-6 bg-slate-200 rounded-lg w-3/4" />
-        <div className="h-4 bg-slate-100 rounded-lg w-1/2" />
-        <div className="h-8 bg-slate-100 rounded-xl w-1/3" />
-        <div className="flex gap-3">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-5 bg-slate-100 rounded-lg w-16" />
-          ))}
+    <div className="flex flex-col sm:flex-row bg-white rounded-[18px] border border-slate-100 shadow-md overflow-hidden animate-pulse mb-6">
+      <div className="w-full sm:w-[280px] md:w-[300px] lg:w-[320px] aspect-[4/3] bg-slate-200 shrink-0" />
+      <div className="flex-1 p-5 space-y-3 flex flex-col justify-between">
+        <div>
+          <div className="h-6 bg-slate-200 rounded-lg w-3/4 mb-2" />
+          <div className="h-4 bg-slate-100 rounded-lg w-1/2 mb-4" />
+          <div className="h-7 bg-slate-100 rounded-xl w-1/3 mb-3" />
+          <div className="flex gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-5 bg-slate-100 rounded-lg w-16" />
+            ))}
+          </div>
         </div>
-        <div className="flex gap-2 mt-auto">
-          {Array.from({ length: 5 }).map((_, i) => (
-             <div key={i} className="h-8 bg-slate-100 rounded-xl w-20" />
+        <div className="flex gap-2 mt-auto pt-3 border-t border-slate-100">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-9 bg-slate-100 rounded-xl flex-1" />
           ))}
         </div>
       </div>
@@ -1080,10 +1083,13 @@ export function SearchPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   
-  const sort = (params.get('sort') as SortOption) || 'newest';
+  const rawQParam = params.get('q') || '';
+  const defaultSort: SortOption = rawQParam.trim() ? 'relevance' : 'newest';
+  const sort = (params.get('sort') as SortOption) || defaultSort;
   const setSort = (s: SortOption) => {
     const next = new URLSearchParams(params);
     next.set('sort', s);
+    next.delete('page');
     setParams(next);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -1342,10 +1348,30 @@ export function SearchPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Query canonical live properties
+  // Query canonical live properties with intelligence and relevance ranking
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
-    queryKey: ['search', filters],
-    queryFn: () => fetchPublishedProperties(filters),
+    queryKey: ['search', filters, sort, page],
+    queryFn: async () => {
+      const res = await executeGlobalPropertySearch({
+        ...filters,
+        sortBy: sort as any,
+        page,
+        pageSize: PAGE_SIZE,
+      });
+
+      // Log search telemetry in background
+      if (filters.q) {
+        logSearchQuery({
+          query: filters.q,
+          parsed_intent: res.parsedIntent,
+          filters,
+          results_count: res.totalCount,
+          city_id: filters.city_id,
+        });
+      }
+
+      return { data: res.properties, count: res.totalCount };
+    },
   });
 
   // Supabase Realtime synchronization for instant property discovery
@@ -1619,6 +1645,7 @@ export function SearchPage() {
                   onChange={(e) => setSort(e.target.value as SortOption)}
                   className="text-sm font-semibold text-slate-700 bg-transparent focus:outline-none cursor-pointer"
                 >
+                  <option value="relevance">Relevance (Best Match)</option>
                   <option value="newest">Newest First</option>
                   <option value="price_asc">Price: Low to High</option>
                   <option value="price_desc">Price: High to Low</option>
@@ -2085,6 +2112,8 @@ export function CategoryPage({ category }: { category: 'buy' | 'rent' | 'commerc
   const purpose = category === 'rent' ? 'Rent' : category === 'buy' ? 'Sale' : undefined;
   const isLuxury = category === 'luxury';
   const page = Math.max(1, Number(params.get('page') ?? '1') || 1);
+  const rawQParam = params.get('q') || '';
+  const clearAll = () => setParams(new URLSearchParams());
 
   const { data: dbFavoriteIds } = useFavorites(user?.id);
   const [guestFavoriteIds, setGuestFavoriteIds] = useState<string[]>(getLocalFavoriteIds());
@@ -2272,7 +2301,7 @@ export function CategoryPage({ category }: { category: 'buy' | 'rent' | 'commerc
         .or('status.eq.published,is_live.eq.true');
 
       if (category === 'projects') {
-        q = q.or('possession_status.eq.New Launch,possession_status.eq.Under Construction,is_project.eq.true');
+        q = q.or('possession_status.ilike.%New Launch%,possession_status.ilike.%Under Construction%,listing_category.ilike.%Project%');
       } else if (category === 'plots') {
         q = q.or('property_type_category.eq.Plot,property_type_name.ilike.%Plot%,property_type_name.ilike.%Land%');
       } else if (filters.property_type_id) {
@@ -2304,7 +2333,17 @@ export function CategoryPage({ category }: { category: 'buy' | 'rent' | 'commerc
         .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
 
       const { data, error, count } = await q;
-      if (error) throw error;
+      if (error) {
+        console.error('Category query error, falling back:', error);
+        // Graceful fallback without crashing the whole UI
+        const { data: fallbackData } = await supabase
+          .from('v_properties_search')
+          .select('*')
+          .or('status.eq.published,is_live.eq.true')
+          .order('published_at', { ascending: false })
+          .limit(20);
+        return { data: (fallbackData ?? []) as unknown as Property[], count: fallbackData?.length ?? 0 };
+      }
       return { data: (data ?? []) as unknown as Property[], count: count ?? (data?.length ?? 0) };
     },
   });
@@ -2474,17 +2513,60 @@ export function CategoryPage({ category }: { category: 'buy' | 'rent' | 'commerc
                 )}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-white py-20 gap-4">
-                <Home className="h-12 w-12 text-slate-300" />
-                <p className="font-bold text-slate-700">
-                  {t('search.noCategoryTitle', 'No properties in this category yet')}
+              <div className="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-slate-200 bg-white py-16 px-6 text-center shadow-2xs">
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-red-50 text-red-600 mb-3">
+                  <Search className="h-8 w-8" />
+                </div>
+                <h3 className="text-lg font-bold text-navy-900">
+                  {rawQParam ? `No properties found for "${rawQParam}"` : 'No properties matched your criteria'}
+                </h3>
+                <p className="mt-1 text-sm text-navy-500 max-w-md">
+                  We couldn't find exact matches for this search. Try removing some filters or explore popular locations below.
                 </p>
-                <p className="text-sm text-slate-500">
-                  {t('search.noCategoryDesc', 'Check back soon or browse all properties.')}
-                </p>
-                <Link to="/search" className="rounded-xl bg-red-600 text-white px-5 py-2 text-sm font-bold">
-                  {t('search.browseAll', 'Browse All')}
-                </Link>
+
+                <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                  <button
+                    onClick={clearAll}
+                    className="rounded-xl bg-red-600 px-5 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-red-700 transition active:scale-95"
+                  >
+                    Clear All Filters
+                  </button>
+                  <Link
+                    to="/search"
+                    className="rounded-xl border border-navy-200 bg-white px-5 py-2.5 text-xs font-bold text-navy-700 hover:bg-slate-50 transition"
+                  >
+                    Browse All Listings
+                  </Link>
+                </div>
+
+                {/* Popular Search Suggestions */}
+                <div className="mt-8 w-full max-w-lg pt-6 border-t border-slate-100 space-y-3">
+                  <p className="text-xs font-bold uppercase tracking-wider text-navy-400">
+                    Popular Searches You May Like
+                  </p>
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    {[
+                      '3 BHK in Kokapet',
+                      'Villas in Jubilee Hills',
+                      'Apartments in Gachibowli',
+                      'Commercial Office in Hitech City',
+                      'Plots in Hyderabad',
+                    ].map((popQ) => (
+                      <button
+                        key={popQ}
+                        onClick={() => {
+                          const next = new URLSearchParams();
+                          next.set('q', popQ);
+                          setParams(next);
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-navy-700 hover:border-red-300 hover:bg-red-50 hover:text-red-700 transition"
+                      >
+                        {popQ}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
           </div>

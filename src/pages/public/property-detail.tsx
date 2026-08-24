@@ -22,6 +22,7 @@ import { getSafePropertyImages, handleImageError, DEFAULT_PROPERTY_IMAGE } from 
 import { useToast } from '../../components/toast';
 import { useSEO } from '../../hooks/use-seo';
 import { VirtualTourViewer } from '../../components/virtual-tour/virtual-tour-viewer';
+import { PublishToSectionControl } from '../../components/admin/publish-to-section-control';
 import { loadGoogleMaps } from '../../lib/googleMaps';
 import type { VirtualTour } from '../../lib/types';
 
@@ -708,6 +709,33 @@ export function PropertyDetailPage() {
 
   return (
     <div className="min-h-screen bg-white pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] lg:pb-0">
+      {/* Admin Homepage Visibility Bar */}
+      {(profile?.role === 'admin' || profile?.role === 'super_admin') && (
+        <div className="bg-slate-900 text-white border-b border-slate-800 px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-xs z-30 sticky top-0 backdrop-blur-md shadow-md">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1 font-bold text-amber-400">
+              <ShieldCheck className="h-4 w-4" />
+              Admin Controls
+            </span>
+            <span className="hidden sm:inline text-slate-400">|</span>
+            <span className="text-slate-300 font-medium">Homepage Section Publishing:</span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <PublishToSectionControl
+              property={property}
+              compact={false}
+            />
+            <Link
+              to={`/admin/properties/edit/${property.id}`}
+              className="text-xs font-bold text-red-400 hover:text-red-300 underline"
+            >
+              Full Editor ↗
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* 1. CINEMATIC HERO BANNER: Dark Left Content Area (40-45%) + Natural Bright Property Image (55-60%) */}
       <section className="relative min-h-[360px] sm:min-h-[380px] md:h-[400px] w-full bg-slate-950 overflow-hidden select-none flex flex-col justify-between">
         {/* Background image carousel — 100% natural opacity and vivid colors */}

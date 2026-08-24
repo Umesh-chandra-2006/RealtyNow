@@ -52,6 +52,7 @@ import { Logo, LogoLight } from './logo';
 import { LocationSelector } from './location-selector';
 import { cn } from '../lib/utils';
 import { PostPropertyLink } from './post-property-link';
+import { HeaderSearchModal } from './header-search-modal';
 
 // Official X (formerly Twitter) SVG Icon
 const XTwitterIcon = ({ className = 'h-3.5 w-3.5' }: { className?: string }) => (
@@ -428,8 +429,13 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
   useClickOutside(desktopNavRef, () => setHoveredMenu(null), hoveredMenu !== null);
   useClickOutside(userMenuRef, () => setUserMenu(false), userMenu);
 
+  const [scrolled, setScrolled] = useState(false);
+
   useEffect(() => {
-    const onScroll = () => setMobileOpen(false);
+    const onScroll = () => {
+      setMobileOpen(false);
+      setScrolled(window.scrollY > 20);
+    };
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
@@ -466,61 +472,12 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
       <Topbar onOpenLanguageModal={() => setLanguageModalOpen(true)} />
       <LanguageSelectorModal isOpen={languageModalOpen} onClose={() => setLanguageModalOpen(false)} />
 
-      {/* Search overlay — only navigates to /search once a query is submitted */}
-      <AnimatePresence>
-        {searchOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 bg-navy-950/60 backdrop-blur-sm"
-              onClick={() => setSearchOpen(false)}
-            />
-            <motion.div
-              initial={{ opacity: 0, y: -12, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -12, scale: 0.97 }}
-              className="fixed left-1/2 top-24 z-50 w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 rounded-2xl border border-navy-100 bg-white p-4 shadow-2xl"
-            >
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (!searchQuery.trim()) return;
-                  setSearchOpen(false);
-                  navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
-                  setSearchQuery('');
-                }}
-                className="flex items-center gap-2"
-              >
-                <Search className="h-5 w-5 shrink-0 text-navy-400" />
-                <input
-                  autoFocus
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={t('search.placeholder', 'Search city, locality, project or landmark...')}
-                  className="flex-1 border-none bg-transparent text-sm text-navy-900 outline-none placeholder:text-navy-400"
-                />
-                <button
-                  type="button"
-                  onClick={() => setSearchOpen(false)}
-                  className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-navy-400 hover:bg-navy-50 hover:text-navy-700"
-                  aria-label={t('common.close', 'Close')}
-                >
-                  <X className="h-4 w-4" />
-                </button>
-                <button
-                  type="submit"
-                  className="shrink-0 rounded-xl bg-primary-600 px-4 py-2 text-sm font-bold text-white hover:bg-primary-700"
-                >
-                  {t('common.search', 'Search')}
-                </button>
-              </form>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      {/* Global Intelligent Search Discovery Modal */}
+      <HeaderSearchModal
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        initialQuery={searchQuery}
+      />
 
       {/* Hand-off confirmation — shown before routing a mega-menu item to the Contact page */}
       <AnimatePresence>
@@ -573,12 +530,19 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
         )}
       </AnimatePresence>
 
-      {/* ── Main header (56px) ── */}
-      <header className="sticky top-0 z-50 border-b border-navy-100 bg-white text-navy-900 shadow-xs">
+      {/* ── Main header (56px) with glassmorphic scroll transition ── */}
+      <header
+        className={cn(
+          'sticky top-0 z-50 transition-all duration-300',
+          scrolled
+            ? 'bg-white/90 backdrop-blur-xl border-b border-slate-200/70 shadow-sm text-navy-900'
+            : 'bg-white/95 backdrop-blur-md border-b border-navy-100 text-navy-900 shadow-2xs'
+        )}
+      >
         <div className="container-wide">
           <div className="flex h-[56px] items-center justify-between gap-3">
             {/* Logo */}
-            <Logo to="/" size={140} className="shrink-0" />
+            <Logo to="/" size={140} className="shrink-0 transition-transform duration-200 hover:scale-105" />
 
             {/* Desktop / tablet nav — centered, compact on lg, spacious on xl */}
             <nav

@@ -21,20 +21,43 @@ export function BorewellServicesPage() {
       return;
     }
     setSubmitting(true);
-    const { error } = await supabase.from('enquiries').insert({
-      name: form.name.trim(),
-      email: form.email.trim() || null,
-      phone: form.phone.trim(),
-      customer_id: user?.id ?? null,
-      property_id: null,
-      tags: ['borewell-services'],
-      source: 'borewell_services_page',
-      status: 'new',
-      lead_status: 'new',
-      message: `Borewell Services enquiry — Location: ${form.location || 'N/A'}. ${form.message || ''}`,
-    });
+    let success = false;
+    const msg = `Borewell Services enquiry — Location: ${form.location || 'N/A'}. ${form.message || ''}`;
+
+    try {
+      const { data: rpcData, error: rpcError } = await supabase.rpc('submit_contact_enquiry', {
+        p_name: form.name.trim(),
+        p_phone: form.phone.trim(),
+        p_email: form.email.trim() || null,
+        p_message: msg,
+        p_source: 'website',
+        p_customer_id: user?.id ?? null,
+        p_tags: ['borewell-services', 'BOREWELL_SERVICES', form.location.trim()].filter(Boolean),
+      });
+      if (!rpcError && (rpcData as any)?.success !== false) {
+        success = true;
+      }
+    } catch (rpcErr) {
+      console.warn('Borewell services RPC error:', rpcErr);
+    }
+
+    if (!success) {
+      const { error } = await supabase.from('enquiries').insert({
+        name: form.name.trim(),
+        email: form.email.trim() || null,
+        phone: form.phone.trim(),
+        customer_id: user?.id ?? null,
+        property_id: null,
+        source: 'website',
+        status: 'new',
+        message: msg,
+        tags: ['borewell-services', 'BOREWELL_SERVICES'],
+      });
+      if (!error) success = true;
+    }
+
     setSubmitting(false);
-    if (!error) {
+    if (success) {
       setSent(true);
       toast.addToast('success', 'Service request submitted successfully!');
     } else {

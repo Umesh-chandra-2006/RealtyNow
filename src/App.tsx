@@ -136,6 +136,7 @@ const AdminBusinessPartners = lazy(() =>
 );
 const AdminCustomers = lazy(() => import('./pages/admin/manage').then((m) => ({ default: m.AdminCustomers })));
 const AdminPropertyEditor = lazy(() => import('./pages/admin/admin-property-editor').then((m) => ({ default: m.AdminPropertyEditor })));
+const AdminRoleModule = lazy(() => import('./pages/admin/role-module').then((m) => ({ default: m.AdminRoleModule })));
 const AdminAgents = lazy(() => import('./pages/admin/manage').then((m) => ({ default: m.AdminAgents })));
 const AdminBlogs = lazy(() => import('./pages/admin/manage').then((m) => ({ default: m.AdminBlogs })));
 const AdminMasterData = lazy(() => import('./pages/admin/manage').then((m) => ({ default: m.AdminMasterData })));
@@ -147,6 +148,30 @@ const AdminAdvertisements = lazy(() =>
 const AdminHeroCampaigns = lazy(() =>
   import('./pages/admin/hero-campaigns').then((m) => ({ default: m.AdminHeroCampaigns })),
 );
+const AdminFeaturedPropertiesPage = lazy(() =>
+  import('./pages/admin/paid-campaign/featured-properties').then((m) => ({ default: m.FeaturedPropertiesCampaignPage })),
+);
+const PaidCampaignDashboardPage = lazy(() =>
+  import('./pages/admin/paid-campaign/dashboard').then((m) => ({ default: m.PaidCampaignDashboardPage })),
+);
+const FeaturedPropertiesCampaignPage = lazy(() =>
+  import('./pages/admin/paid-campaign/featured-properties').then((m) => ({ default: m.FeaturedPropertiesCampaignPage })),
+);
+const TwoColumnSliderCampaignPage = lazy(() =>
+  import('./pages/admin/paid-campaign/two-column-slider').then((m) => ({ default: m.TwoColumnSliderCampaignPage })),
+);
+const ExploreBuildersCampaignPage = lazy(() =>
+  import('./pages/admin/paid-campaign/explore-builders').then((m) => ({ default: m.ExploreBuildersCampaignPage })),
+);
+const SignatureCollectionCampaignPage = lazy(() =>
+  import('./pages/admin/paid-campaign/signature-collection').then((m) => ({ default: m.SignatureCollectionCampaignPage })),
+);
+const ThreeColumnPropertiesCampaignPage = lazy(() =>
+  import('./pages/admin/paid-campaign/three-column-properties').then((m) => ({ default: m.ThreeColumnPropertiesCampaignPage })),
+);
+const RealtynowExclusiveCampaignPage = lazy(() =>
+  import('./pages/admin/paid-campaign/realtynow-exclusive').then((m) => ({ default: m.RealtynowExclusiveCampaignPage })),
+);
 const AdminSecuritySettings = lazy(() =>
   import('./pages/admin/security-settings').then((m) => ({ default: m.AdminSecuritySettings })),
 );
@@ -157,6 +182,7 @@ const AdminPropertyPageSettings = lazy(() =>
 );
 const AdminLanguages = lazy(() => import('./pages/admin/languages').then((m) => ({ default: m.AdminLanguagesPage })));
 const AdminHomepageCMS = lazy(() => import('./pages/admin/cms').then((m) => ({ default: m.AdminHomepageCMS })));
+const AdminAllLeadsPage = lazy(() => import('./pages/admin/leads').then((m) => ({ default: m.AdminAllLeadsPage })));
 const AdminCRMDashboard = lazy(() => import('./pages/admin/crm').then((m) => ({ default: m.default })));
 const AdminPackagesPage = lazy(() => import('./pages/admin/packages').then((m) => ({ default: m.default })));
 const AdminPaymentsPage = lazy(() => import('./pages/admin/payments').then((m) => ({ default: m.default })));
@@ -184,6 +210,20 @@ const AgentAiAssistant = lazy(() => import('./pages/agent/ai-assistant').then((m
 
 const PartnerDashboard = lazy(() => import('./pages/partner/dashboard').then((m) => ({ default: m.PartnerDashboard })));
 const PartnerProfile = lazy(() => import('./pages/partner/profile').then((m) => ({ default: m.PartnerProfile })));
+const PartnerReferrals = lazy(() => import('./pages/partner/referrals').then((m) => ({ default: m.PartnerReferrals })));
+const PartnerReferralNew = lazy(() => import('./pages/partner/referral-new').then((m) => ({ default: m.PartnerReferralNew })));
+const PartnerReferralDetail = lazy(() => import('./pages/partner/referral-detail').then((m) => ({ default: m.PartnerReferralDetail })));
+const PartnerEarnings = lazy(() => import('./pages/partner/earnings').then((m) => ({ default: m.PartnerEarnings })));
+const PartnerSettings = lazy(() => import('./pages/partner/settings').then((m) => ({ default: m.PartnerSettings })));
+const PartnerLeads = lazy(() => import('./pages/partner/leads').then((m) => ({ default: m.PartnerLeadsPage })));
+const PartnerKanban = lazy(() => import('./pages/partner/kanban').then((m) => ({ default: m.PartnerKanbanPage })));
+const PartnerPayouts = lazy(() => import('./pages/partner/payouts').then((m) => ({ default: m.PartnerPayoutsPage })));
+const PartnerInvoices = lazy(() => import('./pages/partner/invoices').then((m) => ({ default: m.PartnerInvoicesPage })));
+const PartnerAssignments = lazy(() => import('./pages/partner/assignments').then((m) => ({ default: m.PartnerAssignmentsPage })));
+const PartnerFollowUps = lazy(() => import('./pages/partner/follow-ups').then((m) => ({ default: m.PartnerFollowUpsPage })));
+const PartnerDocuments = lazy(() => import('./pages/partner/documents').then((m) => ({ default: m.PartnerDocumentsPage })));
+const PartnerTools = lazy(() => import('./pages/partner/tools').then((m) => ({ default: m.PartnerToolsPage })));
+const PartnerAnalytics = lazy(() => import('./pages/partner/analytics').then((m) => ({ default: m.PartnerAnalyticsPage })));
 
 const BuilderDashboard = lazy(() => import('./pages/builder/dashboard').then((m) => ({ default: m.BuilderDashboard })));
 const BuilderProjects = lazy(() => import('./pages/builder/projects').then((m) => ({ default: m.BuilderProjects })));
@@ -495,6 +535,21 @@ function AppRoutes() {
               children: [
                 { path: '/partner', element: <PartnerDashboard /> },
                 { path: '/partner/profile', element: <PartnerProfile /> },
+                { path: '/partner/referrals', element: <PartnerReferrals /> },
+                { path: '/partner/referrals/new', element: <PartnerReferralNew /> },
+                { path: '/partner/referrals/:id', element: <PartnerReferralDetail /> },
+                { path: '/partner/leads', element: <PartnerLeads /> },
+                { path: '/partner/kanban', element: <PartnerKanban /> },
+                { path: '/partner/earnings', element: <PartnerEarnings /> },
+                { path: '/partner/payouts', element: <PartnerPayouts /> },
+                { path: '/partner/invoices', element: <PartnerInvoices /> },
+                { path: '/partner/assignments', element: <PartnerAssignments /> },
+                { path: '/partner/follow-ups', element: <PartnerFollowUps /> },
+                { path: '/partner/documents', element: <PartnerDocuments /> },
+                { path: '/partner/tools', element: <PartnerTools /> },
+                { path: '/partner/analytics', element: <PartnerAnalytics /> },
+                { path: '/partner/notifications', element: <PortalNotifications /> },
+                { path: '/partner/settings', element: <PartnerSettings /> },
               ],
             },
             {
@@ -536,10 +591,70 @@ function AppRoutes() {
                 { path: '/admin/properties/edit/:id', element: <AdminPropertyEditor /> },
                 { path: '/admin/bulk-import', element: <AdminBulkImport /> },
                 { path: '/admin/approvals', element: <AdminApprovals /> },
+                { path: '/admin/leads', element: <AdminAllLeadsPage /> },
+                { path: '/admin/all-leads', element: <AdminAllLeadsPage /> },
+
+                // PAID CAMPAIGN CMS ROUTES
+                { path: '/admin/paid-campaign', element: <PaidCampaignDashboardPage /> },
+                { path: '/admin/paid-campaign/featured-properties', element: <FeaturedPropertiesCampaignPage /> },
+                { path: '/admin/paid-campaign/two-column-slider', element: <TwoColumnSliderCampaignPage /> },
+                { path: '/admin/paid-campaign/explore-builders', element: <ExploreBuildersCampaignPage /> },
+                { path: '/admin/paid-campaign/signature-collection', element: <SignatureCollectionCampaignPage /> },
+                { path: '/admin/paid-campaign/three-column-properties', element: <ThreeColumnPropertiesCampaignPage /> },
+                { path: '/admin/paid-campaign/realtynow-exclusive', element: <RealtynowExclusiveCampaignPage /> },
+                { path: '/admin/featured-properties', element: <FeaturedPropertiesCampaignPage /> },
+
+                // Legacy / Direct URLs for backward compatibility
                 { path: '/admin/agent-applications', element: <AdminAgentApplications /> },
                 { path: '/admin/builder-applications', element: <AdminBuilderApplications /> },
                 { path: '/admin/partner-applications', element: <AdminPartnerApplications /> },
                 { path: '/admin/business-partners', element: <AdminBusinessPartners /> },
+
+                // AGENT Submodule Routes
+                { path: '/admin/agent/applications', element: <AdminAgentApplications /> },
+                { path: '/admin/agent/leads', element: <AdminRoleModule role="agent" submodule="leads" /> },
+                { path: '/admin/agent/kanban', element: <AdminRoleModule role="agent" submodule="kanban" /> },
+                { path: '/admin/agent/directory', element: <AdminAgents /> },
+                { path: '/admin/agent/property-assignments', element: <AdminRoleModule role="agent" submodule="property-assignments" /> },
+                { path: '/admin/agent/follow-ups', element: <AdminRoleModule role="agent" submodule="follow-ups" /> },
+                { path: '/admin/agent/performance', element: <AdminRoleModule role="agent" submodule="performance" /> },
+                { path: '/admin/agent/documents', element: <AdminRoleModule role="agent" submodule="documents" /> },
+
+                // BUILDER Submodule Routes
+                { path: '/admin/builder/applications', element: <AdminBuilderApplications /> },
+                { path: '/admin/builder/leads', element: <AdminRoleModule role="builder" submodule="leads" /> },
+                { path: '/admin/builder/kanban', element: <AdminRoleModule role="builder" submodule="kanban" /> },
+                { path: '/admin/builder/directory', element: <AdminRoleModule role="builder" submodule="directory" /> },
+                { path: '/admin/builder/projects', element: <AdminRoleModule role="builder" submodule="projects" /> },
+                { path: '/admin/builder/project-approvals', element: <AdminRoleModule role="builder" submodule="project-approvals" /> },
+                { path: '/admin/builder/assignments', element: <AdminRoleModule role="builder" submodule="assignments" /> },
+                { path: '/admin/builder/performance', element: <AdminRoleModule role="builder" submodule="performance" /> },
+                { path: '/admin/builder/documents', element: <AdminRoleModule role="builder" submodule="documents" /> },
+
+                // PARTNER Submodule Routes
+                { path: '/admin/partner/applications', element: <AdminPartnerApplications /> },
+                { path: '/admin/partner/leads', element: <AdminRoleModule role="partner" submodule="leads" /> },
+                { path: '/admin/partner/kanban', element: <AdminRoleModule role="partner" submodule="kanban" /> },
+                { path: '/admin/partner/directory', element: <AdminRoleModule role="partner" submodule="directory" /> },
+                { path: '/admin/partner/referrals', element: <AdminRoleModule role="partner" submodule="referrals" /> },
+                { path: '/admin/partner/assignments', element: <AdminRoleModule role="partner" submodule="assignments" /> },
+                { path: '/admin/partner/follow-ups', element: <AdminRoleModule role="partner" submodule="follow-ups" /> },
+                { path: '/admin/partner/performance', element: <AdminRoleModule role="partner" submodule="performance" /> },
+                { path: '/admin/partner/documents', element: <AdminRoleModule role="partner" submodule="documents" /> },
+
+                // BUSINESS PARTNER Submodule Routes
+                { path: '/admin/business-partner/applications', element: <AdminBusinessPartners /> },
+                { path: '/admin/business-partner/leads', element: <AdminRoleModule role="business-partner" submodule="leads" /> },
+                { path: '/admin/business-partner/kanban', element: <AdminRoleModule role="business-partner" submodule="kanban" /> },
+                { path: '/admin/business-partner/directory', element: <AdminRoleModule role="business-partner" submodule="directory" /> },
+                { path: '/admin/business-partner/opportunities', element: <AdminRoleModule role="business-partner" submodule="opportunities" /> },
+                { path: '/admin/business-partner/deals', element: <AdminRoleModule role="business-partner" submodule="deals" /> },
+                { path: '/admin/business-partner/assignments', element: <AdminRoleModule role="business-partner" submodule="assignments" /> },
+                { path: '/admin/business-partner/follow-ups', element: <AdminRoleModule role="business-partner" submodule="follow-ups" /> },
+                { path: '/admin/business-partner/performance', element: <AdminRoleModule role="business-partner" submodule="performance" /> },
+                { path: '/admin/business-partner/payouts', element: <AdminRoleModule role="business-partner" submodule="payouts" /> },
+                { path: '/admin/business-partner/documents', element: <AdminRoleModule role="business-partner" submodule="documents" /> },
+
                 { path: '/admin/customers', element: <AdminCustomers /> },
                 { path: '/admin/agents', element: <AdminAgents /> },
                 { path: '/admin/blogs', element: <AdminBlogs /> },

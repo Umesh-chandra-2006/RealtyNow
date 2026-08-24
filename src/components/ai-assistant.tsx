@@ -105,7 +105,7 @@ export function AIAssistant({ context }: { context?: string }) {
     <>
       <div className="fixed bottom-6 md:bottom-10 right-3 md:right-6 z-40 flex flex-col items-end gap-2.5 md:gap-3 pointer-events-none pb-safe">
         <a
-          href="https://wa.me/919494230774"
+          href={`https://wa.me/919494230774?text=${encodeURIComponent('Hi RealtyNow, I would like to inquire about your property services.')}`}
           target="_blank"
           rel="noopener noreferrer"
           className="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-full bg-[#25D366] text-white shadow-cardHover transition hover:bg-[#20bd5a] pointer-events-auto"

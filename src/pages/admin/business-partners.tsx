@@ -199,7 +199,15 @@ export function AdminBusinessPartners() {
 
   return (
     <DashboardLayout sections={adminSections} title="Business Partners">
-      <PageHeader title="Business Partners" subtitle="Manage approved RealtyNow business partners" />
+      <PageHeader
+        title="Business Partners"
+        subtitle="Manage approved RealtyNow business partners"
+        breadcrumbs={[
+          { label: 'Admin', to: '/admin' },
+          { label: 'Business Partner', to: '/admin/business-partners' },
+          { label: 'Applications & Partners' },
+        ]}
+      />
 
       <PendingApplicationsPanel
         applications={pendingApplications}

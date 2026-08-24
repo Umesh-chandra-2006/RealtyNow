@@ -49,6 +49,7 @@ import {
   LandPlot,
   ChevronLeft,
   ChevronRight,
+  Clock,
   Droplets,
   PieChart,
   Bed,
@@ -80,6 +81,8 @@ import { getPropertyPricingDisplay, getPriceUnitLabel } from '../../lib/plot-pri
 import { PostPropertyLink } from '../../components/post-property-link';
 import { ContactAgentModal } from '../../components/contact-agent-modal';
 import { BookVisitModal } from '../../components/book-visit-modal';
+import { fetchPublicFeaturedProperties } from '../../lib/featured-properties-api';
+import { fetchPublicCampaigns } from '../../lib/paid-campaigns-api';
 
 type HomeCardProperty = Property & {
   city_name?: string | null;
@@ -164,34 +167,38 @@ export function HomePropertyCard({
   };
 
   return (
-    <div className="group flex h-full flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-[0_4px_16px_rgba(0,0,0,0.06)] transition-shadow duration-300 hover:shadow-[0_16px_36px_rgba(0,0,0,0.12)]">
+    <div className="group flex h-full flex-col overflow-hidden rounded-2xl sm:rounded-3xl border border-slate-200/80 bg-white shadow-[0_4px_20px_rgba(0,0,0,0.04)] transition-all duration-300 hover:shadow-[0_20px_40px_rgba(0,0,0,0.09)] hover:-translate-y-1">
       <Link
         to={generatePropertyUrl(property)}
         className="block flex-1"
       >
-        <div className="relative aspect-video w-full overflow-hidden bg-slate-100">
+        <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-100">
           <PropertyImage
             src={getPropertyCoverImage(property)}
             alt={property.title}
-            className="transition-transform duration-500 ease-out group-hover:scale-110"
+            className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-108"
           />
+          {/* Subtle gradient scrim */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30 pointer-events-none" />
+
           {badge && (
             <span
               className={cn(
-                'absolute left-2.5 top-2.5 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-white shadow',
+                'absolute left-3 top-3 inline-flex items-center gap-1 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider text-white shadow-md backdrop-blur-md',
                 badge.className,
               )}
             >
               {badge.icon} {badge.label}
             </span>
           )}
-          <div className="absolute right-2.5 top-2.5 flex items-center gap-1.5">
+          
+          <div className="absolute right-3 top-3 flex items-center gap-1.5 z-10">
             <button
               type="button"
               onClick={handleFavorite}
               className={cn(
-                'grid h-8 w-8 place-items-center rounded-full bg-white/90 shadow-sm backdrop-blur transition-transform hover:scale-110 cursor-pointer',
-                isCurrentlyFavorited ? 'text-red-500' : 'text-slate-600 hover:text-slate-900',
+                'grid h-8 w-8 place-items-center rounded-full bg-white/90 shadow-md backdrop-blur-md transition-all hover:scale-110 hover:bg-white cursor-pointer',
+                isCurrentlyFavorited ? 'text-red-500' : 'text-slate-700 hover:text-red-600',
               )}
               title={isCurrentlyFavorited ? t('common.removeFromFavorites', 'Remove') : t('common.addToFavorites', 'Save')}
             >
@@ -201,70 +208,75 @@ export function HomePropertyCard({
               type="button"
               onClick={handleShareClick}
               aria-label="Share this property"
-              className="grid h-7 w-7 place-items-center rounded-full bg-white/90 text-slate-600 shadow-sm backdrop-blur transition hover:scale-110 hover:bg-white"
+              className="grid h-8 w-8 place-items-center rounded-full bg-white/90 text-slate-700 shadow-md backdrop-blur-md transition-all hover:scale-110 hover:bg-white hover:text-red-600"
             >
               <Share2 className="h-3.5 w-3.5" />
             </button>
           </div>
+
           {property.possession_status && (
-            <span className="absolute bottom-2.5 left-2.5 rounded-full bg-black/55 px-2.5 py-1 text-[10px] font-semibold text-white backdrop-blur">
+            <span className="absolute bottom-3 left-3 rounded-full bg-black/60 px-2.5 py-1 text-[10px] font-bold text-white backdrop-blur-md border border-white/10">
               {property.possession_status}
             </span>
           )}
           {reraNumber && (
-            <span className="absolute bottom-2.5 right-2.5 inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[9px] font-bold text-slate-700 shadow-sm backdrop-blur">
-              <ShieldCheck className="h-3 w-3 text-emerald-600" /> RERA
+            <span className="absolute bottom-3 right-3 inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[9px] font-black text-emerald-800 shadow-md backdrop-blur-md">
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" /> RERA
             </span>
           )}
         </div>
 
-        <div className="flex flex-col p-3.5">
+        <div className="flex flex-col p-4 sm:p-5">
           {(() => {
             const pricing = getPropertyPricingDisplay(property, { compactConstructed: true });
             return (
               <>
-                <p className="font-display text-base font-extrabold text-slate-900 flex items-baseline gap-1.5 flex-wrap">
-                  {pricing.primaryPrice}
-                  {pricing.isLand && pricing.totalEstimatedPrice && (
-                    <span className="text-[11px] font-medium text-slate-500">
-                      (Est: {pricing.totalEstimatedPrice})
+                <div className="flex items-baseline justify-between gap-2 flex-wrap mb-1">
+                  <p className="font-display text-lg sm:text-xl font-black text-slate-900 tracking-tight flex items-baseline gap-1.5">
+                    {pricing.primaryPrice}
+                    {pricing.isLand && pricing.totalEstimatedPrice && (
+                      <span className="text-xs font-normal text-slate-500">
+                        ({pricing.totalEstimatedPrice})
+                      </span>
+                    )}
+                  </p>
+                  {property.bedrooms != null ? (
+                    <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">
+                      <Bed className="h-3.5 w-3.5 text-slate-500" /> {property.bedrooms} BHK
                     </span>
-                  )}
-                </p>
-                <h3 className="mt-0.5 font-display text-sm font-bold text-slate-900 line-clamp-1 group-hover:text-red-600 transition-colors">
+                  ) : pricing.areaDisplay ? (
+                    <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-100 px-2.5 py-0.5 text-xs font-bold">
+                      {pricing.areaDisplay}
+                    </span>
+                  ) : null}
+                </div>
+
+                <h3 className="font-display text-sm sm:text-base font-bold text-slate-900 line-clamp-1 group-hover:text-red-600 transition-colors">
                   {property.title}
                 </h3>
-                <p className="mt-1 flex items-center gap-1 text-[11px] text-slate-500">
-                  <MapPin className="h-3 w-3 shrink-0" />
+                
+                <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-500">
+                  <MapPin className="h-3.5 w-3.5 shrink-0 text-red-500" />
                   <span className="line-clamp-1">
                     {property.locality_name ? `${property.locality_name}, ` : ''}
                     {property.city_name ?? 'Hyderabad'}
                   </span>
                 </p>
-                {property.bedrooms != null ? (
-                  <span className="mt-2 inline-flex w-fit items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-600">
-                    <Bed className="h-3 w-3 text-slate-400" /> {property.bedrooms} BHK
-                  </span>
-                ) : pricing.areaDisplay ? (
-                  <span className="mt-2 inline-flex w-fit items-center gap-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-100 px-2 py-0.5 text-[11px] font-semibold">
-                    {pricing.areaDisplay}
-                  </span>
-                ) : null}
               </>
             );
           })()}
         </div>
       </Link>
 
-      {/* View Details Button */}
-      <div className="mt-auto pt-2.5 px-3 pb-3 border-t border-slate-100">
+      {/* View Details CTA Button */}
+      <div className="mt-auto pt-2 px-4 pb-4 border-t border-slate-100">
         <Link
           to={generatePropertyUrl(property)}
           onClick={(e) => e.stopPropagation()}
-          className="w-full py-2 px-3 rounded-xl text-xs font-bold bg-slate-50 hover:bg-red-50 text-slate-700 hover:text-[#E31E24] border border-slate-200 hover:border-red-200 transition-all text-center flex items-center justify-center gap-1.5 group/btn"
+          className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-slate-50 hover:bg-red-600 text-slate-700 hover:text-white border border-slate-200 hover:border-red-600 transition-all text-center flex items-center justify-center gap-2 group/btn shadow-2xs hover:shadow-md active:scale-98"
         >
           <span>{t('common.viewDetails', 'View Details')}</span>
-          <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover/btn:text-[#E31E24] group-hover/btn:translate-x-0.5 transition-transform" />
+          <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover/btn:translate-x-1" />
         </Link>
       </div>
     </div>
@@ -684,12 +696,12 @@ function HeroSection() {
 
   return (
     <section
-      className="relative overflow-hidden bg-navy-950 focus:outline-none select-none"
+      className="relative overflow-hidden bg-slate-950 focus:outline-none select-none"
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
       onWheel={onWheel}
     >
-      <div className="relative h-[360px] sm:h-[400px] lg:h-[440px] max-h-[460px] w-full">
+      <div className="relative h-[400px] min-h-[400px] max-h-[400px] w-full">
         {/* Sliding track — cover background image */}
         <div className="h-full w-full overflow-hidden" ref={emblaRef}>
           <div className="flex h-full">
@@ -703,9 +715,9 @@ function HeroSection() {
                     initial="inactive"
                     variants={{
                       active: { scale: 1, opacity: 1, filter: 'blur(0px)' },
-                      inactive: { scale: 1.05, opacity: 0.45, filter: 'blur(6px)' },
+                      inactive: { scale: 1.06, opacity: 0.4, filter: 'blur(6px)' },
                     }}
-                    transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+                    transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
                   >
                     <picture>
                       {slide.imageMobile && slide.imageMobile !== slide.imageDesktop && (
@@ -734,24 +746,24 @@ function HeroSection() {
               type="button"
               onClick={scrollPrev}
               aria-label="Previous slide"
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 sm:left-5 z-20 grid h-9 w-9 place-items-center rounded-full bg-white/90 text-slate-800 shadow-xl backdrop-blur-md transition-all hover:bg-white hover:scale-105 active:scale-95 sm:h-10 sm:w-10"
+              className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 z-20 grid h-9 w-9 sm:h-10 sm:w-10 place-items-center rounded-full bg-black/40 text-white border border-white/20 shadow-2xl backdrop-blur-md transition-all hover:bg-white hover:text-slate-900 hover:scale-110 active:scale-95 cursor-pointer"
             >
-              <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+              <ChevronLeft className="h-4 w-4" />
             </button>
             <button
               type="button"
               onClick={scrollNext}
               aria-label="Next slide"
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 sm:right-5 z-20 grid h-9 w-9 place-items-center rounded-full bg-white/90 text-slate-800 shadow-xl backdrop-blur-md transition-all hover:bg-white hover:scale-105 active:scale-95 sm:h-10 sm:w-10"
+              className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 z-20 grid h-9 w-9 sm:h-10 sm:w-10 place-items-center rounded-full bg-black/40 text-white border border-white/20 shadow-2xl backdrop-blur-md transition-all hover:bg-white hover:text-slate-900 hover:scale-110 active:scale-95 cursor-pointer"
             >
-              <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
+              <ChevronRight className="h-4 w-4" />
             </button>
           </>
         )}
 
         {/* Carousel indicator dots */}
         {slides.length > 1 && (
-          <div className="absolute bottom-16 sm:bottom-20 right-4 z-20 flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 rounded-full bg-navy-950/60 backdrop-blur-md border border-white/15 shadow-xl sm:right-8">
+          <div className="absolute bottom-4 sm:bottom-5 right-6 z-20 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md border border-white/20 shadow-2xl">
             {slides.map((s, idx) => {
               const isActive = idx === selectedIndex;
               return (
@@ -766,8 +778,8 @@ function HeroSection() {
                     className={cn(
                       'block rounded-full transition-all duration-300',
                       isActive
-                        ? 'h-2.5 w-2.5 sm:h-3 sm:w-3 bg-red-500 ring-2 ring-white/90 shadow-[0_0_8px_rgba(239,68,68,0.8)] scale-110'
-                        : 'h-2 w-2 sm:h-2 sm:w-2 bg-white/40 group-hover:bg-white/80 group-hover:scale-125',
+                        ? 'h-2 w-5 bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.9)]'
+                        : 'h-1.5 w-1.5 bg-white/40 group-hover:bg-white/80',
                     )}
                   />
                 </button>
@@ -776,29 +788,29 @@ function HeroSection() {
           </div>
         )}
 
-        {/* Adaptive Dynamic Gradient Overlay (Screenshot 2 / 99acres style) */}
+        {/* Adaptive Dynamic Gradient Scrim */}
         <div
           key={`overlay-${activeSlide.id}-${activeSlide.overlayPosition}`}
           className="pointer-events-none absolute inset-0 z-[5] transition-all duration-700"
           style={{
             background:
               activeSlide.overlayPosition === 'right'
-                ? `linear-gradient(to right, transparent 0%, rgba(10, 25, 47, 0.15) 25%, rgba(10, 25, 47, ${activeSlide.overlayOpacity * 0.85}) 50%, rgba(10, 25, 47, ${activeSlide.overlayOpacity}) 100%)`
+                ? `linear-gradient(to right, transparent 0%, rgba(10, 18, 30, 0.3) 25%, rgba(10, 18, 30, 0.85) 60%, rgba(10, 18, 30, 0.95) 100%)`
                 : activeSlide.overlayPosition === 'left'
-                ? `linear-gradient(to left, transparent 0%, rgba(10, 25, 47, 0.15) 25%, rgba(10, 25, 47, ${activeSlide.overlayOpacity * 0.85}) 50%, rgba(10, 25, 47, ${activeSlide.overlayOpacity}) 100%)`
-                : `radial-gradient(ellipse at center, rgba(10, 25, 47, ${activeSlide.overlayOpacity * 0.9}) 0%, rgba(10, 25, 47, ${activeSlide.overlayOpacity * 0.75}) 70%, rgba(10, 25, 47, 0.4) 100%), linear-gradient(to top, rgba(10, 25, 47, 0.95), transparent)`,
+                ? `linear-gradient(to left, transparent 0%, rgba(10, 18, 30, 0.3) 25%, rgba(10, 18, 30, 0.85) 60%, rgba(10, 18, 30, 0.95) 100%)`
+                : `radial-gradient(ellipse at center, rgba(10, 18, 30, 0.5) 0%, rgba(10, 18, 30, 0.85) 75%, rgba(10, 18, 30, 0.98) 100%), linear-gradient(to top, rgba(10, 18, 30, 0.95), transparent)`,
           }}
         />
 
-        {/* Mobile-specific bottom scrim for 100% legibility on phone screens */}
-        <div className="pointer-events-none absolute inset-0 z-[6] sm:hidden bg-gradient-to-t from-navy-950/95 via-navy-950/80 to-transparent" />
+        {/* Mobile & Tablet bottom scrim */}
+        <div className="pointer-events-none absolute inset-0 z-[6] bg-gradient-to-t from-slate-950/90 via-transparent to-black/30" />
 
         {/* Slide Foreground Content Box */}
         <div className="absolute inset-0 z-10">
           <div className="container-wide h-full w-full mx-auto px-4 sm:px-8 lg:px-12 flex items-center">
             <div
               className={cn(
-                'w-full h-full flex pb-12 sm:pb-14 pt-3 sm:pt-4',
+                'w-full h-full flex pb-8 sm:pb-10 pt-4 sm:pt-6',
                 activeSlide.overlayPosition === 'right'
                   ? 'justify-center sm:justify-end items-center text-left'
                   : activeSlide.overlayPosition === 'left'
@@ -814,36 +826,41 @@ function HeroSection() {
                   exit="hidden"
                   variants={{ visible: { transition: { staggerChildren: 0.06, delayChildren: 0.04 } } }}
                   className={cn(
-                    'w-full max-w-lg sm:max-w-xl flex flex-col gap-1.5 sm:gap-2',
+                    'w-full max-w-xl sm:max-w-2xl flex flex-col gap-2',
                     activeSlide.overlayPosition === 'center' ? 'items-center text-center' : 'items-start text-left',
                   )}
                 >
                   {/* Top Bar: Developer & Project Logos + RERA Registration */}
                   <motion.div variants={heroTextVariants} className="flex flex-wrap items-center gap-2">
+                    {activeSlide.packageTier && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-red-600 to-rose-600 px-2.5 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-white shadow-md shadow-red-600/30">
+                        <Sparkles className="h-2.5 w-2.5" /> {activeSlide.packageTier} Showcase
+                      </span>
+                    )}
                     {activeSlide.developerLogo && (
-                      <div className="h-6 sm:h-7 px-2 py-0.5 rounded bg-white/95 shadow-md backdrop-blur-md flex items-center justify-center">
+                      <div className="h-6 sm:h-7 px-2 py-0.5 rounded-lg bg-white/95 shadow-md backdrop-blur-md flex items-center justify-center">
                         <img src={activeSlide.developerLogo} alt="Developer logo" className="max-h-full max-w-[80px] object-contain" />
                       </div>
                     )}
                     {activeSlide.companyLogo && (
-                      <div className="h-6 sm:h-7 px-2 py-0.5 rounded bg-white/95 shadow-md backdrop-blur-md flex items-center justify-center">
+                      <div className="h-6 sm:h-7 px-2 py-0.5 rounded-lg bg-white/95 shadow-md backdrop-blur-md flex items-center justify-center">
                         <img src={activeSlide.companyLogo} alt="Project logo" className="max-h-full max-w-[90px] object-contain" />
                       </div>
                     )}
                     {activeSlide.reraNumber && (
-                      <div className="inline-flex items-center gap-1 rounded bg-navy-950/80 border border-white/20 px-2 py-0.5 text-[10px] sm:text-[11px] text-white/95 font-medium backdrop-blur-md shadow-sm">
+                      <div className="inline-flex items-center gap-1.5 rounded-full bg-black/60 border border-white/20 px-2.5 py-0.5 text-[10px] text-white/95 font-semibold backdrop-blur-md shadow-xs">
                         <ShieldCheck className="h-3 w-3 text-emerald-400 shrink-0" />
-                        <span className="truncate max-w-[240px] sm:max-w-sm">{activeSlide.reraNumber}</span>
+                        <span className="truncate max-w-[220px] sm:max-w-xs">{activeSlide.reraNumber}</span>
                       </div>
                     )}
                     {activeSlide.locationText && !activeSlide.reraNumber && (
-                      <div className="inline-flex items-center gap-1 rounded bg-navy-950/70 border border-white/15 px-2 py-0.5 text-[11px] text-white/90 font-semibold tracking-wider uppercase backdrop-blur-md">
+                      <div className="inline-flex items-center gap-1.5 rounded-full bg-black/60 border border-white/20 px-2.5 py-0.5 text-[10px] text-white/90 font-bold tracking-wider uppercase backdrop-blur-md">
                         <MapPin className="h-3 w-3 text-red-400 shrink-0" />
                         <span>{activeSlide.locationText}</span>
                       </div>
                     )}
                     {activeSlide.priceText && (
-                      <span className="rounded bg-gold-400/90 text-navy-950 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wide shadow-sm">
+                      <span className="rounded-full bg-amber-400 text-slate-950 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider shadow-sm">
                         {activeSlide.priceText}
                       </span>
                     )}
@@ -852,7 +869,7 @@ function HeroSection() {
                   {/* Main Property Headline Title */}
                   <motion.h1
                     variants={heroTextVariants}
-                    className="font-display text-lg sm:text-2xl lg:text-3xl font-black uppercase text-white tracking-tight leading-tight [text-shadow:0_2px_12px_rgba(0,0,0,0.6)]"
+                    className="font-display text-xl sm:text-2xl lg:text-3xl font-black uppercase text-white tracking-tight leading-[1.15] [text-shadow:0_2px_12px_rgba(0,0,0,0.8)]"
                   >
                     {activeSlide.title}
                   </motion.h1>
@@ -861,21 +878,21 @@ function HeroSection() {
                   {activeSlide.subtitle && (
                     <motion.p
                       variants={heroTextVariants}
-                      className="text-xs sm:text-[13px] font-medium text-slate-200/95 leading-snug line-clamp-1 sm:line-clamp-2 [text-shadow:0_1px_6px_rgba(0,0,0,0.5)]"
+                      className="text-xs sm:text-sm font-medium text-slate-200/95 leading-relaxed line-clamp-1 [text-shadow:0_1px_6px_rgba(0,0,0,0.6)]"
                     >
                       {activeSlide.subtitle}
                     </motion.p>
                   )}
 
-                  {/* Dynamic Property Features Highlights */}
+                  {/* Dynamic Property Features Highlights (Max 2 for 400px height) */}
                   {activeSlide.features && activeSlide.features.length > 0 && (
                     <motion.div variants={heroTextVariants} className="space-y-1 my-0.5">
-                      {activeSlide.features.slice(0, 3).map((feat, fIdx) => (
+                      {activeSlide.features.slice(0, 2).map((feat, fIdx) => (
                         <div
                           key={fIdx}
-                          className="flex items-start gap-1.5 text-[11px] sm:text-xs font-semibold text-white/95 leading-snug [text-shadow:0_1px_4px_rgba(0,0,0,0.7)]"
+                          className="flex items-start gap-1.5 text-xs font-semibold text-white/95 leading-snug [text-shadow:0_1px_6px_rgba(0,0,0,0.8)]"
                         >
-                          <CheckCircle2 className="h-3.5 w-3.5 text-gold-400 shrink-0 mt-0.5" />
+                          <CheckCircle2 className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" />
                           <span className="leading-snug">{feat}</span>
                         </div>
                       ))}
@@ -884,13 +901,13 @@ function HeroSection() {
 
                   {/* Optional CTA Button */}
                   {activeSlide.ctaEnabled && activeSlide.ctaText && (
-                    <motion.div variants={heroTextVariants} className="pt-1 flex items-center gap-3">
+                    <motion.div variants={heroTextVariants} className="pt-1 flex flex-wrap items-center gap-2.5">
                       {activeSlide.ctaLink.startsWith('http') ? (
                         <a
                           href={activeSlide.ctaLink}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 px-4 sm:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-bold text-white shadow-lg shadow-red-900/40 hover:shadow-red-600/50 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 px-4 py-2 sm:px-5 sm:py-2 text-xs sm:text-sm font-bold text-white shadow-lg shadow-red-900/30 hover:shadow-red-600/50 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
                         >
                           {activeSlide.ctaText}
                           <ArrowRight className="h-3.5 w-3.5" />
@@ -898,12 +915,19 @@ function HeroSection() {
                       ) : (
                         <Link
                           to={activeSlide.ctaLink}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 px-4 sm:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-bold text-white shadow-lg shadow-red-900/40 hover:shadow-red-600/50 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 px-4 py-2 sm:px-5 sm:py-2 text-xs sm:text-sm font-bold text-white shadow-lg shadow-red-900/30 hover:shadow-red-600/50 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
                         >
                           {activeSlide.ctaText}
                           <ArrowRight className="h-3.5 w-3.5" />
                         </Link>
                       )}
+
+                      <Link
+                        to="/search?featured=true"
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 px-3.5 py-2 sm:px-4 sm:py-2 text-xs sm:text-sm font-bold backdrop-blur-md transition-all hover:border-white/40"
+                      >
+                        Explore Collection
+                      </Link>
                     </motion.div>
                   )}
                 </motion.div>
@@ -1238,16 +1262,16 @@ function AISmartSearch() {
   };
 
   return (
-    <div className="container-wide relative z-30 -mt-10 sm:-mt-14">
-      <div className="relative mx-auto w-[96%] sm:w-[90%] lg:w-[84%] max-w-5xl">
+    <div className="container-wide relative z-30 -mt-16 sm:-mt-20 lg:-mt-24">
+      <div className="relative mx-auto w-[98%] sm:w-[92%] lg:w-[86%] max-w-5xl">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 25 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15, duration: 0.5 }}
-          className="w-full rounded-[2rem] border border-slate-200/90 bg-white/95 p-3 sm:p-4 shadow-2xl shadow-slate-900/10 backdrop-blur-xl"
+          transition={{ delay: 0.15, duration: 0.6 }}
+          className="w-full rounded-3xl sm:rounded-[2.25rem] border border-slate-200/90 bg-white/95 p-4 sm:p-5 shadow-[0_25px_60px_rgba(0,0,0,0.12)] backdrop-blur-2xl"
         >
-          {/* Tabs with smooth horizontal snap-scroll on mobile */}
-          <div className="flex items-center gap-1 sm:gap-2 pb-2.5 border-b border-slate-100 px-1 overflow-x-auto no-scrollbar snap-x">
+          {/* Tabs with animated active state */}
+          <div className="flex items-center gap-1.5 sm:gap-2 pb-3 border-b border-slate-100 px-1 overflow-x-auto no-scrollbar snap-x">
             {SEARCH_TABS.map((tItem) => (
               <button
                 key={tItem}
@@ -1258,10 +1282,10 @@ function AISmartSearch() {
                   }
                 }}
                 className={cn(
-                  'flex shrink-0 snap-center items-center gap-1.5 rounded-xl px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-bold transition-all duration-200',
+                  'flex shrink-0 snap-center items-center gap-2 rounded-xl px-4 sm:px-5 py-2.5 text-xs sm:text-sm font-bold transition-all duration-200 cursor-pointer',
                   tab === tItem
-                    ? 'bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-md shadow-red-500/25 scale-[1.02]'
-                    : 'text-slate-600 hover:bg-slate-100/70 hover:text-slate-900'
+                    ? 'bg-gradient-to-r from-red-600 via-red-500 to-rose-600 text-white shadow-lg shadow-red-500/25 scale-[1.02]'
+                    : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
                 )}
               >
                 {tItem === 'Buy' && <Home className="h-4 w-4" />}
@@ -1276,9 +1300,9 @@ function AISmartSearch() {
           </div>
 
           {/* Main Search Input & Actions */}
-          <div ref={searchContainerRef} className="relative flex flex-col md:flex-row items-center gap-2.5 pt-2.5">
+          <div ref={searchContainerRef} className="relative flex flex-col md:flex-row items-center gap-3 pt-3">
             <div className="relative w-full flex-1">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+              <Search className="pointer-events-none absolute left-4.5 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
               <input
                 value={query}
                 onChange={(e) => handleQueryChange(e.target.value)}
@@ -1286,10 +1310,10 @@ function AISmartSearch() {
                 aria-label="Search properties"
                 aria-invalid={!!searchError}
                 className={cn(
-                  'w-full rounded-2xl border bg-slate-50/70 py-3.5 pl-12 pr-36 text-sm sm:text-base text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 transition-all',
+                  'w-full rounded-2xl border bg-slate-50/80 py-4 pl-12 pr-36 text-sm sm:text-base text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 transition-all',
                   searchError
                     ? 'border-red-400 focus:ring-red-500/30 focus:border-red-500'
-                    : 'border-slate-200/80 focus:ring-red-500/30 focus:border-red-400',
+                    : 'border-slate-200/90 focus:ring-red-500/30 focus:border-red-400 shadow-inner-xs',
                 )}
               />
               {!query && (
@@ -1298,7 +1322,7 @@ function AISmartSearch() {
                   <span className="ml-0.5 inline-block h-4 w-[2px] translate-y-0.5 animate-pulse bg-red-500 align-middle" />
                 </div>
               )}
-              <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-1">
+              <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-1.5">
                 {query && (
                   <button
                     onClick={() => {
@@ -1306,7 +1330,7 @@ function AISmartSearch() {
                       setLocationDiscovery(null);
                       setPropertySuggestions([]);
                     }}
-                    className="grid h-7 w-7 place-items-center rounded-lg text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition"
+                    className="grid h-8 w-8 place-items-center rounded-xl text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition cursor-pointer"
                     title="Clear search"
                   >
                     <X className="h-4 w-4" />
@@ -1314,23 +1338,26 @@ function AISmartSearch() {
                 )}
                 <button
                   onClick={handleVoice}
-                  className={cn('grid h-8 w-8 place-items-center rounded-xl transition-all', listening ? 'bg-red-500 text-white animate-pulse' : 'text-slate-500 hover:bg-slate-200/60')}
+                  className={cn(
+                    'grid h-9 w-9 place-items-center rounded-xl transition-all cursor-pointer',
+                    listening ? 'bg-red-500 text-white animate-pulse shadow-md shadow-red-500/30' : 'text-slate-500 hover:bg-slate-200/70'
+                  )}
                   title="Voice Search"
                 >
-                  <Mic className="h-4 w-4" />
+                  <Mic className="h-4.5 w-4.5" />
                 </button>
                 <button
                   onClick={handleLiveLocation}
                   disabled={locating}
                   className={cn(
-                    'grid h-8 w-8 place-items-center rounded-xl transition-all',
+                    'grid h-9 w-9 place-items-center rounded-xl transition-all cursor-pointer',
                     locating
                       ? 'bg-red-500 text-white animate-pulse'
-                      : 'text-slate-500 hover:bg-slate-200/60 hover:text-red-600'
+                      : 'text-slate-500 hover:bg-slate-200/70 hover:text-red-600'
                   )}
                   title="Detect Live Location"
                 >
-                  <Navigation className={cn("h-4 w-4 transition-transform", locating && "animate-spin")} />
+                  <Navigation className={cn("h-4.5 w-4.5 transition-transform", locating && "animate-spin")} />
                 </button>
               </div>
 
@@ -1341,17 +1368,17 @@ function AISmartSearch() {
                     initial={{ opacity: 0, y: -6 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0 }}
-                    className="absolute z-50 mt-2 left-0 w-full rounded-2xl border border-slate-100 bg-white shadow-2xl overflow-hidden divide-y divide-slate-100 max-h-[380px] overflow-y-auto"
+                    className="absolute z-50 mt-2 left-0 w-full rounded-2xl border border-slate-200/80 bg-white shadow-2xl overflow-hidden divide-y divide-slate-100 max-h-[380px] overflow-y-auto"
                   >
                     {/* Location Discovery Section */}
                     {locationDiscovery && locationDiscovery.categories.length > 0 && (
-                      <div className="p-3 bg-slate-50/70">
-                        <div className="flex items-center justify-between px-1 mb-2">
+                      <div className="p-4 bg-slate-50/80">
+                        <div className="flex items-center justify-between px-1 mb-2.5">
                           <button
                             onClick={() => handleSelectDiscovery(locationDiscovery.location)}
                             className="flex items-center gap-1.5 text-xs font-extrabold text-slate-900 hover:text-red-600 transition text-left"
                           >
-                            <MapPin className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                            <MapPin className="w-4 h-4 text-red-500 shrink-0" />
                             <span>
                               {locationDiscovery.city && locationDiscovery.city.toLowerCase() !== locationDiscovery.location.toLowerCase()
                                 ? `${locationDiscovery.location}, ${locationDiscovery.city}`
@@ -1361,8 +1388,8 @@ function AISmartSearch() {
                               ({locationDiscovery.totalCount} properties)
                             </span>
                           </button>
-                          <span className="text-[10px] uppercase font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
-                            Location Identified
+                          <span className="text-[10px] uppercase font-black tracking-wider text-red-600 bg-red-50 px-2.5 py-0.5 rounded-full border border-red-100">
+                            Location Match
                           </span>
                         </div>
 
@@ -1370,20 +1397,20 @@ function AISmartSearch() {
                           Available property types in {locationDiscovery.location}:
                         </p>
 
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                           {locationDiscovery.categories.map((cat) => (
                             <button
                               key={cat.type}
                               onClick={() => handleSelectDiscovery(locationDiscovery.location, cat.type)}
-                              className="group flex items-center justify-between gap-1.5 p-2 rounded-xl border border-slate-200/80 bg-white hover:border-red-400 hover:bg-red-50/40 transition-all text-left shadow-sm"
+                              className="group flex items-center justify-between gap-1.5 p-2.5 rounded-xl border border-slate-200/80 bg-white hover:border-red-400 hover:bg-red-50/40 transition-all text-left shadow-2xs cursor-pointer"
                             >
-                              <div className="flex items-center gap-1.5 min-w-0">
+                              <div className="flex items-center gap-2 min-w-0">
                                 <span className="text-sm shrink-0">{cat.emoji}</span>
                                 <span className="text-xs font-bold text-slate-800 group-hover:text-red-700 truncate">
                                   {cat.label}
                                 </span>
                               </div>
-                              <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-700 group-hover:bg-red-100 group-hover:text-red-800 shrink-0">
+                              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 group-hover:bg-red-100 group-hover:text-red-800 shrink-0">
                                 {cat.count}
                               </span>
                             </button>
@@ -1394,8 +1421,8 @@ function AISmartSearch() {
 
                     {/* Matching Property Titles */}
                     {propertySuggestions.length > 0 && (
-                      <div className="py-1">
-                        <div className="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                      <div className="py-2">
+                        <div className="px-4 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400">
                           Matching Listings
                         </div>
                         {propertySuggestions.map((title) => (
@@ -1407,9 +1434,9 @@ function AISmartSearch() {
                               setPropertySuggestions([]);
                               navigate(`/search?q=${encodeURIComponent(title)}`);
                             }}
-                            className="flex w-full items-center gap-2 px-4 py-2 text-xs font-medium text-slate-700 hover:bg-red-50 hover:text-red-700 transition text-left"
+                            className="flex w-full items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-slate-700 hover:bg-red-50 hover:text-red-700 transition text-left cursor-pointer"
                           >
-                            <Search className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                            <Search className="h-4 w-4 text-slate-400 shrink-0" />
                             <span className="line-clamp-1">{title}</span>
                           </button>
                         ))}
@@ -1423,20 +1450,20 @@ function AISmartSearch() {
             <button
               onClick={handleAISearch}
               disabled={aiThinking}
-              className="w-full md:w-auto rounded-2xl bg-gradient-to-r from-red-600 via-red-500 to-rose-600 px-7 py-3.5 text-sm font-bold text-white shadow-lg shadow-red-500/30 hover:shadow-red-500/50 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 shrink-0"
+              className="w-full md:w-auto rounded-2xl bg-gradient-to-r from-red-600 via-red-500 to-rose-600 px-8 py-4 text-sm font-bold text-white shadow-xl shadow-red-500/30 hover:shadow-red-500/50 hover:scale-[1.02] active:scale-98 transition-all flex items-center justify-center gap-2.5 shrink-0 cursor-pointer"
             >
-              <Sparkles className={cn("h-4 w-4", aiThinking && "animate-spin")} />
-              <span>{aiThinking ? 'AI Analyzing…' : 'Search'}</span>
+              <Sparkles className={cn("h-4.5 w-4.5", aiThinking && "animate-spin")} />
+              <span>{aiThinking ? 'AI Analyzing…' : 'Search Properties'}</span>
             </button>
           </div>
           {searchError && (
-            <p role="alert" className="mt-2 px-1 text-xs sm:text-sm font-semibold text-red-600">
+            <p role="alert" className="mt-2 px-2 text-xs sm:text-sm font-bold text-red-600">
               {searchError}
             </p>
           )}
         </motion.div>
 
-        {/* AI Robot — sits outside the (now centered) search panel, offset to its right */}
+        {/* AI Assistant mascot */}
         <motion.div
           animate={{ y: [0, -10, 0] }}
           transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
@@ -1454,31 +1481,34 @@ function AISmartSearch() {
     </div>
   );
 }
+
 /* ============================================================
-   Trust Section
+   Trust Section — Refined Luxury Trust Badges
 ============================================================ */
 function TrustSection() {
   const { t } = useLanguageContext();
   const badges = [
-    { icon: BadgeCheck, label: t('home.verifiedProperties', 'Verified Properties'), color: 'text-primary-600' },
-    { icon: ShieldCheck, label: t('home.reraApproved', 'RERA Approved'), color: 'text-success-600' },
-    { icon: Building2, label: t('home.verifiedBuilders', 'Verified Builders'), color: 'text-primary-600' },
-    { icon: Users, label: t('home.verifiedAgents', 'Verified Agents'), color: 'text-secondary-500' },
-    { icon: Zap, label: t('home.aiVerifiedListings', 'AI Verified Listings'), color: 'text-warning-500' },
-    { icon: Shield, label: t('home.hundredPercentSecure', '100% Secure'), color: 'text-primary-600' },
+    { icon: BadgeCheck, label: t('home.verifiedProperties', 'Verified Properties'), color: 'text-red-600 bg-red-50' },
+    { icon: ShieldCheck, label: t('home.reraApproved', 'RERA Approved'), color: 'text-emerald-600 bg-emerald-50' },
+    { icon: Building2, label: t('home.verifiedBuilders', 'Verified Builders'), color: 'text-blue-600 bg-blue-50' },
+    { icon: Users, label: t('home.verifiedAgents', 'Verified Agents'), color: 'text-purple-600 bg-purple-50' },
+    { icon: Zap, label: t('home.aiVerifiedListings', 'AI Price Valuation'), color: 'text-amber-600 bg-amber-50' },
+    { icon: Shield, label: t('home.hundredPercentSecure', '100% Zero Spam'), color: 'text-emerald-600 bg-emerald-50' },
   ];
   return (
-    <section className="border-b border-navy-100 bg-white py-6">
+    <section className="border-b border-slate-200/80 bg-white/80 backdrop-blur-md py-6 sm:py-8">
       <div className="container-wide">
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {badges.map((b) => (
             <motion.div
               key={b.label}
-              whileHover={{ scale: 1.05 }}
-              className="flex items-center gap-2.5 rounded-xl border border-navy-100 bg-navy-50/40 px-4 py-3"
+              whileHover={{ scale: 1.03 }}
+              className="flex items-center gap-3 rounded-2xl border border-slate-200/70 bg-slate-50/60 p-3.5 shadow-2xs hover:shadow-sm hover:border-slate-300 transition-all"
             >
-              <b.icon className={cn('h-5 w-5 shrink-0', b.color)} />
-              <span className="text-xs font-semibold text-navy-700">{b.label}</span>
+              <div className={cn('grid h-9 w-9 place-items-center rounded-xl shrink-0', b.color)}>
+                <b.icon className="h-5 w-5" />
+              </div>
+              <span className="text-xs font-bold text-slate-800 leading-tight">{b.label}</span>
             </motion.div>
           ))}
         </div>
@@ -1488,10 +1518,7 @@ function TrustSection() {
 }
 
 /* ============================================================
-   Dynamic AI Advertisement Banner Section (Home Page)
-============================================================ */
-/* ============================================================
-   Property Categories
+   Property Categories — Curated Luxury Category Showcase
 ============================================================ */
 import { CATEGORY_LIST } from '../../lib/categories';
 
@@ -1502,10 +1529,10 @@ function CategoriesSection() {
   return (
     <SectionShell
       title={t('home.browseCategory', 'Browse by Category')}
-      subtitle={t('home.categorySubtitle', "Find exactly what you're looking for")}
+      subtitle={t('home.categorySubtitle', "Discover residential, commercial, and investment opportunities")}
       id="categories"
     >
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
+      <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4 lg:grid-cols-8">
         {CATEGORY_LIST.map((cat, i) => {
           const targetUrl = `/search?category=${encodeURIComponent(cat.slug)}${city ? `&city=${encodeURIComponent(city)}` : ''}`;
           const Icon = cat.icon;
@@ -1515,22 +1542,22 @@ function CategoriesSection() {
               initial={{ opacity: 0, y: 15 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: i * 0.04 }}
+              transition={{ delay: i * 0.03 }}
               whileHover={{ y: -4 }}
             >
               <Link
                 to={targetUrl}
-                className="group flex flex-col items-center gap-2 rounded-2xl border border-slate-200/90 bg-white p-3.5 sm:p-4 transition shadow-sm hover:shadow-md hover:border-red-300 cursor-pointer block h-full"
+                className="group flex flex-col items-center gap-2.5 rounded-2xl sm:rounded-3xl border border-slate-200/90 bg-white p-4 transition-all shadow-2xs hover:shadow-lg hover:border-red-400/80 cursor-pointer block h-full text-center"
               >
                 <div
                   className={cn(
-                    'grid h-11 w-11 place-items-center rounded-xl transition group-hover:scale-110',
+                    'grid h-12 w-12 place-items-center rounded-2xl transition-transform duration-300 group-hover:scale-110 shadow-2xs',
                     cat.color,
                   )}
                 >
-                  <Icon className="h-5 w-5" />
+                  <Icon className="h-6 w-6" />
                 </div>
-                <span className="text-center text-[11px] sm:text-xs font-bold text-slate-800 leading-tight group-hover:text-red-600 transition-colors">
+                <span className="text-center text-xs font-bold text-slate-800 leading-tight group-hover:text-red-600 transition-colors">
                   {cat.name}
                 </span>
               </Link>
@@ -1543,183 +1570,182 @@ function CategoriesSection() {
 }
 
 /* ============================================================
-   Featured Properties
+   Featured Properties — Carousel Slider
 ============================================================ */
 function SponsoredPropertiesCarousel() {
   const { t } = useLanguageContext();
+  const queryClient = useQueryClient();
   const { cityId } = useLocationContext();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
+  const [scrollProgress, setScrollProgress] = useState(0);
 
-  const { data } = useQuery({
-    queryKey: ['home-sponsored-properties', cityId],
+  const { data = [], isLoading } = useQuery({
+    queryKey: ['home-featured-properties', cityId],
     queryFn: async () => {
-      // 1. Fetch active paid campaigns
-      const { data: campaignRows } = await supabase.rpc('fn_get_active_sponsored_property_ids', { p_limit: 20 });
-      const ids = ((campaignRows ?? []) as { property_id: string }[]).map((r) => r.property_id);
-
-      let paidList: any[] = [];
-      if (ids.length > 0) {
-        const { data: propertyRows } = await supabase.from('v_properties_search').select('*').in('id', ids);
-        const byId = new Map((propertyRows ?? []).map((p) => [p.id, p]));
-        const ordered = ids
-          .map((id) => byId.get(id))
-          .filter((p): p is NonNullable<typeof p> => Boolean(p));
-        const scoped = cityId ? ordered.filter((p) => p.city_id === cityId) : ordered;
-        paidList = (scoped.length > 0 ? scoped : ordered).map((p) => ({ ...p, _isPaidCampaign: true }));
-      }
-
-      // 2. Fetch admin-marked Featured properties
-      const fetchFeatured = async (scopeToCity: boolean) => {
-        let q = supabase
-          .from('v_properties_search')
-          .select('*')
-          .or('status.eq.published,is_live.eq.true')
-          .eq('is_featured', true);
-        if (scopeToCity && cityId) q = q.eq('city_id', cityId);
-        const { data } = await q.order('created_at', { ascending: false }).limit(20);
-        return data ?? [];
-      };
-
-      let featuredRows = await fetchFeatured(true);
-      if (featuredRows.length === 0 && cityId) {
-        featuredRows = await fetchFeatured(false);
-      }
-      const regularList = featuredRows.map((p) => ({ ...p, _isPaidCampaign: false }));
-
-      // 3. Combine paid campaigns and organic featured properties without duplicates
-      const seen = new Set<string>();
-      const combined: any[] = [];
-      for (const item of [...paidList, ...regularList]) {
-        if (!seen.has(item.id)) {
-          seen.add(item.id);
-          combined.push(item);
-        }
-      }
-      return combined;
+      const campaigns = await fetchPublicCampaigns('FEATURED_PROPERTIES');
+      if (campaigns && campaigns.length > 0) return campaigns;
+      return await fetchPublicFeaturedProperties();
     },
+    staleTime: 1000 * 30, // 30 seconds
   });
 
-  const [emblaRef, emblaApi] = useEmblaCarousel(
-    { align: 'start', loop: true, slidesToScroll: 1 },
-    [Autoplay({ delay: 4000, stopOnInteraction: true, stopOnMouseEnter: true })],
-  );
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const [scrollSnaps, setScrollSnaps] = useState<number[]>([]);
-
-  const onSelect = useCallback(() => {
-    if (!emblaApi) return;
-    setSelectedIndex(emblaApi.selectedScrollSnap());
-  }, [emblaApi]);
+  const checkScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    setCanScrollLeft(scrollLeft > 10);
+    setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10);
+    const maxScroll = scrollWidth - clientWidth;
+    if (maxScroll > 0) {
+      setScrollProgress(Math.min(100, Math.max(0, (scrollLeft / maxScroll) * 100)));
+    }
+  }, []);
 
   useEffect(() => {
-    if (!emblaApi) return;
-    setScrollSnaps(emblaApi.scrollSnapList());
-    onSelect();
-    emblaApi.on('select', onSelect);
-    emblaApi.on('reInit', () => {
-      setScrollSnaps(emblaApi.scrollSnapList());
-      onSelect();
+    checkScroll();
+    window.addEventListener('resize', checkScroll);
+    return () => window.removeEventListener('resize', checkScroll);
+  }, [checkScroll, data]);
+
+  const handleScroll = (direction: 'left' | 'right') => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const scrollAmount = el.clientWidth * 0.75;
+    el.scrollBy({
+      left: direction === 'left' ? -scrollAmount : scrollAmount,
+      behavior: 'smooth',
     });
-  }, [emblaApi, onSelect]);
+    setTimeout(checkScroll, 350);
+  };
 
-  const scrollPrev = useCallback(() => {
-    if (emblaApi) emblaApi.scrollPrev();
-  }, [emblaApi]);
+  // Realtime subscription for instant updates when admin updates paid campaigns or featured properties
+  useEffect(() => {
+    const channel = supabase
+      .channel('realtime-featured-public')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'paid_campaigns' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['home-featured-properties'] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'paid_campaign_items' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['home-featured-properties'] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'featured_properties' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['home-featured-properties'] });
+      })
+      .subscribe();
 
-  const scrollNext = useCallback(() => {
-    if (emblaApi) emblaApi.scrollNext();
-  }, [emblaApi]);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
-  if (!data || data.length === 0) return null;
+  if (!isLoading && data.length === 0) return null;
 
   return (
-    <section className="py-12 sm:py-16 bg-white" id="sponsored-properties">
+    <section className="py-12 sm:py-16 bg-white border-y border-slate-100 relative overflow-hidden" id="featured-properties">
       <div className="container-wide">
-        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        {/* Section Header */}
+        <div className="mb-6 sm:mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="inline-flex items-center gap-1 rounded-full bg-red-50 border border-red-200 px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider text-red-600">
+                <Zap className="h-3 w-3" /> Featured Spotlight
+              </span>
+            </div>
             <h2 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
               {t('home.sponsoredTitle', 'Featured Properties')}
             </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              {t('home.sponsoredSubtitle', 'Handpicked listings for maximum visibility')}
+            <p className="mt-1 text-sm text-slate-500 max-w-xl">
+              {t('home.sponsoredSubtitle', 'Handpicked verified properties with priority visibility across premier locations')}
             </p>
           </div>
-          <Link
-            to="/search"
-            className="inline-flex items-center gap-1 text-sm font-bold text-red-600 hover:text-red-700 transition-colors"
-          >
-            {t('common.viewAll', 'View All')} <ArrowRight className="h-4 w-4" />
-          </Link>
+
+          <div className="flex items-center gap-3">
+            {/* Carousel Navigation Buttons */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => handleScroll('left')}
+                disabled={!canScrollLeft}
+                aria-label="Previous Featured Properties"
+                className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-2xs hover:bg-slate-50 hover:border-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer active:scale-95"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => handleScroll('right')}
+                disabled={!canScrollRight}
+                aria-label="Next Featured Properties"
+                className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-2xs hover:bg-slate-50 hover:border-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer active:scale-95"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="h-5 w-px bg-slate-200 hidden sm:block" />
+
+            <Link
+              to="/search?featured=true"
+              className="inline-flex items-center gap-1 text-sm font-bold text-red-600 hover:text-red-700 transition-colors"
+            >
+              {t('common.viewAll', 'View All')} <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
         </div>
 
-        <div className="relative">
-          <div className="overflow-hidden" ref={emblaRef}>
-            <div className="flex gap-4">
-              {data.map((p, i) => (
-                <motion.div
+        {/* Loading State */}
+        {isLoading ? (
+          <div className="flex gap-5 sm:gap-6 overflow-hidden">
+            {[1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="skeleton h-[380px] w-[285px] sm:w-[320px] rounded-3xl shrink-0"
+              />
+            ))}
+          </div>
+        ) : (
+          <div>
+            {/* Scrollable Track */}
+            <div
+              ref={scrollRef}
+              onScroll={checkScroll}
+              className="flex items-stretch gap-5 sm:gap-6 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-4 pt-1 no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0"
+            >
+              {data.map((p) => (
+                <div
                   key={p.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.04 }}
-                  whileHover={{ y: -5 }}
-                  className="relative min-w-0 flex-[0_0_85%] sm:flex-[0_0_calc(50%-8px)] lg:flex-[0_0_calc(33.333%-11px)] xl:flex-[0_0_calc(25%-12px)]"
+                  className="snap-start shrink-0 w-[85vw] sm:w-[320px] md:w-[330px] lg:w-[310px] xl:w-[320px]"
                 >
                   <HomePropertyCard
                     property={p}
                     badge={{
-                      label: p._isPaidCampaign ? 'Sponsored' : 'Featured',
-                      className: p._isPaidCampaign ? 'bg-amber-500' : 'bg-red-600',
+                      label: 'Featured',
+                      className: 'bg-red-600',
                       icon: <Zap className="h-2.5 w-2.5" />,
                     }}
                   />
-                </motion.div>
+                </div>
               ))}
             </div>
+
+            {/* Scroll Progress Bar Indicator */}
+            {data.length > 3 && (
+              <div className="mt-4 flex items-center justify-between px-1">
+                <div className="h-1 flex-1 max-w-[120px] sm:max-w-[160px] bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-red-600 rounded-full transition-all duration-150"
+                    style={{ width: `${Math.max(15, scrollProgress)}%` }}
+                  />
+                </div>
+                <span className="text-[11px] font-semibold text-slate-400">
+                  Swipe or use arrows to explore {data.length} featured properties
+                </span>
+              </div>
+            )}
           </div>
-
-          {data.length > 1 && (
-            <>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  scrollPrev();
-                }}
-                className="absolute left-[-16px] top-[40%] -translate-y-1/2 z-30 hidden lg:flex h-11 w-11 items-center justify-center rounded-full bg-white border border-slate-200 shadow-[0_8px_24px_rgba(0,0,0,0.12)] text-slate-700 transition-all hover:scale-110 hover:bg-slate-50 hover:text-red-600 hover:border-red-200 active:scale-95 cursor-pointer"
-                aria-label="Previous slide"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  scrollNext();
-                }}
-                className="absolute right-[-16px] top-[40%] -translate-y-1/2 z-30 hidden lg:flex h-11 w-11 items-center justify-center rounded-full bg-white border border-slate-200 shadow-[0_8px_24px_rgba(0,0,0,0.12)] text-slate-700 transition-all hover:scale-110 hover:bg-slate-50 hover:text-red-600 hover:border-red-200 active:scale-95 cursor-pointer"
-                aria-label="Next slide"
-              >
-                <ChevronRight className="h-5 w-5" />
-              </button>
-            </>
-          )}
-
-          {scrollSnaps.length > 1 && (
-            <div className="mt-6 flex items-center justify-center gap-2">
-              {scrollSnaps.map((_, i) => (
-                <button
-                  type="button"
-                  key={i}
-                  onClick={() => emblaApi && emblaApi.scrollTo(i)}
-                  className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${i === selectedIndex ? 'w-8 bg-red-600' : 'w-2 bg-slate-300 hover:bg-slate-400'}`}
-                  aria-label={`Go to slide ${i + 1}`}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+        )}
       </div>
     </section>
   );
@@ -2136,9 +2162,17 @@ function AIFeaturesSection() {
 function SignatureCollection() {
   const { t } = useLanguageContext();
   const { cityId } = useLocationContext();
+  const queryClient = useQueryClient();
+
   const { data } = useQuery({
     queryKey: ['home-luxury', cityId],
     queryFn: async () => {
+      // First check Paid Campaign SIGNATURE_COLLECTION items
+      const campaigns = await fetchPublicCampaigns('SIGNATURE_COLLECTION');
+      if (campaigns && campaigns.length > 0) {
+        return campaigns;
+      }
+
       const fetchLuxury = async (scopeToCity: boolean) => {
         let q = supabase
           .from('v_properties_search')
@@ -2170,6 +2204,22 @@ function SignatureCollection() {
       });
     },
   });
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('public:signature-collection-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'paid_campaigns' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['home-luxury'] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'paid_campaign_items' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['home-luxury'] });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   const [emblaRef, emblaApi] = useEmblaCarousel(
     { align: 'start', loop: true, slidesToScroll: 1 },
@@ -2205,26 +2255,43 @@ function SignatureCollection() {
   if (!data || data.length === 0) return null;
 
   return (
-    <section className="mt-4 mb-8 sm:mt-6 sm:mb-12 w-full bg-[#F8FAFC] py-8 lg:py-12 overflow-hidden relative">
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-50 to-[#F8FAFC] opacity-80 pointer-events-none" />
+    <section className="my-10 sm:my-16 w-full bg-slate-950 text-white py-16 sm:py-24 overflow-hidden relative border-y border-white/10" id="signature-collection">
+      {/* Cinematic Luxury Background Accents */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute -top-[30%] -right-[10%] w-[60%] h-[60%] rounded-full bg-amber-500/10 blur-[130px]" />
+        <div className="absolute -bottom-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-red-600/10 blur-[120px]" />
+        <div
+          className="absolute inset-0 opacity-[0.15]"
+          style={{
+            backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px)',
+            backgroundSize: '28px 28px',
+          }}
+        />
+      </div>
       
       <div className="container-wide relative z-10">
-        
         {/* Header Section */}
-        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
           >
-            <h2 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-amber-400/10 text-amber-300 border border-amber-400/30 backdrop-blur-md">
+                <Sparkles className="h-3.5 w-3.5 text-amber-400" /> Signature Collection
+              </span>
+              <span className="text-xs font-bold text-white/50">Curated Haute Living</span>
+            </div>
+            <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white">
               Signature Collection
             </h2>
-            <p className="mt-1 text-sm text-slate-600 font-medium">
-              Ultra Luxury Homes for the Discerning Buyer
+            <p className="mt-2 text-sm sm:text-base text-slate-300 font-normal max-w-xl">
+              Ultra Luxury Homes for the Discerning Buyer — Bespoke penthouses, golf estates, and signature villas.
             </p>
           </motion.div>
+
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             whileInView={{ opacity: 1, x: 0 }}
@@ -2233,10 +2300,10 @@ function SignatureCollection() {
           >
             <Link 
               to="/search?is_luxury=true" 
-              className="group flex items-center gap-2 text-base font-bold text-red-600 hover:text-red-700 transition-colors"
+              className="group inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-bold text-sm border border-white/20 hover:border-amber-400/50 backdrop-blur-md transition-all shadow-xl"
             >
-              Explore All 
-              <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+              <span>Explore Signature Portfolio</span>
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1 text-amber-400" />
             </Link>
           </motion.div>
         </div>
@@ -2251,7 +2318,7 @@ function SignatureCollection() {
         >
           {/* Embla Viewport */}
           <div className="overflow-hidden" ref={emblaRef}>
-            <div className="flex gap-4">
+            <div className="flex gap-5">
               {data.map((p, i) => (
                 <motion.div
                   key={p.id}
@@ -2259,14 +2326,14 @@ function SignatureCollection() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.08, duration: 0.5 }}
-                  whileHover={{ y: -5 }}
-                  className="relative min-w-0 flex-[0_0_85%] sm:flex-[0_0_calc(50%-8px)] lg:flex-[0_0_calc(33.333%-11px)] xl:flex-[0_0_calc(25%-12px)]"
+                  whileHover={{ y: -6 }}
+                  className="relative min-w-0 flex-[0_0_88%] sm:flex-[0_0_calc(50%-10px)] lg:flex-[0_0_calc(33.333%-14px)] xl:flex-[0_0_calc(25%-15px)]"
                 >
                   <HomePropertyCard
                     property={p}
                     badge={{
                       label: 'Signature',
-                      className: 'bg-navy-950/90 text-amber-300 border border-amber-500/30 backdrop-blur-md',
+                      className: 'bg-black/80 text-amber-300 border border-amber-500/40 backdrop-blur-md',
                       icon: <Sparkles className="h-2.5 w-2.5 text-amber-400" />,
                     }}
                   />
@@ -2285,7 +2352,7 @@ function SignatureCollection() {
                   e.stopPropagation();
                   scrollPrev();
                 }}
-                className="absolute left-[-16px] top-[40%] -translate-y-1/2 z-30 hidden lg:flex h-11 w-11 items-center justify-center rounded-full bg-white border border-slate-200 shadow-[0_8px_24px_rgba(0,0,0,0.12)] text-slate-700 transition-all hover:scale-110 hover:bg-slate-50 hover:text-red-600 hover:border-red-200 active:scale-95 cursor-pointer"
+                className="absolute -left-4 top-[40%] -translate-y-1/2 z-30 hidden lg:flex h-12 w-12 items-center justify-center rounded-full bg-slate-900/90 border border-white/20 shadow-2xl text-white transition-all hover:scale-110 hover:bg-white hover:text-slate-900 active:scale-95 cursor-pointer backdrop-blur-md"
                 aria-label="Previous slide"
               >
                 <ChevronLeft className="h-5 w-5" />
@@ -2298,7 +2365,7 @@ function SignatureCollection() {
                   e.stopPropagation();
                   scrollNext();
                 }}
-                className="absolute right-[-16px] top-[40%] -translate-y-1/2 z-30 hidden lg:flex h-11 w-11 items-center justify-center rounded-full bg-white border border-slate-200 shadow-[0_8px_24px_rgba(0,0,0,0.12)] text-slate-700 transition-all hover:scale-110 hover:bg-slate-50 hover:text-red-600 hover:border-red-200 active:scale-95 cursor-pointer"
+                className="absolute -right-4 top-[40%] -translate-y-1/2 z-30 hidden lg:flex h-12 w-12 items-center justify-center rounded-full bg-slate-900/90 border border-white/20 shadow-2xl text-white transition-all hover:scale-110 hover:bg-white hover:text-slate-900 active:scale-95 cursor-pointer backdrop-blur-md"
                 aria-label="Next slide"
               >
                 <ChevronRight className="h-5 w-5" />
@@ -2308,13 +2375,13 @@ function SignatureCollection() {
 
           {/* Pagination Dots */}
           {scrollSnaps.length > 1 && (
-            <div className="mt-8 flex items-center justify-center gap-2">
+            <div className="mt-10 flex items-center justify-center gap-2">
               {scrollSnaps.map((_, i) => (
                 <button
                   type="button"
                   key={i}
                   onClick={() => emblaApi && emblaApi.scrollTo(i)}
-                  className={`h-2 transition-all duration-300 rounded-full cursor-pointer ${i === selectedIndex ? 'w-8 bg-red-600' : 'w-2 bg-slate-300 hover:bg-slate-400'}`}
+                  className={`h-2 transition-all duration-300 rounded-full cursor-pointer ${i === selectedIndex ? 'w-8 bg-amber-400' : 'w-2 bg-white/20 hover:bg-white/40'}`}
                   aria-label={`Go to slide ${i + 1}`}
                 />
               ))}
@@ -2349,6 +2416,24 @@ function ExploreBuildersSection() {
   } = useQuery({
     queryKey: ['home-explore-builders-realtynow'],
     queryFn: async () => {
+      // First check Paid Campaign EXPLORE_BUILDERS items
+      const campaigns = await fetchPublicCampaigns('EXPLORE_BUILDERS');
+      if (campaigns && campaigns.length > 0) {
+        return campaigns.map((c, i) => ({
+          id: c.builder?.id || c.id,
+          name: c.title || c.builder?.name || 'Verified Builder',
+          description: c.subtitle || c.builder?.description || '',
+          logo_url: c.builder?.logo_url || null,
+          cover_image: c.image || c.builder?.cover_image || BUILDER_COVER_FALLBACKS[i % BUILDER_COVER_FALLBACKS.length],
+          _cover: c.image || c.builder?.cover_image || BUILDER_COVER_FALLBACKS[i % BUILDER_COVER_FALLBACKS.length],
+          _location: c.builder?.city_name || 'Hyderabad',
+          _projectCount: 1,
+          _propertyCount: 1,
+          cta_text: c.cta || 'View Builder',
+          cta_link: c.link || `/builders/${c.builder?.id || c.id}`,
+        }));
+      }
+
       const { data, error } = await supabase
         .from('builders')
         .select('*, cities:city_id(name), localities:locality_id(name)')
@@ -2436,9 +2521,15 @@ function ExploreBuildersSection() {
   });
 
   useEffect(() => {
-    // Realtime synchronization with builders table
+    // Realtime synchronization with paid_campaigns and builders table
     const channel = supabase
       .channel('public:explore-builders-realtynow-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'paid_campaigns' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['home-explore-builders-realtynow'] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'paid_campaign_items' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['home-explore-builders-realtynow'] });
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'builders' }, () => {
         queryClient.invalidateQueries({ queryKey: ['home-explore-builders-realtynow'] });
       })
@@ -2874,6 +2965,24 @@ function RealtynowExclusiveSection() {
   const { data: exclusiveList = [], isLoading } = useQuery({
     queryKey: ['home-exclusive-properties', realtimeTick],
     queryFn: async () => {
+      // First check Paid Campaign REALTYNOW_EXCLUSIVE
+      const campaigns = await fetchPublicCampaigns('REALTYNOW_EXCLUSIVE');
+      if (campaigns && campaigns.length > 0) {
+        return campaigns.map((c) => ({
+          id: c.id,
+          title: c.title,
+          subtitle: c.subtitle || '',
+          locality: c.subtitle || c.property?.locality_name || 'Hyderabad',
+          price_text: c.property?.price ? formatPrice(c.property.price) : 'Price on Request',
+          badge_text: c.badge || 'Sponsored Project',
+          rera_no: 'RERA Approved',
+          image_url: c.image || DEFAULT_PROPERTY_IMAGE,
+          cta_text: c.cta || 'Enquire Now',
+          cta_link: c.link || '/search',
+          sort_order: c.display_order,
+        }));
+      }
+
       const { data, error } = await supabase
         .from('cms_exclusive_properties')
         .select('*')
@@ -3188,12 +3297,12 @@ function RealtynowExclusiveSection() {
 }
 
 /* ============================================================
-   Latest Blogs
+   Latest Blogs & Real Estate Insights — Cute & Compact Cards
 ============================================================ */
 function LatestBlogs() {
   const { t } = useLanguageContext();
   const realtimeTick = useRealtimeCount('blogs');
-  const { data, isLoading } = useQuery({
+  const { data = [], isLoading } = useQuery({
     queryKey: ['home-blogs', realtimeTick],
     queryFn: async () => {
       const { data } = await supabase
@@ -3201,80 +3310,116 @@ function LatestBlogs() {
         .select('*')
         .eq('published', true)
         .order('published_at', { ascending: false })
-        .limit(3);
+        .limit(4);
       return data ?? [];
     },
   });
 
   return (
     <SectionShell
-      title={t('home.latestFromBlog', 'Latest from our Blog')}
-      subtitle={t('home.blogSubtitle', 'Guides, tips, and market insights')}
+      title={t('home.latestFromBlog', 'Latest Real Estate Insights')}
+      subtitle={t('home.blogSubtitle', 'Smart guides, market intelligence, and expert advice for buyers, sellers, and investors')}
       id="blogs"
       action={
         <Link
           to="/blog"
-          className="flex items-center gap-1 text-sm font-semibold text-primary-600 hover:text-primary-700"
+          className="group inline-flex items-center gap-1.5 text-sm font-bold text-red-600 hover:text-red-700 transition-colors"
         >
-          {t('common.allPosts', 'All posts')} <ArrowRight className="h-4 w-4" />
+          <span>{t('common.allPosts', 'View All Articles')}</span>
+          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
         </Link>
       }
     >
       {isLoading ? (
-        <div className="grid gap-6 sm:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="skeleton h-72 rounded-2xl" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="skeleton h-[320px] rounded-3xl" />
           ))}
         </div>
       ) : data && data.length > 0 ? (
-        <div className="grid gap-6 sm:grid-cols-3">
-          {data.map((b, i) => (
-            <motion.div
-              key={b.id}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.08 }}
-            >
-              <Link
-                to={`/blog/${b.slug}`}
-                className="group block overflow-hidden rounded-2xl border border-navy-100 bg-white transition hover:shadow-cardHover"
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6 items-stretch">
+          {data.map((b: any, i: number) => {
+            const dateStr = new Date(b.published_at ?? b.created_at).toLocaleDateString('en-IN', {
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric',
+            });
+            const tag = (Array.isArray(b.tags) && b.tags[0]) || 'Market Guide';
+            const readTime = b.read_time || '4 min read';
+
+            return (
+              <motion.div
+                key={b.id}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.08, duration: 0.4 }}
+                className="h-full"
               >
-                {b.cover_image && (
-                  <div className="aspect-video overflow-hidden">
-                    <img
-                      src={b.cover_image}
-                      alt={b.title}
-                      className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                    />
-                  </div>
-                )}
-                <div className="p-5">
-                  <div className="flex gap-1.5">
-                    {(b.tags as string[] | null)?.slice(0, 2).map((tag) => (
-                      <span key={tag} className="badge-blue">
+                <Link
+                  to={`/blog/${b.slug ?? b.id}`}
+                  className="group flex flex-col justify-between h-full rounded-2xl sm:rounded-3xl border border-slate-200/80 bg-white p-3 shadow-2xs hover:shadow-xl hover:border-red-200 transition-all duration-300 hover:-translate-y-1"
+                >
+                  <div>
+                    {/* Compact Image with Tag Badge */}
+                    <div className="relative h-44 sm:h-48 w-full rounded-xl sm:rounded-2xl overflow-hidden bg-slate-100 mb-3">
+                      {b.cover_image ? (
+                        <img
+                          src={b.cover_image}
+                          alt={b.title}
+                          className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-108"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="h-full w-full bg-gradient-to-br from-red-50 to-slate-100 flex items-center justify-center text-slate-300">
+                          <Sparkles className="h-8 w-8 text-red-300" />
+                        </div>
+                      )}
+
+                      {/* Tag Badge */}
+                      <span className="absolute top-2.5 left-2.5 inline-flex items-center gap-1 rounded-full bg-white/95 backdrop-blur-md px-2.5 py-0.5 text-[10px] font-bold text-slate-800 shadow-xs border border-white/40">
                         {tag}
                       </span>
-                    ))}
+                    </div>
+
+                    {/* Meta Row: Date & Read Time */}
+                    <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-400 mb-1.5 px-0.5">
+                      <span>{dateStr}</span>
+                      <span>•</span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3 w-3 text-slate-400" /> {readTime}
+                      </span>
+                    </div>
+
+                    {/* Cute Title */}
+                    <h3 className="font-display text-sm sm:text-[15px] font-bold text-slate-900 leading-snug group-hover:text-red-600 transition-colors line-clamp-2 px-0.5">
+                      {b.title}
+                    </h3>
+
+                    {/* Short Excerpt */}
+                    {b.excerpt && (
+                      <p className="mt-1.5 text-xs text-slate-500 line-clamp-2 leading-relaxed px-0.5">
+                        {b.excerpt}
+                      </p>
+                    )}
                   </div>
-                  <h3 className="mt-2 font-display font-bold text-navy-900 line-clamp-2 group-hover:text-primary-700">
-                    {b.title}
-                  </h3>
-                  <p className="mt-2 text-sm text-navy-600 line-clamp-2">{b.excerpt}</p>
-                  <p className="mt-3 text-xs text-navy-400">
-                    {new Date(b.published_at ?? b.created_at).toLocaleDateString('en-IN', {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric',
-                    })}
-                  </p>
-                </div>
-              </Link>
-            </motion.div>
-          ))}
+
+                  {/* Cute Footer */}
+                  <div className="mt-3.5 pt-2.5 border-t border-slate-100 flex items-center justify-between px-0.5">
+                    <span className="text-[11px] font-medium text-slate-500 truncate max-w-[140px]">
+                      {b.author_name || 'RealtyNow Editorial'}
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-xs font-bold text-red-600 group-hover:text-red-700 transition">
+                      Read <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
+                    </span>
+                  </div>
+                </Link>
+              </motion.div>
+            );
+          })}
         </div>
       ) : (
-        <p className="text-center text-sm text-navy-400">{t('home.noBlogsYet', 'No blog posts yet.')}</p>
+        <p className="text-center text-sm text-slate-400 py-12">{t('home.noBlogsYet', 'No blog articles published yet.')}</p>
       )}
     </SectionShell>
   );
@@ -3454,43 +3599,129 @@ function ServiceCard({ service }: { service: (typeof ENHANCED_SERVICES)[number] 
 function ServicesSection() {
   const { t } = useLanguageContext();
   return (
-    <section className="relative overflow-hidden py-10 sm:py-14 bg-gradient-to-b from-white to-slate-50" id="services">
+    <section className="relative overflow-hidden py-16 sm:py-24 bg-gradient-to-b from-white via-slate-50/70 to-white border-b border-slate-200/80" id="services">
       <div className="pointer-events-none absolute inset-0 -z-0">
-        <div className="absolute -top-24 -left-24 h-72 w-72 rounded-full bg-red-100/60 blur-3xl" />
-        <div className="absolute top-1/3 -right-24 h-80 w-80 rounded-full bg-amber-100/50 blur-3xl" />
-        <div className="absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-slate-200/40 blur-3xl" />
+        <div className="absolute -top-24 -left-24 h-96 w-96 rounded-full bg-red-100/40 blur-3xl" />
+        <div className="absolute top-1/2 -right-24 h-96 w-96 rounded-full bg-amber-100/40 blur-3xl" />
         <div
-          className="absolute inset-0 opacity-[0.35]"
+          className="absolute inset-0 opacity-[0.25]"
           style={{
-            backgroundImage: 'radial-gradient(circle, rgba(15,23,42,0.08) 1px, transparent 1px)',
-            backgroundSize: '22px 22px',
+            backgroundImage: 'radial-gradient(circle, rgba(15,23,42,0.06) 1px, transparent 1px)',
+            backgroundSize: '24px 24px',
           }}
         />
       </div>
 
-      <div className="container-wide relative z-10 space-y-6">
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-3 py-1 text-xs font-black uppercase tracking-wider text-red-700">
-              <Home className="h-3.5 w-3.5" /> {t('home.exploreMore', 'Explore More')}
-            </span>
-            <span className="text-xs font-semibold text-slate-500">Curated &amp; Verified Services</span>
-          </div>
-          <h2 className="font-display text-2xl font-extrabold text-slate-900 sm:text-3xl tracking-tight">
-            {t('home.beyondProperty', 'Beyond Property.')}{' '}
-            <span className="text-red-600">{t('home.enhanceLiving', 'We Enhance Your Living.')}</span>
-          </h2>
-          <p className="mt-1 text-sm text-slate-600 font-medium">
-            {t(
-              'home.servicesDescription',
-              'Discover premium services to complete your dream home experience with trusted professionals.',
-            )}
-          </p>
+      <div className="container-wide relative z-10">
+        {/* Editorial Story Split Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center mb-12">
+          {/* Left Column: Large Architectural Visual & Floating Stat Card */}
+          <motion.div
+            initial={{ opacity: 0, x: -30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="lg:col-span-5 relative"
+          >
+            <div className="relative h-[380px] sm:h-[440px] rounded-3xl overflow-hidden shadow-2xl border border-slate-200/80">
+              <img
+                src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=80"
+                alt="Luxury living architectural interior"
+                className="h-full w-full object-cover transition-transform duration-700 hover:scale-105"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent" />
+              
+              <div className="absolute bottom-6 left-6 right-6 text-white">
+                <span className="inline-block rounded-full bg-red-600 px-3 py-0.5 text-[10px] font-black uppercase tracking-wider text-white shadow-md mb-2">
+                  The RealtyNow Standard
+                </span>
+                <h3 className="font-display text-xl sm:text-2xl font-black leading-tight text-white">
+                  Crafted for elevated living at every stage.
+                </h3>
+              </div>
+            </div>
+
+            {/* Floating Metric Badge 1 */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.3 }}
+              className="absolute -bottom-5 -right-3 sm:-right-6 bg-white/95 backdrop-blur-xl rounded-2xl p-4 shadow-xl border border-slate-200/80 flex items-center gap-3.5 max-w-[240px]"
+            >
+              <div className="h-11 w-11 rounded-xl bg-red-50 text-red-600 grid place-items-center shrink-0">
+                <ShieldCheck className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="font-display text-lg font-black text-slate-900 leading-none">10,000+</p>
+                <p className="text-[11px] font-semibold text-slate-500 mt-1">Verified Real Estate Properties</p>
+              </div>
+            </motion.div>
+
+            {/* Floating Metric Badge 2 */}
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.4 }}
+              className="absolute -top-4 -left-3 sm:-left-6 bg-slate-900/95 backdrop-blur-xl text-white rounded-2xl p-3.5 shadow-xl border border-white/10 flex items-center gap-3 max-w-[220px]"
+            >
+              <div className="h-9 w-9 rounded-xl bg-amber-400/20 text-amber-300 grid place-items-center shrink-0">
+                <Star className="h-5 w-5 fill-amber-400 text-amber-400" />
+              </div>
+              <div>
+                <p className="font-display text-base font-black text-white leading-none">4.9 / 5.0</p>
+                <p className="text-[10px] font-medium text-slate-300 mt-0.5">Customer Trust Index</p>
+              </div>
+            </motion.div>
+          </motion.div>
+
+          {/* Right Column: Editorial Narrative */}
+          <motion.div
+            initial={{ opacity: 0, x: 30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="lg:col-span-7 flex flex-col gap-4"
+          >
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1 text-xs font-black uppercase tracking-wider text-red-600 border border-red-200">
+                <Sparkles className="h-3.5 w-3.5" /> Holistic Real Estate Ecosystem
+              </span>
+            </div>
+
+            <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight leading-[1.15]">
+              {t('home.beyondProperty', 'Beyond Property.')}{' '}
+              <span className="bg-gradient-to-r from-red-600 to-rose-600 bg-clip-text text-transparent">
+                {t('home.enhanceLiving', 'We Enhance Your Living.')}
+              </span>
+            </h2>
+
+            <p className="text-sm sm:text-base text-slate-600 font-medium leading-relaxed">
+              {t(
+                'home.servicesDescription',
+                'From verified property title deeds and AI-driven price predictions to bespoke interior styling and competitive home financing, RealtyNow delivers end-to-end luxury living solutions under one unified platform.',
+              )}
+            </p>
+
+            {/* Quick Pillars */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2">
+              {[
+                { title: 'Zero Brokerage', desc: 'Direct owner & builder listings' },
+                { title: 'Verified Titles', desc: '100% legal scrutiny' },
+                { title: 'Fast Financing', desc: 'Instant bank approvals' },
+              ].map((pill, idx) => (
+                <div key={idx} className="rounded-2xl bg-white border border-slate-200/80 p-3.5 shadow-2xs">
+                  <p className="text-xs font-bold text-slate-900">{pill.title}</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">{pill.desc}</p>
+                </div>
+              ))}
+            </div>
+          </motion.div>
         </div>
 
-        {/* Single Row — Responsive Grid on Desktop / Smooth Scroll on Mobile */}
-        <div className="flex flex-nowrap lg:grid lg:grid-cols-4 overflow-x-auto gap-3 lg:gap-4 pb-3 pt-1 scrollbar-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        {/* 4 Enhanced Curated Service Cards in an Editorial Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 pt-4">
           {ENHANCED_SERVICES.map((service, i) => (
             <motion.div
               key={service.id}
@@ -3499,7 +3730,7 @@ function ServicesSection() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.08, duration: 0.4 }}
-              className="flex-1 min-w-[220px] lg:min-w-0 shrink-0 lg:shrink"
+              className="h-full"
             >
               <ServiceCard service={service} />
             </motion.div>
@@ -3547,33 +3778,38 @@ function PartnersSection() {
   const marqueeItems = [...partners, ...partners, ...partners];
 
   return (
-    <section className="border-y border-navy-100 bg-white py-12 overflow-hidden">
+    <section className="border-y border-slate-200/80 bg-white py-14 overflow-hidden">
       <div className="container-wide">
-        <p className="text-center text-sm font-semibold uppercase tracking-wider text-navy-400">
-          {t('home.bankingPartners', 'Our Banking & Insurance Partners')}
-        </p>
+        <div className="text-center mb-8">
+          <span className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+            Trusted Financial Institutions
+          </span>
+          <h3 className="font-display text-lg font-bold text-slate-700 mt-1">
+            {t('home.bankingPartners', 'Our Banking & Insurance Partners')}
+          </h3>
+        </div>
         
         {/* Marquee Container */}
-        <div className="mt-10 relative flex overflow-hidden">
+        <div className="relative flex overflow-hidden">
           {/* Gradient Masks for smooth fade at edges */}
-          <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none"></div>
-          <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none"></div>
+          <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none" />
+          <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none" />
 
           <motion.div
-            className="flex items-center gap-24"
+            className="flex items-center gap-20 sm:gap-28"
             animate={{ x: ['0%', '-33.333333%'] }}
             transition={{ 
-              duration: 25, 
+              duration: 28, 
               ease: 'linear', 
               repeat: Infinity 
             }}
           >
             {marqueeItems.map((p, i) => (
-              <div key={`${p.name}-${i}`} className="flex-shrink-0 w-48 flex justify-center">
+              <div key={`${p.name}-${i}`} className="shrink-0 w-36 sm:w-44 flex justify-center">
                 <img 
                   src={p.logo} 
                   alt={p.name} 
-                  className="h-16 w-auto object-contain hover:scale-110 transition-transform duration-300" 
+                  className="h-10 sm:h-12 w-auto object-contain grayscale opacity-60 hover:grayscale-0 hover:opacity-100 hover:scale-105 transition-all duration-300 cursor-pointer" 
                 />
               </div>
             ))}
@@ -3585,39 +3821,62 @@ function PartnersSection() {
 }
 
 /* ============================================================
-   Final CTA
+   Final CTA — Cinematic Luxury Closing Statement
 ============================================================ */
 function FinalCTA() {
   const { t } = useLanguageContext();
   return (
-    <section className="py-20">
-      <div className="container-wide">
+    <section className="py-16 sm:py-24 bg-slate-950 text-white relative overflow-hidden">
+      {/* Background Ambient Glows */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-0 right-1/4 w-96 h-96 rounded-full bg-red-600/15 blur-[120px]" />
+        <div className="absolute bottom-0 left-1/4 w-96 h-96 rounded-full bg-amber-500/10 blur-[120px]" />
+        <div
+          className="absolute inset-0 opacity-[0.1]"
+          style={{
+            backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px)',
+            backgroundSize: '28px 28px',
+          }}
+        />
+      </div>
+
+      <div className="container-wide relative z-10">
         <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          whileInView={{ opacity: 1, scale: 1 }}
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="relative overflow-hidden rounded-4xl bg-red-gradient px-6 py-16 text-center"
+          transition={{ duration: 0.6 }}
+          className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-slate-900 via-slate-900 to-black border border-white/10 px-8 py-16 sm:py-20 text-center shadow-2xl"
         >
-          <h2 className="font-display text-3xl font-extrabold text-white sm:text-4xl">
-            {t('home.readyToFind', 'Ready to Find Your Dream Property?')}
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-red-600/20 text-red-400 border border-red-500/30 px-4 py-1 text-xs font-black uppercase tracking-wider mb-4">
+            <Sparkles className="h-3.5 w-3.5" /> Start Your Journey
+          </span>
+
+          <h2 className="font-display text-3xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight max-w-3xl mx-auto leading-[1.1]">
+            Your Next Address Starts Here.
           </h2>
-          <p className="mx-auto mt-4 max-w-xl text-white/80">
+
+          <p className="mx-auto mt-4 max-w-2xl text-sm sm:text-base text-slate-300 font-normal leading-relaxed">
             {t(
               'home.joinThousands',
-              "Join thousands of satisfied customers who found their perfect home with RealtyNow's AI-powered platform.",
+              "Discover prime residential and commercial properties with AI price predictions, verified RERA legal titles, and direct developer access.",
             )}
           </p>
+
           <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link
-              to="/signup"
-              className="btn rounded-xl bg-white px-7 py-3.5 text-base font-extrabold text-red-600 shadow-lg hover:bg-slate-50 transition-all active:scale-95"
+              to="/search"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 hover:bg-red-700 px-8 py-4 text-base font-bold text-white shadow-xl shadow-red-600/30 hover:scale-105 active:scale-95 transition-all"
             >
-              {t('common.getStartedFree', 'Get Started Free')} <ArrowRight className="h-5 w-5" />
+              <span>Explore Marketplace</span>
+              <ArrowRight className="h-5 w-5" />
             </Link>
-            <PostPropertyLink to="/portal/list-property"
-              className="btn rounded-xl border border-white/30 bg-white/10 backdrop-blur-md px-7 py-3.5 text-base font-extrabold text-white hover:bg-white/20 transition-all active:scale-95"
+            
+            <PostPropertyLink 
+              to="/portal/list-property"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/10 hover:bg-white/20 backdrop-blur-md px-8 py-4 text-base font-bold text-white transition-all active:scale-95"
             >
-              {t('forms.postProperty', 'Post a Property')}
+              <span>{t('forms.postProperty', 'Post a Property')}</span>
             </PostPropertyLink>
           </div>
         </motion.div>
@@ -3679,9 +3938,10 @@ function SectionShell({
 ============================================================ */
 function LuxuryAdBannersSection() {
   const { t } = useLanguageContext();
+  const queryClient = useQueryClient();
   const scrollRef = useRef<HTMLDivElement>(null);
-  
-  const banners = [
+
+  const fallbackBanners = [
     {
       id: 'luxury-ad-1',
       title: 'Ultra-Luxury Penthouses in South Mumbai',
@@ -3717,8 +3977,42 @@ function LuxuryAdBannersSection() {
       image: 'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg',
       link: '/search?city=Bengaluru&category=Apartment',
       tag: 'Trending',
-    }
+    },
   ];
+
+  const { data: banners = fallbackBanners } = useQuery({
+    queryKey: ['home-two-column-slider'],
+    queryFn: async () => {
+      const campaigns = await fetchPublicCampaigns('TWO_COLUMN_SLIDER');
+      if (campaigns && campaigns.length > 0) {
+        return campaigns.map((c) => ({
+          id: c.id,
+          title: c.title,
+          subtitle: c.subtitle || '',
+          cta: c.cta || 'Discover More',
+          image: c.image || DEFAULT_PROPERTY_IMAGE,
+          link: c.link || '/search',
+          tag: c.tag || 'Sponsored',
+        }));
+      }
+      return fallbackBanners;
+    },
+  });
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('public:two-column-slider-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'paid_campaigns' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['home-two-column-slider'] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'paid_campaign_items' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['home-two-column-slider'] });
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   // Auto scroll effect
   useEffect(() => {
@@ -3726,17 +4020,15 @@ function LuxuryAdBannersSection() {
       if (!scrollRef.current) return;
       const el = scrollRef.current;
       const isMobile = window.innerWidth < 768;
-      // Item width is container width / 2 on desktop, or container width on mobile
-      const itemWidth = isMobile ? el.clientWidth : (el.clientWidth / 2);
+      const itemWidth = isMobile ? el.clientWidth : el.clientWidth / 2;
       const maxScroll = el.scrollWidth - el.clientWidth;
-      
+
       let targetScroll = el.scrollLeft + itemWidth;
-      
-      // If we've reached or passed the max scroll, reset to 0
+
       if (targetScroll > maxScroll + 10) {
         targetScroll = 0;
       }
-      
+
       el.scrollTo({ left: targetScroll, behavior: 'smooth' });
     }, 4000);
     return () => clearInterval(timer);
@@ -3744,42 +4036,61 @@ function LuxuryAdBannersSection() {
 
   const handleNext = () => {
     if (!scrollRef.current) return;
-    const itemWidth = window.innerWidth < 768 ? scrollRef.current.clientWidth : (scrollRef.current.clientWidth / 2);
+    const itemWidth = window.innerWidth < 768 ? scrollRef.current.clientWidth : scrollRef.current.clientWidth / 2;
     scrollRef.current.scrollBy({ left: itemWidth, behavior: 'smooth' });
   };
-  
+
   const handlePrev = () => {
     if (!scrollRef.current) return;
-    const itemWidth = window.innerWidth < 768 ? scrollRef.current.clientWidth : (scrollRef.current.clientWidth / 2);
+    const itemWidth = window.innerWidth < 768 ? scrollRef.current.clientWidth : scrollRef.current.clientWidth / 2;
     scrollRef.current.scrollBy({ left: -itemWidth, behavior: 'smooth' });
   };
 
+  if (!banners || banners.length === 0) return null;
+
   return (
-    <section className="py-8 bg-slate-50/50">
+    <section className="py-12 sm:py-16 bg-slate-50/50" id="two-column-slider">
       <div className="container-wide relative group/section">
-        
+        {/* Section Header */}
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
+              Two Column Slider Properties
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Curated luxury residential and villa developments with exclusive benefits
+            </p>
+          </div>
+          <Link
+            to="/search"
+            className="inline-flex items-center gap-1 text-sm font-bold text-red-600 hover:text-red-700 transition-colors"
+          >
+            View All <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+
         {/* Navigation Arrows */}
         <button
           onClick={handlePrev}
-          className="absolute -left-3 sm:-left-6 top-1/2 -translate-y-1/2 z-20 grid h-12 w-12 place-items-center rounded-full bg-white/80 text-slate-800 backdrop-blur-md shadow-lg border border-slate-200 hover:bg-red-600 hover:text-white transition-all opacity-0 group-hover/section:opacity-100 scale-90 group-hover/section:scale-100 cursor-pointer hidden sm:grid"
+          className="absolute -left-3 sm:-left-6 top-[55%] -translate-y-1/2 z-20 grid h-12 w-12 place-items-center rounded-full bg-white/80 text-slate-800 backdrop-blur-md shadow-lg border border-slate-200 hover:bg-red-600 hover:text-white transition-all opacity-0 group-hover/section:opacity-100 scale-90 group-hover/section:scale-100 cursor-pointer hidden sm:grid"
         >
           <ChevronLeft className="h-6 w-6" />
         </button>
-        
+
         <button
           onClick={handleNext}
-          className="absolute -right-3 sm:-right-6 top-1/2 -translate-y-1/2 z-20 grid h-12 w-12 place-items-center rounded-full bg-white/80 text-slate-800 backdrop-blur-md shadow-lg border border-slate-200 hover:bg-red-600 hover:text-white transition-all opacity-0 group-hover/section:opacity-100 scale-90 group-hover/section:scale-100 cursor-pointer hidden sm:grid"
+          className="absolute -right-3 sm:-right-6 top-[55%] -translate-y-1/2 z-20 grid h-12 w-12 place-items-center rounded-full bg-white/80 text-slate-800 backdrop-blur-md shadow-lg border border-slate-200 hover:bg-red-600 hover:text-white transition-all opacity-0 group-hover/section:opacity-100 scale-90 group-hover/section:scale-100 cursor-pointer hidden sm:grid"
         >
           <ChevronRight className="h-6 w-6" />
         </button>
 
-        <div 
+        <div
           ref={scrollRef}
           className="flex gap-6 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-4 pt-2 px-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
         >
-          {banners.map((ad, i) => (
+          {banners.map((ad: any, i: number) => (
             <motion.div
-              key={ad.id}
+              key={ad.id || i}
               initial={{ opacity: 0, y: 15 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -3794,13 +4105,13 @@ function LuxuryAdBannersSection() {
                   className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
-                
+
                 <div className="absolute top-4 left-4 z-10">
                   <span className="bg-red-600 text-white text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-sm shadow-md">
                     {ad.tag}
                   </span>
                 </div>
-                
+
                 <div className="absolute bottom-6 left-6 right-6 flex flex-col items-start gap-2 z-10">
                   <h3 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white leading-tight drop-shadow-md group-hover:text-amber-300 transition-colors">
                     {ad.title}
@@ -3827,9 +4138,10 @@ function LuxuryAdBannersSection() {
    Three Column Paid Ad Banners
 ============================================================ */
 function ThreeColumnAdBannersSection() {
+  const queryClient = useQueryClient();
   const scrollRef = useRef<HTMLDivElement>(null);
-  
-  const banners = [
+
+  const fallbackBanners = [
     {
       id: 'paid-ad-1',
       title: 'Smart Homes by TechBuilders',
@@ -3865,9 +4177,43 @@ function ThreeColumnAdBannersSection() {
       image: 'https://images.pexels.com/photos/208736/pexels-photo-208736.jpeg',
       link: '/search?category=Villa',
       tag: 'Hot Deal',
-    }
+    },
   ];
 
+  const { data: banners = fallbackBanners } = useQuery({
+    queryKey: ['home-three-column-banners'],
+    queryFn: async () => {
+      const campaigns = await fetchPublicCampaigns('THREE_COLUMN_PROPERTIES');
+      if (campaigns && campaigns.length > 0) {
+        return campaigns.map((c) => ({
+          id: c.id,
+          title: c.title,
+          subtitle: c.subtitle || '',
+          cta: c.cta || 'View Details',
+          image: c.image || DEFAULT_PROPERTY_IMAGE,
+          link: c.link || '/search',
+          tag: c.tag || 'Featured',
+        }));
+      }
+      return fallbackBanners;
+    },
+  });
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('public:three-column-banners-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'paid_campaigns' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['home-three-column-banners'] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'paid_campaign_items' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['home-three-column-banners'] });
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+  
   // Auto scroll effect
   useEffect(() => {
     const timer = setInterval(() => {
@@ -3875,16 +4221,15 @@ function ThreeColumnAdBannersSection() {
       const el = scrollRef.current;
       const isMobile = window.innerWidth < 768;
       const isTablet = window.innerWidth < 1024;
-      // Item width is container width / 3 on desktop, /2 on tablet, or container width on mobile
-      const itemWidth = isMobile ? el.clientWidth : isTablet ? (el.clientWidth / 2) : (el.clientWidth / 3);
+      const itemWidth = isMobile ? el.clientWidth : isTablet ? el.clientWidth / 2 : el.clientWidth / 3;
       const maxScroll = el.scrollWidth - el.clientWidth;
-      
+
       let targetScroll = el.scrollLeft + itemWidth;
-      
+
       if (targetScroll > maxScroll + 10) {
         targetScroll = 0;
       }
-      
+
       el.scrollTo({ left: targetScroll, behavior: 'smooth' });
     }, 4500);
     return () => clearInterval(timer);
@@ -3894,33 +4239,50 @@ function ThreeColumnAdBannersSection() {
     if (!scrollRef.current) return;
     const isMobile = window.innerWidth < 768;
     const isTablet = window.innerWidth < 1024;
-    const itemWidth = isMobile ? scrollRef.current.clientWidth : isTablet ? (scrollRef.current.clientWidth / 2) : (scrollRef.current.clientWidth / 3);
+    const itemWidth = isMobile ? scrollRef.current.clientWidth : isTablet ? scrollRef.current.clientWidth / 2 : scrollRef.current.clientWidth / 3;
     scrollRef.current.scrollBy({ left: itemWidth, behavior: 'smooth' });
   };
-  
+
   const handlePrev = () => {
     if (!scrollRef.current) return;
     const isMobile = window.innerWidth < 768;
     const isTablet = window.innerWidth < 1024;
-    const itemWidth = isMobile ? scrollRef.current.clientWidth : isTablet ? (scrollRef.current.clientWidth / 2) : (scrollRef.current.clientWidth / 3);
+    const itemWidth = isMobile ? scrollRef.current.clientWidth : isTablet ? scrollRef.current.clientWidth / 2 : scrollRef.current.clientWidth / 3;
     scrollRef.current.scrollBy({ left: -itemWidth, behavior: 'smooth' });
   };
 
   return (
-    <section className="py-8 bg-slate-50 border-t border-slate-100">
+    <section className="py-12 sm:py-16 bg-slate-50 border-t border-slate-100" id="three-column-properties">
       <div className="container-wide relative group/section">
+        {/* Section Header */}
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
+              Three Column Properties
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Smart homes, commercial spaces, and curated investment opportunities
+            </p>
+          </div>
+          <Link
+            to="/search"
+            className="inline-flex items-center gap-1 text-sm font-bold text-red-600 hover:text-red-700 transition-colors"
+          >
+            View All <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
         
         {/* Navigation Arrows */}
         <button
           onClick={handlePrev}
-          className="absolute -left-3 sm:-left-6 top-1/2 -translate-y-1/2 z-20 grid h-10 w-10 sm:h-12 sm:w-12 place-items-center rounded-full bg-white/80 text-slate-800 backdrop-blur-md shadow-lg border border-slate-200 hover:bg-red-600 hover:text-white transition-all opacity-0 group-hover/section:opacity-100 scale-90 group-hover/section:scale-100 cursor-pointer hidden sm:grid"
+          className="absolute -left-3 sm:-left-6 top-[55%] -translate-y-1/2 z-20 grid h-10 w-10 sm:h-12 sm:w-12 place-items-center rounded-full bg-white/80 text-slate-800 backdrop-blur-md shadow-lg border border-slate-200 hover:bg-red-600 hover:text-white transition-all opacity-0 group-hover/section:opacity-100 scale-90 group-hover/section:scale-100 cursor-pointer hidden sm:grid"
         >
           <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6" />
         </button>
         
         <button
           onClick={handleNext}
-          className="absolute -right-3 sm:-right-6 top-1/2 -translate-y-1/2 z-20 grid h-10 w-10 sm:h-12 sm:w-12 place-items-center rounded-full bg-white/80 text-slate-800 backdrop-blur-md shadow-lg border border-slate-200 hover:bg-red-600 hover:text-white transition-all opacity-0 group-hover/section:opacity-100 scale-90 group-hover/section:scale-100 cursor-pointer hidden sm:grid"
+          className="absolute -right-3 sm:-right-6 top-[55%] -translate-y-1/2 z-20 grid h-10 w-10 sm:h-12 sm:w-12 place-items-center rounded-full bg-white/80 text-slate-800 backdrop-blur-md shadow-lg border border-slate-200 hover:bg-red-600 hover:text-white transition-all opacity-0 group-hover/section:opacity-100 scale-90 group-hover/section:scale-100 cursor-pointer hidden sm:grid"
         >
           <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6" />
         </button>

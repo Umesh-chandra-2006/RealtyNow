@@ -327,12 +327,12 @@ export function DataTable<T>({
       {/* View Mode: Table View */}
       {viewMode === 'table' ? (
         <div className="card overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-navy-100">
-              <thead className="bg-navy-50/60">
+          <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-280px)] relative">
+            <table className="min-w-full divide-y divide-navy-100 relative">
+              <thead className="bg-slate-50 sticky top-0 z-20 shadow-xs border-b border-slate-200">
                 <tr>
                   {onToggleSelect && (
-                    <th className="table-cell-head w-10">
+                    <th className="table-cell-head w-10 sticky top-0 z-20 bg-slate-50">
                       <input
                         type="checkbox"
                         checked={!!allOnPageSelected}
@@ -342,7 +342,7 @@ export function DataTable<T>({
                     </th>
                   )}
                   {columns.map((col) => (
-                    <th key={col.key} className={cn('table-cell-head', col.className)}>
+                    <th key={col.key} className={cn('table-cell-head sticky top-0 z-20 bg-slate-50', col.className)}>
                       {col.sortable ? (
                         <button
                           onClick={() => toggleSort(col.key)}

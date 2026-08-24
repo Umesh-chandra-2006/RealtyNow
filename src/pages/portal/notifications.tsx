@@ -7,7 +7,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { useRealtimeNotifications } from '../../lib/realtime';
 import { DashboardLayout, PageHeader } from '../../components/dashboard-layout';
-import { getPortalSections, getAgentSections, getAdminSections } from './sections';
+import { getPortalSections, getAgentSections, getAdminSections, getPartnerSections } from './sections';
 import { useLanguageContext } from '../../lib/i18n/language-context';
 import { Button, Card, EmptyState } from '../../components/ui';
 import { useToast } from '../../components/toast';
@@ -201,7 +201,11 @@ export function PortalNotifications() {
     });
   };
 
-  const sections = userRole === 'admin' ? getAdminSections(t) : userRole === 'agent' ? getAgentSections(t) : getPortalSections(t);
+  const sections =
+    userRole === 'admin' ? getAdminSections(t) :
+    userRole === 'agent' ? getAgentSections(t) :
+    userRole === 'partner' ? getPartnerSections(t) :
+    getPortalSections(t);
   const selectedArray = [...selectedIds];
 
   return (

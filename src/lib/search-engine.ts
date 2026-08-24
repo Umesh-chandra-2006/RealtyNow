@@ -110,25 +110,65 @@ const CATEGORY_META: Record<CategorySlug, { label: string; pluralLabel: string; 
 // Words/phrases that mean "give me a list of properties" — stripped before
 // location extraction so they don't pollute the location token.
 const SEARCH_INTENT_WORDS_RE =
-  /\b(show|find|search|looking\s+for|list|get|near|around|in|at|properties|property|for\s+sale|for\s+rent|for\s+buy|buy|sale|rent|rental|lease|to\s+let|under|below|above|over|less\s+than|more\s+than|up\s+to|within|available|listing|listings|real\s+estate|area|homes)\b/gi;
+  /\b(show|find|search|looking\s+for|list|get|near|around|in|at|properties|property|for\s+sale|for\s+rent|for\s+buy|buy|sale|rent|rental|lease|to\s+let|under|below|above|over|between|less\s+than|more\s+than|up\s+to|within|available|listing|listings|real\s+estate|area|homes|good|best|top|budget|cheap|affordable)\b/gi;
 
-const RENT_RE   = /\b(rent|rental|lease|to\s+let|on\s+rent|for\s+rent)\b/i;
-const BUY_RE    = /\b(buy|sale|purchase|for\s+sale|to\s+buy)\b/i;
-const BHK_RE    = /(\d+)\s*bhk/i;
+const RENT_RE   = /\b(rent|rental|lease|to\s+let|on\s+rent|for\s+rent|rent\s+flat|rent\s+apartment|rent\s+house)\b/i;
+const BUY_RE    = /\b(buy|sale|purchase|for\s+sale|to\s+buy|property\s+for\s+sale)\b/i;
+const LUXURY_RE = /\b(luxury|ultra\s+luxury|premium|gated|duplex|penthouse|high\s+end)\b/i;
+
+// Spelling & alias corrections for robust fuzzy search
+const TYPO_REPLACEMENTS: [RegExp, string][] = [
+  [/\bjublee\s*hills?\b/gi, 'Jubilee Hills'],
+  [/\bhyderbad\b/gi, 'Hyderabad'],
+  [/\bhyd\b/gi, 'Hyderabad'],
+  [/\bhitechcity\b/gi, 'Hitech City'],
+  [/\bhitex\b/gi, 'Hitech City'],
+  [/\bapartmnts?\b/gi, 'apartment'],
+  [/\bappartment\b/gi, 'apartment'],
+  [/\bcomercial\b/gi, 'commercial'],
+  [/\bgachibowly\b/gi, 'Gachibowli'],
+  [/\bkokapeta\b/gi, 'Kokapet'],
+  [/\bmadhapoore?\b/gi, 'Madhapur'],
+  [/\bbanjara\s*hill\b/gi, 'Banjara Hills'],
+  [/\bkondapoore?\b/gi, 'Kondapur'],
+  [/\bsecundrabad\b/gi, 'Secunderabad'],
+];
+
+const NUMBER_WORD_MAP: Record<string, number> = {
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+};
+
+const BHK_RE = /(\d+|one|two|three|four|five|six|seven)\s*(?:bhk|bedroom|bed)\b/i;
+const STUDIO_RE = /\b(studio|1\s*rk)\b/i;
 
 const LAKH  = 100_000;
 const CRORE = 10_000_000;
-const PRICE_UNIT_RE = /(\d+(?:\.\d+)?)\s*(crore|cr|lakh|lac|k)/i;
-const MAX_PRICE_RE  = new RegExp(`(?:under|below|less\\s*than|up\\s*to|within|max)\\s*${PRICE_UNIT_RE.source}`, 'i');
-const MIN_PRICE_RE  = new RegExp(`(?:above|over|more\\s*than|min)\\s*${PRICE_UNIT_RE.source}`, 'i');
+const THOUSAND = 1_000;
 
-function parsePrice(amount: number, unit: string): number {
-  const u = unit.toLowerCase();
+function parsePriceString(amountStr: string, unitStr: string): number {
+  const amount = parseFloat(amountStr.replace(/,/g, ''));
+  const u = (unitStr || '').toLowerCase().trim();
   if (u.startsWith('cr')) return Math.round(amount * CRORE);
-  if (u.startsWith('la')) return Math.round(amount * LAKH);
-  if (u === 'k') return Math.round(amount * 1_000);
+  if (u.startsWith('la') || u === 'l') return Math.round(amount * LAKH);
+  if (u === 'k') return Math.round(amount * THOUSAND);
   return Math.round(amount);
 }
+
+// Regex patterns for price detection
+// "between 1 crore and 3 crore" or "1 cr to 3 cr"
+const BETWEEN_PRICE_RE = /(?:between|from)?\s*(?:₹|rs\.?)?\s*(\d+(?:\.\d+)?)\s*(crore|cr|lakh|lacs?|lac|l|k)?\s*(?:and|to|-)\s*(?:₹|rs\.?)?\s*(\d+(?:\.\d+)?)\s*(crore|cr|lakh|lacs?|lac|l|k)\b/i;
+// "under 2 crore", "below 50L", "less than 1.5 cr", "max 2 cr", "< 2 cr"
+const MAX_PRICE_RE = /(?:under|below|less\s+than|up\s+to|within|max|<|<=)\s*(?:₹|rs\.?)?\s*(\d+(?:\.\d+)?)\s*(crore|cr|lakh|lacs?|lac|l|k)\b/i;
+// "above 2 crore", "more than 50 lakh", "min 1 cr", "> 1 cr"
+const MIN_PRICE_RE = /(?:above|over|more\s+than|min|>|>=)\s*(?:₹|rs\.?)?\s*(\d+(?:\.\d+)?)\s*(crore|cr|lakh|lacs?|lac|l|k)\b/i;
+// Standalone price: "₹1.5 Cr", "50 lakh", "2 crore"
+const STANDALONE_PRICE_RE = /(?:₹|rs\.?)\s*(\d+(?:\.\d+)?)\s*(crore|cr|lakh|lacs?|lac|l|k)\b/i;
 
 // ─── Parse Query ─────────────────────────────────────────────
 
@@ -136,34 +176,76 @@ function parsePrice(amount: number, unit: string): number {
  * Parse a natural language search query into structured intent.
  *
  * Examples:
- *   "Gachibowli apartments"  → { location: "Gachibowli", propertyType: "apartment" }
- *   "plots in Kokapet"       → { location: "Kokapet", propertyType: "plots" }
- *   "2 BHK rent Kondapur under 30k" → { location: "Kondapur", propertyType: "apartment", purpose: "Rent", bedrooms: 2 }
+ *   "3 BHK luxury villa in Kokapet under 5 crore" → { location: "Kokapet", propertyType: "villa", bedrooms: 3, maxPrice: 50000000, purpose: "Sale" }
+ *   "apartments under 2 crore in Hyderabad"       → { location: "Hyderabad", propertyType: "apartment", maxPrice: 20000000 }
+ *   "rental flats in Hitech City"                 → { location: "Hitech City", propertyType: "apartment", purpose: "Rent" }
+ *   "plots in Hyderabad"                          → { location: "Hyderabad", propertyType: "plots" }
  */
 export function parsePropertySearchQuery(rawQuery: string): ParsedSearchIntent {
   let rest = (rawQuery || '').trim();
 
-  // 1. Extract price constraints (they'd pollute location extraction)
+  // Apply common spelling and typo fixes
+  for (const [pattern, replacement] of TYPO_REPLACEMENTS) {
+    rest = rest.replace(pattern, replacement);
+  }
+
+  // 1. Extract price constraints
   let maxPrice: number | null = null;
   let minPrice: number | null = null;
-  const maxM = rest.match(MAX_PRICE_RE);
-  if (maxM) { maxPrice = parsePrice(parseFloat(maxM[1]), maxM[2]); rest = rest.replace(maxM[0], ' '); }
-  const minM = rest.match(MIN_PRICE_RE);
-  if (minM) { minPrice = parsePrice(parseFloat(minM[1]), minM[2]); rest = rest.replace(minM[0], ' '); }
+
+  const betweenM = rest.match(BETWEEN_PRICE_RE);
+  if (betweenM) {
+    const unit1 = betweenM[2] || betweenM[4]; // Default to second unit if first omitted e.g. "1 to 3 cr"
+    const unit2 = betweenM[4];
+    minPrice = parsePriceString(betweenM[1], unit1);
+    maxPrice = parsePriceString(betweenM[3], unit2);
+    rest = rest.replace(betweenM[0], ' ');
+  } else {
+    const maxM = rest.match(MAX_PRICE_RE);
+    if (maxM) {
+      maxPrice = parsePriceString(maxM[1], maxM[2]);
+      rest = rest.replace(maxM[0], ' ');
+    }
+
+    const minM = rest.match(MIN_PRICE_RE);
+    if (minM) {
+      minPrice = parsePriceString(minM[1], minM[2]);
+      rest = rest.replace(minM[0], ' ');
+    }
+
+    if (!maxPrice && !minPrice) {
+      const standaloneM = rest.match(STANDALONE_PRICE_RE);
+      if (standaloneM) {
+        maxPrice = parsePriceString(standaloneM[1], standaloneM[2]);
+        rest = rest.replace(standaloneM[0], ' ');
+      }
+    }
+  }
 
   // 2. Detect purpose
-  const purpose: ParsedSearchIntent['purpose'] = RENT_RE.test(rest) ? 'Rent' : BUY_RE.test(rest) ? 'Sale' : null;
+  const purpose: ParsedSearchIntent['purpose'] = RENT_RE.test(rest)
+    ? 'Rent'
+    : BUY_RE.test(rest)
+    ? 'Sale'
+    : null;
 
-  // 3. Detect BHK
+  // 3. Detect BHK / Bedrooms
+  let bedrooms: number | null = null;
   const bhkMatch = rest.match(BHK_RE);
-  const bedrooms = bhkMatch ? parseInt(bhkMatch[1], 10) : null;
-  if (bhkMatch) rest = rest.replace(bhkMatch[0], ' ');
+  if (bhkMatch) {
+    const numToken = bhkMatch[1].toLowerCase();
+    bedrooms = NUMBER_WORD_MAP[numToken] ?? parseInt(numToken, 10);
+    if (isNaN(bedrooms)) bedrooms = null;
+    rest = rest.replace(bhkMatch[0], ' ');
+  } else if (STUDIO_RE.test(rest)) {
+    bedrooms = 1;
+    rest = rest.replace(STUDIO_RE, ' ');
+  }
 
   // 4. Detect property type from known keywords (longest match first)
   let detectedType: CategorySlug | null = null;
   const lowerRest = rest.toLowerCase();
-  
-  // Sort keywords by length descending to match multi-word phrases first (e.g. "open plot", "independent house")
+
   const allKeywords: { slug: CategorySlug; kw: string }[] = [];
   for (const [slug, meta] of Object.entries(CATEGORY_META)) {
     for (const kw of meta.keywords) {

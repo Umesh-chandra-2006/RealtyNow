@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Check, X, Eye, Send, FileText, Search, ShieldCheck, ShieldAlert, ShieldQuestion, Star } from 'lucide-react';
+import { Check, X, Eye, Send, FileText, Search, ShieldCheck, ShieldAlert, ShieldQuestion, Star, Sparkles, Layers } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { DashboardLayout, PageHeader } from '../../components/dashboard-layout';
 import { queryClient } from '../../lib/queryClient';
@@ -11,6 +11,9 @@ import { Card, Button, Modal, Badge, Input, Textarea, EmptyState, Select } from 
 import { StatusBadge } from '../../components/property-card';
 import { DataTable, type Column, BulkActionsBar } from '../../components/data-table';
 import { updatePropertyStatus, adminApproveWithAi, adminRejectWithAi } from '../../lib/properties';
+import { togglePropertyFeatured } from '../../lib/featured-properties-api';
+import { PublishToSectionControl, closeAllPublishPopovers } from '../../components/admin/publish-to-section-control';
+import { BulkPublishModal } from '../../components/admin/bulk-publish-modal';
 import { mapJoined } from '../../lib/join-helpers';
 import { formatPrice, formatDate, cn, generatePropertyUrl } from '../../lib/utils';
 import { getPropertyPricingDisplay, getPriceUnitLabel } from '../../lib/plot-pricing';
@@ -314,7 +317,7 @@ export function AdminApprovals() {
       if (isLive) {
         toast.addToast('success', 'Property is now LIVE on customer portal!');
       } else if (variables.status === 'rejected') {
-        toast.addToast('success', 'Property rejected.');
+        toast.addToast('success', 'Property rejected successfully.');
       } else {
         toast.addToast('success', `Status updated to ${variables.status}.`);
       }
@@ -956,6 +959,10 @@ export function AdminProperties() {
   const handleVisibleRowsChange = useCallback((rows: PendingProperty[]) => setVisibleRows(rows), []);
   const [exportAllRows, setExportAllRows] = useState<PendingProperty[]>([]);
 
+  // Bulk Publish to Homepage state
+  const [bulkPublishOpen, setBulkPublishOpen] = useState(false);
+  const [bulkPublishMode, setBulkPublishMode] = useState<'publish' | 'remove'>('publish');
+
   // Hero Campaign state
   const [heroProperty, setHeroProperty] = useState<PendingProperty | null>(null);
   const [heroForm, setHeroForm] = useState({
@@ -981,21 +988,41 @@ export function AdminProperties() {
       toast.addToast('error', err?.message || 'Failed to update property status');
     },
   });
+
+  const toggleFeaturedMutation = useMutation({
+    mutationFn: async ({ id, shouldFeature }: { id: string; shouldFeature: boolean }) => {
+      await togglePropertyFeatured(id, shouldFeature, 'Medium');
+    },
+    onSuccess: (_, vars) => {
+      toast.addToast(
+        'success',
+        vars.shouldFeature ? 'Property added to Featured Properties.' : 'Property removed from Featured Properties.'
+      );
+      queryClient.invalidateQueries({ queryKey: ['admin-properties'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-featured-properties'] });
+      queryClient.invalidateQueries({ queryKey: ['home-featured-properties'] });
+    },
+    onError: (err: any) => {
+      toast.addToast('error', err?.message || 'Failed to update featured status');
+    },
+  });
   
   const saveHeroCampaign = async () => {
     if (!heroProperty) return;
     setSavingHero(true);
     try {
       const payload = {
-        title: heroForm.title,
-        subtitle: heroForm.subtitle,
-        banner_image: heroForm.banner_image,
-        cta_text: heroForm.cta_text,
+        title: heroForm.title?.trim() || heroProperty.title,
+        subtitle: heroForm.subtitle?.trim() || 'Premium Verified Property',
+        banner_image: heroForm.banner_image?.trim() || (Array.isArray(heroProperty.images) ? heroProperty.images[0] : null),
+        cta_text: heroForm.cta_text?.trim() || 'Explore Project',
+        cta_url: `/property/${heroProperty.id}`,
         property_id: heroProperty.id,
-        priority: heroForm.priority,
-        start_date: heroForm.start_date ? new Date(heroForm.start_date).toISOString() : null,
+        priority: Number(heroForm.priority) || 1,
+        start_date: heroForm.start_date ? new Date(heroForm.start_date).toISOString() : new Date().toISOString(),
         end_date: heroForm.end_date ? new Date(heroForm.end_date).toISOString() : null,
-        campaign_type: 'Featured',
+        campaign_type: 'Paid',
+        package_tier: 'Featured',
         display_type: 'Hero Banner',
         status: 'Active',
         city_id: heroProperty.city_id || null,
@@ -1005,6 +1032,12 @@ export function AdminProperties() {
       
       const { error } = await supabase.from('hero_campaigns').insert(payload);
       if (error) throw error;
+
+      // Ensure property status is published
+      if (heroProperty.status !== 'published') {
+        await updatePropertyStatus(heroProperty.id, 'published');
+        queryClient.invalidateQueries({ queryKey: ['admin-properties'] });
+      }
       
       toast.addToast('success', 'Hero campaign published successfully!');
       setHeroProperty(null);
@@ -1120,7 +1153,7 @@ export function AdminProperties() {
         longitude: p.longitude ?? '',
         legal_approved: p.legal_approved ? 'Yes' : 'No',
         is_featured: p.is_featured ? 'Yes' : 'No',
-        is_verified: p.is_verified ? 'Yes' : 'No',
+        is_verified: (p.verification_status === 'AI Verified' || p.verified_status === 'verified' || !!p.is_verified) ? 'Yes' : 'No',
         is_negotiable: p.is_negotiable ? 'Yes' : 'No',
         country: p.country ?? 'India',
       };
@@ -1143,6 +1176,9 @@ export function AdminProperties() {
     seo_slug: '',
     seo_keywords: '',
   });
+  const [propertyToReject, setPropertyToReject] = useState<PendingProperty | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [rejectError, setRejectError] = useState('');
   const [regeneratingSeo, setRegeneratingSeo] = useState(false);
   const [cities, setCities] = useState<{ id: string; name: string }[]>([]);
   const [propertyTypes, setPropertyTypes] = useState<{ id: string; name: string }[]>([]);
@@ -1151,10 +1187,38 @@ export function AdminProperties() {
   const realtimeTick = useRealtimeCount('properties');
   const savedFilters = useSavedFilters<AdminPropertiesFilterState>('admin-properties');
 
-  // Reset to page 1 whenever the filter/search/tab shape changes underneath the current page.
+  const toggleVerifiedMutation = useMutation({
+    mutationFn: async ({ id, isVerified }: { id: string; isVerified: boolean }) => {
+      const { error } = await supabase
+        .from('properties')
+        .update({
+          verification_status: isVerified ? 'AI Verified' : 'Pending AI',
+          verified_status: isVerified ? 'verified' : 'unverified',
+          ai_verified_at: isVerified ? new Date().toISOString() : null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      toast.addToast('success', variables.isVerified ? 'Property marked as Verified.' : 'Property verification removed.');
+      queryClient.invalidateQueries({ queryKey: ['admin-properties'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-approvals'] });
+    },
+    onError: (err: any) => {
+      toast.addToast('error', err?.message || 'Failed to update verification status.');
+    },
+  });
+
+  // Reset to page 1 and close any open popovers whenever the filter/search/tab shape changes underneath the current page.
   useEffect(() => {
     setPage(1);
+    closeAllPublishPopovers();
   }, [tab, search, filters]);
+
+  useEffect(() => {
+    closeAllPublishPopovers();
+  }, [page]);
 
   const { data, isLoading, error: queryError } = useQuery({
     queryKey: ['admin-properties', tab, search, filters, page, realtimeTick],
@@ -1316,9 +1380,16 @@ export function AdminProperties() {
             className="h-10 w-14 rounded object-cover"
           />
           <div>
-            <Link to={generatePropertyUrl(p)} className="font-medium text-navy-900 hover:underline line-clamp-1">
-              {p.title}
-            </Link>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <Link to={generatePropertyUrl(p)} className="font-medium text-navy-900 hover:underline line-clamp-1">
+                {p.title}
+              </Link>
+              {p.is_featured && (
+                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-red-700 bg-red-50 border border-red-200 px-1.5 py-0.2 rounded">
+                  ⚡ Featured
+                </span>
+              )}
+            </div>
             <p className="text-xs text-navy-500">
               {p.locality_name}, {p.city_name}
             </p>
@@ -1352,6 +1423,17 @@ export function AdminProperties() {
     { key: 'view_count', header: 'Views', sortable: true, render: (p) => p.view_count },
     { key: 'created_at', header: 'Created', sortable: true, render: (p) => formatDate(p.created_at) },
     {
+      key: 'publish_to',
+      header: 'Publish To',
+      render: (p) => (
+        <PublishToSectionControl
+          property={p}
+          compact={true}
+          onAssignmentChange={() => queryClient.invalidateQueries({ queryKey: ['admin-properties'] })}
+        />
+      ),
+    },
+    {
       key: 'actions',
       header: 'Actions',
       render: (p) => (
@@ -1359,7 +1441,7 @@ export function AdminProperties() {
           <Button
             size="sm"
             variant="ghost"
-            title="View Property"
+            title="View Public Listing"
             onClick={() => window.open(generatePropertyUrl(p), '_blank')}
             icon={<Eye className="h-4 w-4" />}
           />
@@ -1368,7 +1450,7 @@ export function AdminProperties() {
               <Button
                 size="sm"
                 variant="ghost"
-                className="text-emerald-600"
+                className="text-emerald-600 hover:bg-emerald-50"
                 title="Make Live (Publish)"
                 onClick={() => statusMutation.mutate({ id: p.id, status: 'published' })}
                 icon={<Check className="h-4 w-4" />}
@@ -1376,42 +1458,67 @@ export function AdminProperties() {
               <Button
                 size="sm"
                 variant="ghost"
-                className="text-amber-600"
-                title="Reject"
+                className="text-amber-600 hover:bg-amber-50"
+                title="Reject Property"
                 onClick={() => {
-                  const reason = window.prompt("Reason for rejection:");
-                  if (reason !== null) {
-                    statusMutation.mutate({ id: p.id, status: 'rejected', reason: reason || undefined });
-                  }
+                  setPropertyToReject(p);
+                  setRejectReason('');
+                  setRejectError('');
                 }}
                 icon={<X className="h-4 w-4" />}
               />
             </>
           )}
           {p.status === 'published' && (
-            <Button
-              size="sm"
-              variant="ghost"
-              title="Set as Hero"
-              className="text-indigo-600"
-              onClick={() => {
-                setHeroProperty(p);
-                setHeroForm({
-                  title: p.title || '',
-                  subtitle: p.locality_name ? `${p.locality_name}, ${p.city_name}` : (p.city_name || ''),
-                  banner_image: p.images?.[0] || '',
-                  cta_text: 'Explore Project',
-                  priority: 1,
-                  start_date: new Date().toISOString().slice(0, 16),
-                  end_date: ''
-                });
-              }}
-              icon={<Star className="h-4 w-4" />}
-            />
+            <>
+              <Button
+                size="sm"
+                variant="ghost"
+                title={p.is_featured ? 'Remove from Featured' : 'Publish to Featured Carousel'}
+                className={p.is_featured ? 'text-red-600 hover:bg-red-50' : 'text-slate-400 hover:text-red-600'}
+                disabled={toggleFeaturedMutation.isPending}
+                onClick={() => toggleFeaturedMutation.mutate({ id: p.id, shouldFeature: !p.is_featured })}
+                icon={<Sparkles className={cn('h-4 w-4', p.is_featured && 'fill-red-600 text-red-600')} />}
+              />
+              <Button
+                size="sm"
+                variant="ghost"
+                title="Set as Hero Banner"
+                className="text-indigo-600 hover:bg-indigo-50"
+                onClick={() => {
+                  setHeroProperty(p);
+                  setHeroForm({
+                    title: p.title || '',
+                    subtitle: p.locality_name ? `${p.locality_name}, ${p.city_name}` : (p.city_name || ''),
+                    banner_image: p.images?.[0] || '',
+                    cta_text: 'Explore Project',
+                    priority: 1,
+                    start_date: new Date().toISOString().slice(0, 16),
+                    end_date: ''
+                  });
+                }}
+                icon={<Star className="h-4 w-4" />}
+              />
+            </>
           )}
+          {(() => {
+            const isPropVerified = p.verification_status === 'AI Verified' || p.verified_status === 'verified' || !!p.is_verified;
+            return (
+              <Button
+                size="sm"
+                variant="ghost"
+                title={isPropVerified ? 'Verified Listing (Click to unverify)' : 'Mark as Verified Listing'}
+                className={isPropVerified ? 'text-emerald-600 hover:bg-emerald-50' : 'text-slate-300 hover:text-emerald-600'}
+                disabled={toggleVerifiedMutation.isPending}
+                onClick={() => toggleVerifiedMutation.mutate({ id: p.id, isVerified: !isPropVerified })}
+                icon={<ShieldCheck className={cn('h-4 w-4', isPropVerified && 'fill-emerald-100')} />}
+              />
+            );
+          })()}
           <Button
             size="sm"
             variant="ghost"
+            title="Quick Edit"
             onClick={() => {
               setEditing(p);
               setEditForm({
@@ -1435,7 +1542,7 @@ export function AdminProperties() {
             size="sm"
             variant="ghost"
             className="text-error-600"
-            title="Delete"
+            title="Delete Property"
             onClick={() => setToDelete(p.id)}
             icon={<X className="h-4 w-4" />}
           />
@@ -1705,6 +1812,28 @@ export function AdminProperties() {
           onDelete={bulkDelete}
           actions={
             <>
+              <Button
+                size="sm"
+                variant="secondary"
+                icon={<Layers className="h-4 w-4 text-red-600" />}
+                onClick={() => {
+                  setBulkPublishMode('publish');
+                  setBulkPublishOpen(true);
+                }}
+              >
+                Publish to Section
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-slate-600 hover:text-red-600 text-xs"
+                onClick={() => {
+                  setBulkPublishMode('remove');
+                  setBulkPublishOpen(true);
+                }}
+              >
+                Remove from Section
+              </Button>
               <Button size="sm" variant="primary" onClick={() => bulkStatusUpdate('approved')} loading={false}>
                 Approve selected
               </Button>
@@ -1819,6 +1948,13 @@ export function AdminProperties() {
             <Button variant="secondary" onClick={() => setEditing(null)}>
               Cancel
             </Button>
+            {editing && (
+              <Link to={`/admin/properties/edit/${editing.id}`} target="_blank" className="mr-auto">
+                <Button variant="ghost" size="sm" className="text-navy-600 text-xs">
+                  Full Property Editor ↗
+                </Button>
+              </Link>
+            )}
             <Button onClick={saveEdit} loading={saving}>
               Save changes
             </Button>
@@ -1883,6 +2019,23 @@ export function AdminProperties() {
                 </option>
               ))}
             </Select>
+
+            {/* Homepage Section Publishing */}
+            <div className="sm:col-span-2 pt-3 pb-1 border-t border-slate-100 flex flex-col gap-2">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                Homepage Publishing
+              </label>
+              <p className="text-xs text-slate-500">
+                Control which premium homepage sections this property appears in:
+              </p>
+              <div>
+                <PublishToSectionControl
+                  property={editing}
+                  compact={false}
+                  onAssignmentChange={() => queryClient.invalidateQueries({ queryKey: ['admin-properties'] })}
+                />
+              </div>
+            </div>
 
             <div className="sm:col-span-2 mt-2 flex items-center justify-between border-t border-navy-100 pt-3">
               <div>
@@ -1974,6 +2127,88 @@ export function AdminProperties() {
           </div>
         </div>
       </Modal>
+
+      {/* Reject Property Modal */}
+      <Modal
+        open={!!propertyToReject}
+        onClose={() => {
+          setPropertyToReject(null);
+          setRejectReason('');
+          setRejectError('');
+        }}
+        title="Reject Property"
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setPropertyToReject(null);
+                setRejectReason('');
+                setRejectError('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                if (!rejectReason.trim()) {
+                  setRejectError('Please specify a rejection reason');
+                  return;
+                }
+                if (propertyToReject) {
+                  statusMutation.mutate({
+                    id: propertyToReject.id,
+                    status: 'rejected',
+                    reason: rejectReason.trim(),
+                  });
+                  setPropertyToReject(null);
+                }
+              }}
+              loading={statusMutation.isPending}
+            >
+              Confirm Rejection
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3 pt-1">
+          <p className="text-xs text-navy-600">
+            Select a common reason or enter feedback for <strong>{propertyToReject?.title}</strong>:
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {['Incomplete Details', 'Unclear Photos', 'Price Discrepancy', 'Duplicate Listing', 'Missing Ownership Documents'].map((tag) => (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => setRejectReason(tag)}
+                className="text-[11px] font-semibold bg-slate-100 hover:bg-red-50 hover:text-red-700 px-2.5 py-1 rounded-lg border border-slate-200 transition"
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+          <Textarea
+            label="Rejection Reason & Feedback"
+            value={rejectReason}
+            onChange={(e) => {
+              setRejectReason(e.target.value);
+              if (e.target.value.trim()) setRejectError('');
+            }}
+            placeholder="e.g. Missing ownership documents, unclear image resolution..."
+            error={rejectError}
+          />
+        </div>
+      </Modal>
+
+      {/* Bulk Publish Modal */}
+      <BulkPublishModal
+        open={bulkPublishOpen}
+        onClose={() => setBulkPublishOpen(false)}
+        selectedPropertyIds={Array.from(selected)}
+        mode={bulkPublishMode}
+        onSuccess={() => setSelected(new Set())}
+      />
     </DashboardLayout>
   );
 }

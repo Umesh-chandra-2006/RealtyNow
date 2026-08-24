@@ -541,7 +541,15 @@ export function AdminAgentApplications() {
 
   return (
     <DashboardLayout sections={adminSections} title={t('dashboard:agentApps', 'Agent Applications')}>
-      <PageHeader title={t('admin.agentApplicationsCrmTitle', 'Agent Applications CRM')} subtitle={t('admin.agentApplicationsCrmSubtitle', 'Manage and verify agent registration pipeline')} />
+      <PageHeader
+        title={t('admin.agentApplicationsCrmTitle', 'Agent Applications CRM')}
+        subtitle={t('admin.agentApplicationsCrmSubtitle', 'Manage and verify agent registration pipeline')}
+        breadcrumbs={[
+          { label: 'Admin', to: '/admin' },
+          { label: 'Agent', to: '/admin/agent-applications' },
+          { label: 'Agent Applications' },
+        ]}
+      />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <ClickableStatCard
@@ -700,7 +708,15 @@ export function AdminBuilderApplications() {
 
   return (
     <DashboardLayout sections={adminSections} title={t('dashboard:builderApps', 'Builder Applications')}>
-      <PageHeader title={t('admin.builderApplicationsCrmTitle', 'Builder Applications CRM')} subtitle={t('admin.builderApplicationsCrmSubtitle', 'Manage builder registration pipeline')} />
+      <PageHeader
+        title={t('admin.builderApplicationsCrmTitle', 'Builder Applications CRM')}
+        subtitle={t('admin.builderApplicationsCrmSubtitle', 'Manage builder registration pipeline')}
+        breadcrumbs={[
+          { label: 'Admin', to: '/admin' },
+          { label: 'Builder', to: '/admin/builder-applications' },
+          { label: 'Builder Applications' },
+        ]}
+      />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <ClickableStatCard
@@ -859,7 +875,15 @@ export function AdminPartnerApplications() {
 
   return (
     <DashboardLayout sections={adminSections} title={t('dashboard:partnerApps', 'Partner Applications')}>
-      <PageHeader title={t('admin.partnerApplicationsCrmTitle', 'Partner Applications CRM')} subtitle={t('admin.partnerApplicationsCrmSubtitle', 'Manage and verify partner registration pipeline')} />
+      <PageHeader
+        title={t('admin.partnerApplicationsCrmTitle', 'Partner Applications CRM')}
+        subtitle={t('admin.partnerApplicationsCrmSubtitle', 'Manage and verify partner registration pipeline')}
+        breadcrumbs={[
+          { label: 'Admin', to: '/admin' },
+          { label: 'Partner', to: '/admin/partner-applications' },
+          { label: 'Partner Applications' },
+        ]}
+      />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <ClickableStatCard
