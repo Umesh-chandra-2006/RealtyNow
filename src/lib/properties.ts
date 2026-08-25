@@ -204,14 +204,7 @@ export function buildPublishedQuery(filters: PropertyFilters = {}) {
   let q = supabase
     .from('v_properties_search')
     .select('*', { count: 'exact' })
-    .or('status.eq.published,status.eq.live,is_live.eq.true')
-    // Defense-in-depth: the DB CHECK constraint + admin_make_property_live()
-    // already make it structurally impossible for a non-draft row to have
-    // price/rent_amount below MIN_PROPERTY_PRICE (see price-validation.ts),
-    // but public search must never depend on that alone (see #22 of the
-    // pricing-restriction spec) — exactly one of price/rent_amount is ever
-    // meaningfully populated per listing, so this OR needs no purpose branching.
-    .or('price.gte.1000,rent_amount.gte.1000');
+    .or('status.eq.published,status.eq.live,is_live.eq.true');
 
   let activePurpose = filters.purpose;
   if (!activePurpose && filters.q) {
@@ -364,23 +357,22 @@ export function buildPublishedQuery(filters: PropertyFilters = {}) {
     if (cleaned && !categoryAlreadyHandled && !purposeAlreadyHandled) {
       const isNumeric = !isNaN(Number(cleaned));
       if (isNumeric) {
-        q = q.or(`search_text.ilike.%${cleaned}%,price.eq.${cleaned},rent_amount.eq.${cleaned}`);
+        q = q.or(`search_text.ilike.%${cleaned}%,price.eq.${cleaned},rent_amount.eq.${cleaned},price_per_unit.eq.${cleaned}`);
       } else {
-        // Multi-keyword tokenization: split words to support queries like "2 BHK Kokapet" or "Villa Hyderabad"
-        // Strip purpose stop words so "apartment for sale" doesn't fail on "for sale" in search_text
+        // Multi-keyword tokenization: split words to support queries like "VIJAYA BHEESHMA" or "2 BHK Kokapet"
         const tokens = cleaned
           .split(/\s+/)
-          .filter((w) => w.length > 1 && !['for', 'sale', 'rent', 'buy', 'to', 'in'].includes(w.toLowerCase()));
+          .filter((w) => w.length > 1 && !['for', 'sale', 'rent', 'buy', 'to', 'in', 'near', 'at', 'with'].includes(w.toLowerCase()));
         
         const targetTokens = tokens.length > 0 ? tokens : cleaned.split(/\s+/).filter((w) => w.length > 1);
 
         if (targetTokens.length <= 1) {
           q = q.ilike('search_text', `%${targetTokens[0] || cleaned}%`);
         } else {
-          // Chain each meaningful token into search_text filter for high-precision AND matching
-          for (const token of targetTokens) {
-            q = q.ilike('search_text', `%${token}%`);
-          }
+          // Broad matching: match full phrase or key tokens
+          const phraseMatch = `search_text.ilike.%${cleaned}%`;
+          const tokenMatches = targetTokens.map((t) => `search_text.ilike.%${t}%`).join(',');
+          q = q.or(`${phraseMatch},${tokenMatches}`);
         }
       }
     }
@@ -408,11 +400,11 @@ export function buildPublishedQuery(filters: PropertyFilters = {}) {
       q = q.order('view_count', { ascending: false, nullsFirst: false });
       break;
     case 'featured':
-      q = q.order('is_featured', { ascending: false }).order('published_at', { ascending: false });
+      q = q.order('is_featured', { ascending: false }).order('created_at', { ascending: false });
       break;
     case 'newest':
     default:
-      q = q.order('published_at', { ascending: false });
+      q = q.order('created_at', { ascending: false });
       break;
   }
 

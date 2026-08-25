@@ -1489,7 +1489,7 @@ export function SearchPage() {
   }, [activeCategoryMeta, targetLocation, cityName, filters.purpose, t]);
 
   useSEO({
-    title: `${pageTitle} | RealtyNow`,
+    title: pageTitle,
     description: `Explore verified ${pageTitle.toLowerCase()} with direct owner contact, 3D tours, and zero brokerage options on RealtyNow.`,
     schema: {
       "@context": "https://schema.org",

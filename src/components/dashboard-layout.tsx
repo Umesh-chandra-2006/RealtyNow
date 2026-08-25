@@ -139,6 +139,13 @@ export function DashboardLayout({
     }
   }, [location.pathname]);
 
+  // Synchronize browser tab title with current dashboard page
+  useEffect(() => {
+    if (title) {
+      document.title = `${title} | RealtyNow`;
+    }
+  }, [title]);
+
   // Ensure active group is expanded if URL changes dynamically
   useEffect(() => {
     let changed = false;

@@ -213,8 +213,8 @@ export async function executeGlobalPropertySearch(
     bedrooms: explicitFilters.bedrooms ?? (parsedIntent.bedrooms ?? undefined),
     min_price: explicitFilters.min_price ?? (parsedIntent.minPrice ?? undefined),
     max_price: explicitFilters.max_price ?? (parsedIntent.maxPrice ?? undefined),
-    // Pass free text if there are residual keywords beyond parsed locality/type
-    q: parsedIntent.location || q,
+    // Pass full text search query to match against all properties and text fields
+    q: q.trim() || undefined,
   };
 
   // If sorting is relevance, we fetch a larger window and rank on client/service

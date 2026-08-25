@@ -18,7 +18,9 @@ export function useSEO({ title, description, type = 'website', schema, image, tw
   useEffect(() => {
     // 1. Update Title
     const siteName = 'RealtyNow';
-    const fullTitle = title ? `${title} | ${siteName}` : siteName;
+    const fullTitle = title
+      ? (title.includes(siteName) ? title : `${title} | ${siteName}`)
+      : 'RealtyNow — AI-Powered Real Estate Marketplace';
     document.title = fullTitle;
 
     // 2. Update Description

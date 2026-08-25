@@ -170,4 +170,4 @@ EXCEPTION WHEN OTHERS THEN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.submit_contact_enquiry TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.submit_contact_enquiry(TEXT, TEXT, TEXT, TEXT, TEXT, UUID, UUID, TEXT[]) TO anon, authenticated, service_role;

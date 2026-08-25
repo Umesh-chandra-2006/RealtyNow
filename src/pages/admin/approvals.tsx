@@ -120,8 +120,21 @@ interface AdminPropertiesFilterState {
 }
 
 interface PendingProperty extends Property {
-  owner?: { first_name: string | null; last_name: string | null; email: string } | null;
+  owner?: { first_name: string | null; last_name: string | null; email: string; phone?: string | null } | null;
   ai_verification?: AiVerification | null;
+}
+
+function formatPhoneNumber(phone: string | null | undefined): string {
+  if (!phone) return '—';
+  const clean = phone.replace(/[^\d]/g, '');
+  if (clean.length === 12 && clean.startsWith('91')) {
+    return `+91 ${clean.slice(2, 7)} ${clean.slice(7)}`;
+  }
+  if (clean.length === 10) {
+    return `+91 ${clean.slice(0, 5)} ${clean.slice(5)}`;
+  }
+  if (phone.startsWith('+')) return phone;
+  return phone;
 }
 
 // AI Confidence Score / Verification Status pill for the admin queue — surfaces the AI
@@ -288,8 +301,8 @@ export function AdminApprovals() {
         if (property && (!property.title || property.title.trim() === '')) {
           throw new Error('This property cannot be published because the title is missing.');
         }
-        if (property && (!property.price || property.price <= 0) && (!property.rent_amount || property.rent_amount <= 0)) {
-          throw new Error('This property cannot be published because price/rent amount is required.');
+        if (property && !isPropertyPublishable(property)) {
+          throw new Error('This property cannot be published because the price must be greater than ₹0.');
         }
       }
 
@@ -438,9 +451,21 @@ export function AdminApprovals() {
           </Button>
           {p.status !== 'approved' && p.status !== 'published' ? (
             <button
-              onClick={() => statusMutation.mutate({ id: p.id, status: 'approved' })}
-              disabled={statusMutation.isPending}
-              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all disabled:opacity-50"
+              onClick={() => {
+                if (!isPropertyPublishable(p)) {
+                  toast.addToast('error', 'This property cannot be approved because the price must be greater than ₹0.');
+                  return;
+                }
+                statusMutation.mutate({ id: p.id, status: 'approved' });
+              }}
+              disabled={statusMutation.isPending || !isPropertyPublishable(p)}
+              className={cn(
+                "inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg shadow-sm transition-all",
+                !isPropertyPublishable(p)
+                  ? "bg-slate-150 text-slate-400 cursor-not-allowed border border-slate-200 opacity-60"
+                  : "bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50"
+              )}
+              title={!isPropertyPublishable(p) ? 'Cannot approve: price must be at least ₹1,000' : 'Approve'}
             >
               <Check className="h-3.5 w-3.5" /> Approve
             </button>
@@ -1277,7 +1302,7 @@ export function AdminProperties() {
       if (ownerIds.length > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
-          .select('id, email, first_name, last_name')
+          .select('id, email, first_name, last_name, phone')
           .in('id', ownerIds);
 
         if (profiles) {
@@ -1398,6 +1423,19 @@ export function AdminProperties() {
       ),
     },
     {
+      key: 'lister_mobile',
+      header: 'Lister Mobile',
+      render: (p) => {
+        const mobile = p.listed_by_mobile || p.owner?.phone || (p as any).owner_phone;
+        if (!mobile) return <span className="text-slate-400 text-xs">—</span>;
+        return (
+          <span className="font-mono text-xs font-medium text-slate-800 whitespace-nowrap">
+            {formatPhoneNumber(mobile)}
+          </span>
+        );
+      },
+    },
+    {
       key: 'price',
       header: 'Price',
       sortable: true,
@@ -1450,9 +1488,19 @@ export function AdminProperties() {
               <Button
                 size="sm"
                 variant="ghost"
-                className="text-emerald-600 hover:bg-emerald-50"
-                title="Make Live (Publish)"
-                onClick={() => statusMutation.mutate({ id: p.id, status: 'published' })}
+                className={cn(
+                  "hover:bg-emerald-50",
+                  !isPropertyPublishable(p) ? "text-slate-300 cursor-not-allowed opacity-50" : "text-emerald-600"
+                )}
+                title={!isPropertyPublishable(p) ? 'Cannot publish: price must be at least ₹1,000' : 'Make Live (Publish)'}
+                disabled={!isPropertyPublishable(p)}
+                onClick={() => {
+                  if (!isPropertyPublishable(p)) {
+                    toast.addToast('error', 'This property cannot be published because the price must be greater than ₹0.');
+                    return;
+                  }
+                  statusMutation.mutate({ id: p.id, status: 'published' });
+                }}
                 icon={<Check className="h-4 w-4" />}
               />
               <Button

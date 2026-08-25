@@ -78,6 +78,22 @@ serve(async (req) => {
     const { property_id, status, notes } = body;
     if (!property_id || !userId) return error("property_id and auth required");
 
+    const { data: currentProp } = await supabase
+      .from("properties")
+      .select("price, rent_amount, purpose, listing_category, price_per_unit")
+      .eq("id", property_id)
+      .single();
+
+    if (!currentProp) return error("Property not found", 404);
+
+    if (status === "approve") {
+      const isRent = ["Rent", "Lease", "PG", "CoLiving", "Hostel", "Short Stay", "Vacation Rental"].includes(currentProp.purpose || "");
+      const priceVal = isRent ? currentProp.rent_amount : currentProp.price;
+      if (priceVal == null || Number(priceVal) <= 0) {
+        return error("This property cannot be approved because the price must be greater than ₹0.");
+      }
+    }
+
     const updateData: Record<string, unknown> = {
       verified_by: userId,
       verified_at: new Date().toISOString(),

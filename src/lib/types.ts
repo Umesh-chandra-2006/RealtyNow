@@ -93,6 +93,8 @@ export interface Builder {
 export interface Property {
   id: string;
   owner_id: string;
+  listed_by_user_id?: string | null;
+  listed_by_mobile?: string | null;
   title: string;
   description: string | null;
   property_type_id: string | null;

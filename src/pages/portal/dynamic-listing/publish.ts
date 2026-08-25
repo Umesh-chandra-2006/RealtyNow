@@ -2,6 +2,8 @@ import { supabase } from '../../../lib/supabase';
 import { markDraftSubmitted } from '../../../lib/listing-drafts';
 import { triggerAiVerification, triggerPropertySeoGeneration } from '../../../lib/properties';
 import { ensureUserProfile } from '../../../lib/profile-utils';
+import { validatePropertyPrice, isPropertyPublishable } from '../../../lib/price-validation';
+import { RENT_LIKE_PURPOSES } from '../../../lib/utils';
 import type { ListingPurpose, WorkflowField } from '../../../lib/listing-config';
 
 interface PublishParams {
@@ -21,6 +23,7 @@ interface PublishParams {
 export async function publishDraft({ draftId, ownerId, purpose, answers, allFields }: PublishParams): Promise<string> {
   const payload: Record<string, unknown> = {
     owner_id: ownerId,
+    listed_by_user_id: ownerId,
     purpose: purpose.properties_purpose_value,
     status: 'submitted',
     approval_status: 'Pending',
@@ -78,6 +81,14 @@ export async function publishDraft({ draftId, ownerId, purpose, answers, allFiel
 
   payload.features = features;
   payload.submission_id = draftId;
+
+  // Strict price validation before submitting to database
+  const isRent = RENT_LIKE_PURPOSES.includes(purpose.properties_purpose_value);
+  const priceValue = isRent ? payload.rent_amount : payload.price;
+  const priceError = validatePropertyPrice(priceValue);
+  if (priceError) {
+    throw new Error(`This property cannot be submitted because the price is invalid: ${priceError}`);
+  }
 
   if (ownerId) {
     await ensureUserProfile(ownerId);

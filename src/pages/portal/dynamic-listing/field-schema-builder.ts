@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { WorkflowField } from '../../../lib/listing-config';
+import { MIN_PROPERTY_PRICE } from '../../../lib/price-validation';
 
 /** Builds a zod object schema for one workflow step from its field config. */
 export function buildStepSchema(fields: WorkflowField[]) {
@@ -12,11 +13,18 @@ export function buildStepSchema(fields: WorkflowField[]) {
 
 function buildFieldSchema(field: WorkflowField): z.ZodTypeAny {
   const v = field.validation ?? {};
+  const isPriceField = field.maps_to === 'properties.price' || 
+                       field.maps_to === 'properties.rent_amount' || 
+                       field.field_key === 'price' || 
+                       field.field_key === 'rent_amount';
 
   switch (field.field_type) {
     case 'number': {
       let s = z.coerce.number();
-      if (v.min != null) s = s.min(v.min, `${field.label} must be at least ${v.min}`);
+      const minVal = isPriceField ? Math.max(v.min ?? 0, MIN_PROPERTY_PRICE) : v.min;
+      if (minVal != null) {
+        s = s.min(minVal, `${field.label} must be at least ₹${minVal.toLocaleString('en-IN')}`);
+      }
       if (v.max != null) s = s.max(v.max, `${field.label} must be at most ${v.max}`);
       return field.is_required ? s : s.optional();
     }
