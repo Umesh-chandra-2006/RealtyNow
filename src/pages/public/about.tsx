@@ -8,10 +8,10 @@ export function AboutUsPage() {
   const { t } = useLanguageContext();
 
   const stats = [
-    { label: t('about.propertiesSold', 'Properties Sold'), value: '10K+' },
-    { label: t('about.happyCustomers', 'Happy Customers'), value: '25K+' },
-    { label: t('about.citiesCovered', 'Cities Covered'), value: '50+' },
-    { label: t('about.expertAgents', 'Expert Agents'), value: '500+' },
+    { label: t('about.propertiesSold', 'Verified Properties'), value: '36+' },
+    { label: t('about.happyCustomers', 'Client Satisfaction'), value: '100%' },
+    { label: t('about.citiesCovered', 'Title Scrutiny'), value: '100%' },
+    { label: t('about.expertAgents', 'Zero Brokerage'), value: 'Direct' },
   ];
 
   const values = [

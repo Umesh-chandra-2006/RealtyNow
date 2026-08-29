@@ -603,13 +603,18 @@ export interface BuilderApplication {
 export interface PartnerApplication {
   id: string;
   application_number: string | null;
+  surname?: string | null;
+  name?: string | null;
   full_name: string;
   mobile_number: string;
   email: string | null;
   partner_type: string;
+  business_name?: string | null;
   company_name: string | null;
+  business_registration?: string | null;
   business_registration_number: string | null;
   gst_number: string | null;
+  aadhaar_number?: string | null;
   pan_number: string | null;
   years_of_experience: number | null;
   website: string | null;
@@ -618,7 +623,11 @@ export interface PartnerApplication {
   country: string | null;
   state: string | null;
   city: string | null;
+  area?: string | null;
   district: string | null;
+  google_place_id?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   pincode: string | null;
   professional_experience: string | null;
   area_of_expertise: string | null;
@@ -629,11 +638,18 @@ export interface PartnerApplication {
   real_estate_experience: string | null;
   description: string | null;
   pan_doc_url: string | null;
+  aadhaar_doc_url?: string | null;
   id_doc_url: string | null;
   gst_doc_url: string | null;
   business_reg_doc_url: string | null;
   address_proof_doc_url: string | null;
   other_doc_url: string | null;
+  bank_account_details?: {
+    account_holder_name?: string;
+    account_number?: string;
+    ifsc_code?: string;
+    bank_name?: string;
+  } | Record<string, unknown> | null;
   verification_state?: Record<string, StepVerificationState> | null;
   verification_timeline?: any[] | null;
   status: ApplicationStatus;

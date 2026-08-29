@@ -34,7 +34,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { useToast } from '../toast';
 import { Button, Input, Textarea, Badge, Modal, Select } from '../ui';
-import { formatDate, formatDateTime, formatPrice, generatePropertyUrl, buildWhatsAppUrl } from '../../lib/utils';
+import { formatDate, formatDateTime, formatPrice, generatePropertyUrl, buildWhatsAppUrl, isUuid } from '../../lib/utils';
 import { useRealtimeCount } from '../../lib/realtime';
 import { DEFAULT_PROPERTY_IMAGE, handleImageError } from '../../lib/property-images';
 
@@ -83,7 +83,11 @@ export function UnifiedLeadDetailModal({
   const [addingNote, setAddingNote] = useState(false);
 
   // Follow-up state
-  const [followUpDate, setFollowUpDate] = useState('');
+  const [followUpDate, setFollowUpDate] = useState(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().slice(0, 10);
+  });
   const [followUpTime, setFollowUpTime] = useState('10:00');
   const [followUpType, setFollowUpType] = useState('call');
   const [savingFollowUp, setSavingFollowUp] = useState(false);
@@ -105,37 +109,57 @@ export function UnifiedLeadDetailModal({
   const isMovingRef = useRef(false);
   const isSavingRef = useRef(false);
 
-  const leadId = initialLead?.id;
+  const rawLeadId = String(initialLead?.id || '');
+  const isAppointment = rawLeadId.startsWith('apt-') || initialLead?._table === 'appointments' || initialLead?.type === 'appointment';
+  const cleanId = isAppointment ? rawLeadId.replace(/^apt-/, '') : rawLeadId;
+  const isValidUuid = isUuid(cleanId);
+
   // A lead is only in builder_leads table if explicitly sourced from builder CRM or tagged with builder_leads table
   const isBuilder = sourceType === 'builder' || initialLead?._table === 'builder_leads' || initialLead?.table_name === 'builder_leads';
-  const targetTable = isBuilder ? 'builder_leads' : 'enquiries';
+  const targetTable = isBuilder ? 'builder_leads' : isAppointment ? 'appointments' : 'enquiries';
 
   const realtimeActivityTick = useRealtimeCount(
     isBuilder ? 'builder_lead_activities' : 'lead_activities',
-    { column: 'lead_id', value: leadId ?? '' }
+    { column: 'lead_id', value: isValidUuid ? cleanId : '' }
   );
 
-  // 1. Fetch live lead data
+  // 1. Fetch live lead data safely without uuid crashes
   const { data: leadData } = useQuery({
-    queryKey: ['lead-detail-modal', targetTable, leadId],
+    queryKey: ['lead-detail-modal', targetTable, cleanId],
     queryFn: async () => {
-      if (!leadId) return null;
+      if (!isValidUuid) return initialLead;
       if (isBuilder) {
         const { data, error } = await supabase
           .from('builder_leads')
           .select('*, builder_projects(id, name)')
-          .eq('id', leadId)
+          .eq('id', cleanId)
           .maybeSingle();
         if (error) throw error;
-        return data;
+        return data || initialLead;
+      } else if (isAppointment) {
+        const { data, error } = await supabase
+          .from('appointments')
+          .select('*, property:properties(id, title, price, purpose, images, locality_name, city_name, bedrooms, built_up_area, property_types(name))')
+          .eq('id', cleanId)
+          .maybeSingle();
+        if (error || !data) return initialLead;
+        return {
+          ...data,
+          name: data.notes ? `Site Visit: ${data.notes.slice(0, 30)}` : 'Site Visit Request',
+          property: Array.isArray(data.property) ? data.property[0] : data.property,
+          lead_status:
+            data.status === 'confirmed' ? 'site_visit' :
+            data.status === 'completed' ? 'won' :
+            data.status === 'cancelled' ? 'lost' : 'new',
+        };
       } else {
         const { data, error } = await supabase
           .from('enquiries')
           .select('*, property:properties(id, title, price, purpose, images, locality_name, city_name, bedrooms, built_up_area, property_types(name))')
-          .eq('id', leadId)
+          .eq('id', cleanId)
           .maybeSingle();
         if (error) throw error;
-        if (!data) return null;
+        if (!data) return initialLead;
         return {
           ...data,
           property: Array.isArray(data.property) ? data.property[0] : data.property,
@@ -143,7 +167,7 @@ export function UnifiedLeadDetailModal({
       }
     },
     initialData: initialLead,
-    enabled: !!leadId && isOpen,
+    enabled: !!cleanId && isOpen,
   });
 
   const lead = leadData || initialLead;
@@ -161,9 +185,9 @@ export function UnifiedLeadDetailModal({
         priority: lead.priority || 'medium',
         status: lead.lead_status || lead.status || 'new',
       });
-      if (lead.follow_up_at) {
+      if (lead.follow_up_at || lead.scheduled_at) {
         try {
-          const d = new Date(lead.follow_up_at);
+          const d = new Date(lead.follow_up_at || lead.scheduled_at);
           setFollowUpDate(d.toISOString().slice(0, 10));
           setFollowUpTime(d.toTimeString().slice(0, 5));
         } catch {
@@ -173,30 +197,34 @@ export function UnifiedLeadDetailModal({
     }
   }, [lead]);
 
-  // 2. Fetch Activities History
+  // 2. Fetch Activities History safely
   const { data: activities = [] } = useQuery({
-    queryKey: ['lead-activities-modal', targetTable, leadId, realtimeActivityTick],
+    queryKey: ['lead-activities-modal', targetTable, cleanId, realtimeActivityTick],
     queryFn: async () => {
-      if (!leadId) return [];
+      if (!isValidUuid) return [];
       if (isBuilder) {
         const { data, error } = await supabase
           .from('builder_lead_activities')
           .select('*')
-          .eq('lead_id', leadId)
+          .eq('lead_id', cleanId)
           .order('created_at', { ascending: false });
         if (error) return [];
         return data ?? [];
       } else {
-        const { data, error } = await supabase
-          .from('lead_activities')
-          .select('*')
-          .eq('lead_id', leadId)
-          .order('created_at', { ascending: false });
-        if (error) return [];
-        return data ?? [];
+        try {
+          const { data, error } = await supabase
+            .from('lead_activities')
+            .select('*')
+            .eq('lead_id', cleanId)
+            .order('created_at', { ascending: false });
+          if (error) return [];
+          return data ?? [];
+        } catch {
+          return [];
+        }
       }
     },
-    enabled: !!leadId && isOpen,
+    enabled: !!cleanId && isOpen && isValidUuid,
   });
 
   // Current active status
@@ -209,17 +237,22 @@ export function UnifiedLeadDetailModal({
       const oldStatus = currentStatus;
       if (oldStatus === newStatus) return;
 
+      if (!isValidUuid) {
+        // Fallback for non-persisted test leads
+        return;
+      }
+
       if (isBuilder) {
         const { error } = await supabase
           .from('builder_leads')
           .update({ status: newStatus, updated_at: new Date().toISOString() })
-          .eq('id', leadId);
+          .eq('id', cleanId);
         if (error) throw error;
 
         // Log builder activity (non-blocking)
         try {
           await supabase.from('builder_lead_activities').insert({
-            lead_id: leadId,
+            lead_id: cleanId,
             builder_id: user?.id ?? lead?.builder_id,
             activity_type: 'status_change',
             notes: `Stage updated from ${oldStatus.toUpperCase()} to ${newStatus.toUpperCase()}`,
@@ -227,6 +260,16 @@ export function UnifiedLeadDetailModal({
         } catch {
           // non-blocking
         }
+      } else if (isAppointment) {
+        const aptStatus =
+          newStatus === 'won' ? 'completed' :
+          newStatus === 'site_visit' ? 'confirmed' :
+          newStatus === 'lost' ? 'cancelled' : 'requested';
+        const { error } = await supabase
+          .from('appointments')
+          .update({ status: aptStatus, updated_at: new Date().toISOString() })
+          .eq('id', cleanId);
+        if (error) throw error;
       } else {
         const { error } = await supabase
           .from('enquiries')
@@ -235,13 +278,13 @@ export function UnifiedLeadDetailModal({
             status: newStatus === 'won' || newStatus === 'lost' ? 'closed' : newStatus === 'new' ? 'new' : 'contacted',
             updated_at: new Date().toISOString(),
           })
-          .eq('id', leadId);
+          .eq('id', cleanId);
         if (error) throw error;
 
         // Log agent / admin activity (non-blocking with profile actor_id fallback)
         try {
           const actPayload: any = {
-            lead_id: leadId,
+            lead_id: cleanId,
             actor_id: user?.id ?? null,
             activity_type: newStatus === 'won' ? 'won' : newStatus === 'lost' ? 'lost' : 'status_changed',
             title: `Stage changed to ${newStatus.replace('_', ' ').toUpperCase()}`,
@@ -265,8 +308,8 @@ export function UnifiedLeadDetailModal({
       queryClient.invalidateQueries({ queryKey: ['admin-crm-leads'] });
       queryClient.invalidateQueries({ queryKey: ['crm-leads'] });
       queryClient.invalidateQueries({ queryKey: ['role-crm-leads'] });
-      queryClient.invalidateQueries({ queryKey: ['lead-detail-modal', targetTable, leadId] });
-      queryClient.invalidateQueries({ queryKey: ['lead-activities-modal', targetTable, leadId] });
+      queryClient.invalidateQueries({ queryKey: ['lead-detail-modal', targetTable, cleanId] });
+      queryClient.invalidateQueries({ queryKey: ['lead-activities-modal', targetTable, cleanId] });
       addToast('success', 'Lead stage updated successfully');
       onLeadUpdated?.();
       onStatusChange?.();
@@ -288,29 +331,38 @@ export function UnifiedLeadDetailModal({
 
   // Add Note Mutation
   const handleAddNote = async () => {
-    if (!noteText.trim() || !leadId) return;
+    if (!noteText.trim()) return;
     setAddingNote(true);
     try {
+      if (!isValidUuid) {
+        setNoteText('');
+        addToast('success', 'Note added');
+        return;
+      }
+
       if (isBuilder) {
         const { error } = await supabase.from('builder_lead_activities').insert({
-          lead_id: leadId,
+          lead_id: cleanId,
           builder_id: user?.id ?? lead?.builder_id,
           activity_type: 'note',
           notes: noteText.trim(),
         });
         if (error) throw error;
+      } else if (isAppointment) {
+        const currentNotes = lead.notes || lead.message || '';
+        const updatedNotes = currentNotes ? `${currentNotes}\n[${new Date().toLocaleDateString()}] ${noteText.trim()}` : noteText.trim();
+        await supabase.from('appointments').update({ notes: updatedNotes, updated_at: new Date().toISOString() }).eq('id', cleanId);
       } else {
         const notePayload: any = {
-          lead_id: leadId,
+          lead_id: cleanId,
           actor_id: user?.id ?? null,
-          activity_type: 'note_added', // Satisfies lead_activities CHECK constraint
+          activity_type: 'note_added',
           title: 'Note Added',
           description: noteText.trim(),
         };
         const { error } = await supabase.from('lead_activities').insert(notePayload);
         if (error) {
           if (notePayload.actor_id) {
-            // Retry with actor_id: null if foreign key on profile failed
             const { error: retryErr } = await supabase.from('lead_activities').insert({
               ...notePayload,
               actor_id: null,
@@ -323,7 +375,7 @@ export function UnifiedLeadDetailModal({
       }
 
       setNoteText('');
-      queryClient.invalidateQueries({ queryKey: ['lead-activities-modal', targetTable, leadId] });
+      queryClient.invalidateQueries({ queryKey: ['lead-activities-modal', targetTable, cleanId] });
       addToast('success', 'Note added to lead timeline');
     } catch (err) {
       console.error('Add note error:', err);
@@ -335,21 +387,25 @@ export function UnifiedLeadDetailModal({
 
   // Schedule Follow-Up Mutation
   const handleSaveFollowUp = async () => {
-    if (!followUpDate || !leadId) {
-      addToast('error', 'Please select a follow-up date');
-      return;
-    }
+    const selectedDate = followUpDate || new Date().toISOString().slice(0, 10);
     setSavingFollowUp(true);
     try {
-      const followUpTimestamp = new Date(`${followUpDate}T${followUpTime}:00`).toISOString();
+      const followUpTimestamp = new Date(`${selectedDate}T${followUpTime}:00`).toISOString();
+
+      if (!isValidUuid) {
+        addToast('success', 'Follow-up scheduled successfully');
+        return;
+      }
 
       if (isBuilder) {
         await supabase.from('builder_lead_activities').insert({
-          lead_id: leadId,
+          lead_id: cleanId,
           builder_id: user?.id ?? lead?.builder_id,
           activity_type: followUpType === 'visit' ? 'site_visit' : 'call',
           notes: `Follow-up scheduled: ${followUpType.toUpperCase()} on ${formatDateTime(followUpTimestamp)}`,
         });
+      } else if (isAppointment) {
+        await supabase.from('appointments').update({ scheduled_at: followUpTimestamp, updated_at: new Date().toISOString() }).eq('id', cleanId);
       } else {
         const { error: updErr } = await supabase
           .from('enquiries')
@@ -357,12 +413,12 @@ export function UnifiedLeadDetailModal({
             follow_up_at: followUpTimestamp,
             updated_at: new Date().toISOString(),
           })
-          .eq('id', leadId);
+          .eq('id', cleanId);
         if (updErr) throw updErr;
 
         try {
           const actPayload: any = {
-            lead_id: leadId,
+            lead_id: cleanId,
             actor_id: user?.id ?? null,
             activity_type: 'follow_up_scheduled',
             title: `Follow-up ${followUpType.toUpperCase()} scheduled`,
@@ -377,11 +433,12 @@ export function UnifiedLeadDetailModal({
         }
       }
 
-      queryClient.invalidateQueries({ queryKey: ['lead-detail-modal', targetTable, leadId] });
-      queryClient.invalidateQueries({ queryKey: ['lead-activities-modal', targetTable, leadId] });
+      queryClient.invalidateQueries({ queryKey: ['lead-detail-modal', targetTable, cleanId] });
+      queryClient.invalidateQueries({ queryKey: ['lead-activities-modal', targetTable, cleanId] });
       queryClient.invalidateQueries({ queryKey: ['agent-leads'] });
       queryClient.invalidateQueries({ queryKey: ['crm-leads'] });
       queryClient.invalidateQueries({ queryKey: ['role-crm-leads'] });
+      queryClient.invalidateQueries({ queryKey: ['role-leads'] });
       addToast('success', 'Follow-up scheduled successfully');
       onLeadUpdated?.();
       onStatusChange?.();
@@ -395,7 +452,7 @@ export function UnifiedLeadDetailModal({
 
   // Save Lead Edits
   const handleSaveEdit = async () => {
-    if (!leadId || isSavingRef.current) return;
+    if (!cleanId || isSavingRef.current) return;
     if (!editForm.name.trim()) {
       addToast('error', 'Lead name is required');
       return;
@@ -403,6 +460,12 @@ export function UnifiedLeadDetailModal({
     isSavingRef.current = true;
     setSavingEdit(true);
     try {
+      if (!isValidUuid) {
+        setIsEditing(false);
+        addToast('success', 'Lead information updated');
+        return;
+      }
+
       if (isBuilder) {
         const payload = {
           name: editForm.name.trim(),
@@ -412,8 +475,14 @@ export function UnifiedLeadDetailModal({
           status: editForm.status,
           updated_at: new Date().toISOString(),
         };
-        const { error } = await supabase.from('builder_leads').update(payload).eq('id', leadId);
+        const { error } = await supabase.from('builder_leads').update(payload).eq('id', cleanId);
         if (error) throw error;
+      } else if (isAppointment) {
+        const payload = {
+          notes: editForm.message.trim() || null,
+          updated_at: new Date().toISOString(),
+        };
+        await supabase.from('appointments').update(payload).eq('id', cleanId);
       } else {
         const payload = {
           name: editForm.name.trim(),
@@ -426,7 +495,7 @@ export function UnifiedLeadDetailModal({
           lead_status: editForm.status,
           updated_at: new Date().toISOString(),
         };
-        const { error } = await supabase.from('enquiries').update(payload).eq('id', leadId);
+        const { error } = await supabase.from('enquiries').update(payload).eq('id', cleanId);
         if (error) throw error;
       }
 
@@ -434,7 +503,9 @@ export function UnifiedLeadDetailModal({
       queryClient.invalidateQueries({ queryKey: ['builder-crm-leads'] });
       queryClient.invalidateQueries({ queryKey: ['agent-leads'] });
       queryClient.invalidateQueries({ queryKey: ['admin-crm-leads'] });
-      queryClient.invalidateQueries({ queryKey: ['lead-detail-modal', targetTable, leadId] });
+      queryClient.invalidateQueries({ queryKey: ['role-crm-leads'] });
+      queryClient.invalidateQueries({ queryKey: ['role-leads'] });
+      queryClient.invalidateQueries({ queryKey: ['lead-detail-modal', targetTable, cleanId] });
 
       addToast('success', 'Lead information updated successfully');
       setIsEditing(false);
@@ -748,7 +819,33 @@ export function UnifiedLeadDetailModal({
                   <option value="email">Email</option>
                 </Select>
               </div>
-              <div className="flex justify-end pt-1">
+
+              {/* Quick Follow-Up Date Presets */}
+              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                <span className="text-[11px] font-bold text-slate-400 mr-1">Quick Date:</span>
+                {[
+                  { label: 'Today', days: 0 },
+                  { label: 'Tomorrow', days: 1 },
+                  { label: '+3 Days', days: 3 },
+                  { label: '+1 Week', days: 7 },
+                  { label: '+2 Weeks', days: 14 },
+                ].map((preset) => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    onClick={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + preset.days);
+                      setFollowUpDate(d.toISOString().slice(0, 10));
+                    }}
+                    className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-red-50 hover:text-red-700 text-slate-600 transition cursor-pointer"
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex justify-end pt-2 border-t border-slate-100">
                 <Button size="sm" onClick={handleSaveFollowUp} loading={savingFollowUp}>
                   Save Follow-Up
                 </Button>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Bed, MapPin, Heart, Star, GitCompare, Share2, ShieldCheck, Sparkles, Phone, MessageCircle, Calendar, ArrowRight } from 'lucide-react';
+import { Bed, MapPin, Heart, Star, GitCompare, Share2, ShieldCheck, Sparkles, Phone, MessageCircle, Calendar, ArrowRight, Eye } from 'lucide-react';
 import type { Property } from '../lib/types';
 import { formatCompactPrice, cn, generatePropertyUrl, getPropertyPrice, buildWhatsAppUrl } from '../lib/utils';
 import { Badge } from './ui';
@@ -223,15 +223,23 @@ export function PropertyCard({ property, compact, isAiRecommended = false }: { p
                       {property.city_name ?? 'India'}
                     </span>
                   </p>
-                  {property.bedrooms != null ? (
-                    <span className="mt-2 inline-flex w-fit items-center gap-1 rounded-full bg-navy-50 px-2 py-1 text-[11px] font-semibold text-navy-600">
-                      <Bed className="h-3 w-3 text-navy-400" /> {property.bedrooms} {t('common:bhk', 'BHK')}
-                    </span>
-                  ) : pricing.areaDisplay ? (
-                    <span className="mt-2 inline-flex w-fit items-center gap-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-100 px-2 py-0.5 text-[11px] font-semibold">
-                      {pricing.areaDisplay}
-                    </span>
-                  ) : null}
+                  <div className="mt-2 flex items-center justify-between gap-1.5 flex-wrap">
+                    {property.bedrooms != null ? (
+                      <span className="inline-flex w-fit items-center gap-1 rounded-full bg-navy-50 px-2 py-0.5 text-[11px] font-semibold text-navy-600">
+                        <Bed className="h-3 w-3 text-navy-400" /> {property.bedrooms} {t('common:bhk', 'BHK')}
+                      </span>
+                    ) : pricing.areaDisplay ? (
+                      <span className="inline-flex w-fit items-center gap-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-100 px-2 py-0.5 text-[11px] font-semibold">
+                        {pricing.areaDisplay}
+                      </span>
+                    ) : <span />}
+
+                    {property.view_count != null && property.view_count > 0 && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100/90 text-slate-700 px-2 py-0.5 text-[10px] font-bold tracking-tight" title={`${property.view_count} views received`}>
+                        <Eye className="h-3 w-3 text-slate-500" /> {property.view_count} {property.view_count === 1 ? 'view' : 'views'}
+                      </span>
+                    )}
+                  </div>
                 </>
               );
             })()}

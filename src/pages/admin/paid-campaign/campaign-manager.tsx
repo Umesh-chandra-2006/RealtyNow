@@ -496,10 +496,11 @@ export function CampaignManagerPage({ campaignType }: { campaignType: CampaignTy
           <EmptyState
             title={`No ${config.label} campaigns found`}
             description="Create your first campaign in this section to promote it dynamically on the RealtyNow homepage."
-            action={{
-              label: `+ Add to ${config.label}`,
-              onClick: openCreateModal,
-            }}
+            action={
+              <Button variant="primary" onClick={openCreateModal}>
+                + Add to {config.label}
+              </Button>
+            }
           />
         </Card>
       ) : viewMode === 'table' ? (
@@ -530,7 +531,7 @@ export function CampaignManagerPage({ campaignType }: { campaignType: CampaignTy
                 {filtered.map((item, idx) => {
                   const prop = item.primary_property;
                   const builder = item.primary_builder;
-                  const thumb = item.image_url || prop?.images?.[0] || builder?.cover_image || DEFAULT_PROPERTY_IMAGE;
+                  const thumb = item.image_url || prop?.images?.[0] || (builder as any)?.cover_image || (builder as any)?.logo_url || DEFAULT_PROPERTY_IMAGE;
 
                   return (
                     <tr key={item.id} className="hover:bg-slate-50/60 transition-colors">
@@ -698,7 +699,7 @@ export function CampaignManagerPage({ campaignType }: { campaignType: CampaignTy
           {filtered.map((item, idx) => {
             const prop = item.primary_property;
             const builder = item.primary_builder;
-            const thumb = item.image_url || prop?.images?.[0] || builder?.cover_image || DEFAULT_PROPERTY_IMAGE;
+            const thumb = item.image_url || prop?.images?.[0] || (builder as any)?.cover_image || (builder as any)?.logo_url || DEFAULT_PROPERTY_IMAGE;
 
             return (
               <Card
@@ -1018,7 +1019,7 @@ export function CampaignManagerPage({ campaignType }: { campaignType: CampaignTy
               >
                 <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-200">
                   <PropertyImage
-                    src={previewCampaign.image_url || previewCampaign.primary_property?.images?.[0] || previewCampaign.primary_builder?.cover_image || DEFAULT_PROPERTY_IMAGE}
+                    src={previewCampaign.image_url || previewCampaign.primary_property?.images?.[0] || (previewCampaign.primary_builder as any)?.cover_image || DEFAULT_PROPERTY_IMAGE}
                     alt={previewCampaign.title}
                     className="h-full w-full object-cover"
                   />

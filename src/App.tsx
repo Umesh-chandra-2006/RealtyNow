@@ -190,6 +190,7 @@ const AdminReportsPage = lazy(() => import('./pages/admin/reports').then((m) => 
 const AdminAnalyticsPage = lazy(() => import('./pages/admin/analytics').then((m) => ({ default: m.default })));
 const AdminSponsoredPage = lazy(() => import('./pages/admin/sponsored').then((m) => ({ default: m.default })));
 const AdminInvoicesPage = lazy(() => import('./pages/admin/invoices').then((m) => ({ default: m.default })));
+const AdminSubscriptionManagement = lazy(() => import('./pages/admin/subscription-management').then((m) => ({ default: m.AdminSubscriptionManagement })));
 
 const AgentDashboard = lazy(() => import('./pages/agent/dashboard').then((m) => ({ default: m.AgentDashboard })));
 const AgentProperties = lazy(() => import('./pages/agent/properties').then((m) => ({ default: m.AgentProperties })));
@@ -338,17 +339,15 @@ function ProtectedRoute({ allowRoles }: { allowRoles?: UserRole[] }) {
     const loginPath = isAdminRoute ? '/admin/login' : '/login';
     return <Navigate to={`${loginPath}?redirect=${encodeURIComponent(location.pathname)}`} replace />;
   }
-  if (allowRoles && profile && !allowRoles.includes(profile.role)) {
+  if (allowRoles && profile && !allowRoles.includes(profile.role) && profile.role !== 'admin' && profile.role !== 'super_admin') {
     const home =
-      profile.role === 'admin' || profile.role === 'super_admin'
-        ? '/admin'
-        : profile.role === 'agent'
-          ? '/agent'
-          : profile.role === 'builder'
-            ? '/builder'
-            : profile.role === 'partner'
-              ? '/partner'
-              : '/portal';
+      profile.role === 'agent'
+        ? '/agent'
+        : profile.role === 'builder'
+          ? '/builder'
+          : profile.role === 'partner'
+            ? '/partner'
+            : '/portal';
     return <Navigate to={home} replace />;
   }
 
@@ -472,6 +471,14 @@ function AppRoutes() {
               ),
             },
             {
+              path: '/business-partner/register',
+              element: (
+                <Suspense fallback={<PageLoader />}>
+                  <PartnerRegisterPage />
+                </Suspense>
+              ),
+            },
+            {
               path: '/portal/saved',
               element: (
                 <Suspense fallback={<PageLoader />}>
@@ -494,7 +501,7 @@ function AppRoutes() {
                 { path: '/portal/profile-setup', element: <ProfileSetupPage /> },
                 { path: '/portal/list-property', element: <ListPropertyWizard /> },
                 { path: '/portal/list-property/plot', element: <OpenPlotWizard /> },
-                { path: '/portal/list-property/new', element: <NewListingWizard /> },
+                { path: '/portal/list-property/new', element: <Navigate to="/portal/list-property" replace /> },
                 { path: '/portal/bulk-upload', element: <BulkUpload /> },
                 { path: '/portal/my-properties', element: <PortalMyProperties /> },
                 { path: '/portal/enquiries', element: <PortalEnquiries /> },
@@ -668,7 +675,8 @@ function AppRoutes() {
                 { path: '/admin/languages', element: <AdminLanguages /> },
                 { path: '/admin/cms', element: <AdminHomepageCMS /> },
                 { path: '/admin/crm', element: <AdminCRMDashboard /> },
-                { path: '/admin/packages', element: <AdminPackagesPage /> },
+                { path: '/admin/subscriptions', element: <AdminSubscriptionManagement /> },
+                { path: '/admin/packages', element: <AdminSubscriptionManagement /> },
                 { path: '/admin/payments', element: <AdminPaymentsPage /> },
                 { path: '/admin/reports', element: <AdminReportsPage /> },
                 { path: '/admin/analytics', element: <AdminAnalyticsPage /> },

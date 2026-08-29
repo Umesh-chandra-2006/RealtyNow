@@ -4,7 +4,8 @@ import { useLanguageContext } from '../lib/i18n/language-context';
 import { useToast } from './toast';
 
 interface VoiceSearchButtonProps {
-  onResult: (transcript: string) => void;
+  onResult?: (transcript: string) => void;
+  onTranscript?: (transcript: string) => void;
   className?: string;
   placeholder?: string;
 }
@@ -19,7 +20,8 @@ function voiceErrorMessage(code: string): string {
   return 'Voice search failed. Please try again or type your search instead.';
 }
 
-export const VoiceSearchButton: React.FC<VoiceSearchButtonProps> = ({ onResult, className = '' }) => {
+export const VoiceSearchButton: React.FC<VoiceSearchButtonProps> = ({ onResult, onTranscript, className = '' }) => {
+  const handleResult = onResult || onTranscript || (() => {});
   const { currentLanguage } = useLanguageContext();
   const toast = useToast();
   const [isListening, setIsListening] = useState<boolean>(false);
@@ -67,7 +69,7 @@ export const VoiceSearchButton: React.FC<VoiceSearchButtonProps> = ({ onResult, 
       recognition.onresult = (event: SpeechRecognitionEvent) => {
         const transcript = event.results[0][0].transcript;
         if (transcript) {
-          onResult(transcript);
+          handleResult(transcript);
         }
         setIsListening(false);
       };

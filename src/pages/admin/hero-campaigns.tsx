@@ -34,6 +34,7 @@ import { exportToCsv, formatNumber, cn } from '../../lib/utils';
 import { useRealtimeCount } from '../../lib/realtime';
 import { uploadFile } from '../../lib/storage';
 import type { HeroCampaign } from '../../lib/types';
+import { fetchAllIndianCities, type CityOption } from '../../lib/indian-cities';
 
 const defaultFeatures = [
   'Premium 2 & 3 BHK Luxury Apartments',
@@ -41,6 +42,17 @@ const defaultFeatures = [
   'Ultra-Modern Clubhouse, Swimming Pool & Gym',
   'Strategic Location with Instant ORR Connectivity',
 ];
+
+// Helper to format date into local datetime-local string (YYYY-MM-DDTHH:mm) without UTC shifting
+const toLocalISOString = (d: Date = new Date()) => {
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  const year = d.getFullYear();
+  const month = pad(d.getMonth() + 1);
+  const day = pad(d.getDate());
+  const hours = pad(d.getHours());
+  const minutes = pad(d.getMinutes());
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
 
 const initialForm = {
   title: '',
@@ -65,7 +77,7 @@ const initialForm = {
   is_pinned: false,
   display_type: 'Hero Banner' as 'Hero Banner' | 'Featured Slider' | 'Premium Card',
   priority: 1,
-  start_date: new Date().toISOString().slice(0, 16),
+  start_date: toLocalISOString(),
   end_date: '',
   order_no: 0,
   status: 'Active' as 'Active' | 'Inactive',
@@ -93,12 +105,10 @@ export function AdminHeroCampaigns() {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingDevLogo, setUploadingDevLogo] = useState(false);
 
-  const { data: cities } = useQuery({
-    queryKey: ['cities-dropdown'],
-    queryFn: async () => {
-      const { data } = await supabase.from('cities').select('id, name').order('name');
-      return data ?? [];
-    },
+  const { data: cities = [] } = useQuery<CityOption[]>({
+    queryKey: ['cities-all-dropdown'],
+    queryFn: fetchAllIndianCities,
+    staleTime: 1000 * 60 * 30,
   });
 
   const { data, isLoading } = useQuery({
@@ -1227,18 +1237,67 @@ export function AdminHeroCampaigns() {
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                <Input
-                  label="Start Date & Time"
-                  type="datetime-local"
-                  value={form.start_date}
-                  onChange={(e) => setForm((f) => ({ ...f, start_date: e.target.value }))}
-                />
-                <Input
-                  label="End Date & Time (Optional)"
-                  type="datetime-local"
-                  value={form.end_date}
-                  onChange={(e) => setForm((f) => ({ ...f, end_date: e.target.value }))}
-                />
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-navy-900">Start Date & Time</label>
+                    <button
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, start_date: toLocalISOString() }))}
+                      className="text-[11px] font-bold text-red-600 hover:text-red-700 underline cursor-pointer"
+                    >
+                      Set to Now
+                    </button>
+                  </div>
+                  <Input
+                    type="datetime-local"
+                    value={form.start_date}
+                    onChange={(e) => setForm((f) => ({ ...f, start_date: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-navy-900">End Date & Time (Optional)</label>
+                    {form.end_date && (
+                      <button
+                        type="button"
+                        onClick={() => setForm((f) => ({ ...f, end_date: '' }))}
+                        className="text-[11px] font-medium text-navy-500 hover:text-red-600 underline cursor-pointer"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                  <Input
+                    type="datetime-local"
+                    value={form.end_date}
+                    onChange={(e) => setForm((f) => ({ ...f, end_date: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              {/* Quick Duration Presets */}
+              <div className="flex flex-wrap items-center gap-1.5 -mt-1 mb-1">
+                <span className="text-[11px] font-semibold text-navy-600 mr-1">Quick Duration:</span>
+                {[
+                  { label: '+7 Days', days: 7 },
+                  { label: '+15 Days', days: 15 },
+                  { label: '+30 Days', days: 30 },
+                  { label: '+90 Days', days: 90 },
+                  { label: '+1 Year', days: 365 },
+                ].map((preset) => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    onClick={() => {
+                      const base = form.start_date ? new Date(form.start_date) : new Date();
+                      const target = new Date(base.getTime() + preset.days * 24 * 60 * 60 * 1000);
+                      setForm((f) => ({ ...f, end_date: toLocalISOString(target) }));
+                    }}
+                    className="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-navy-200 bg-white text-navy-800 hover:bg-red-50 hover:text-red-700 hover:border-red-200 transition-colors cursor-pointer"
+                  >
+                    {preset.label}
+                  </button>
+                ))}
               </div>
 
               <div className="grid gap-3 sm:grid-cols-3">

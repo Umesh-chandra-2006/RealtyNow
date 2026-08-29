@@ -8,6 +8,7 @@ import {
   formatLandPrice,
   calculatePlotTotalPrice,
   getPropertyPricingDisplay,
+  calculateLandEquivalents,
 } from './plot-pricing';
 import { validateUnitPrice, validatePropertyPrice } from './price-validation';
 import type { Property } from './types';
@@ -182,15 +183,66 @@ describe('Plot & Land Pricing System', () => {
   describe('Validation Rules', () => {
     it('validates minimum price per unit for land properties', () => {
       expect(validateUnitPrice('', 'Sq. Ft')).toBe('Please enter the price per Sq. Ft.');
-      expect(validateUnitPrice('50', 'Sq. Ft')).toBe('Price per Sq. Ft must be at least ₹100.');
+      expect(validateUnitPrice('50', 'Sq. Ft')).toBe('Minimum price per Sq. Ft must be ₹1,000.');
       expect(validateUnitPrice('2500', 'Sq. Ft')).toBeNull();
       expect(validateUnitPrice('45000', 'Sq. Yd')).toBeNull();
     });
 
     it('validates property total price for constructed properties', () => {
-      expect(validatePropertyPrice('')).toBe('Price is required.');
-      expect(validatePropertyPrice('50')).toBe('Price must be at least ₹100.');
+      expect(validatePropertyPrice('')).toBe('Please enter the property price.');
+      expect(validatePropertyPrice('50')).toBe('Minimum property price must be ₹1,000.');
       expect(validatePropertyPrice('6000000')).toBeNull();
+    });
+  });
+
+  describe('Land Conversion & Equivalent Calculations', () => {
+    it('accurately converts 1 Acre into standard units', () => {
+      const eq = calculateLandEquivalents(43560);
+      expect(eq.acres).toBe(1);
+      expect(eq.sqft).toBe(43560);
+      expect(eq.sqyd).toBe(4840);
+      expect(eq.guntas).toBe(40);
+    });
+
+    it('accurately calculates 2 Acres equivalents', () => {
+      const eq = calculateLandEquivalents(2 * 43560);
+      expect(eq.acres).toBe(2);
+      expect(eq.sqft).toBe(87120);
+      expect(eq.sqyd).toBe(9680);
+      expect(eq.guntas).toBe(80);
+    });
+
+    it('calculates Example 1: 2 Acres @ ₹4,500 per Gunta -> ₹3,60,000', () => {
+      const eq = calculateLandEquivalents(2 * 43560);
+      const totalCost = Math.round(eq.guntas * 4500);
+      expect(totalCost).toBe(360000);
+    });
+
+    it('calculates Example 2: 2 Acres @ ₹100 per Sq. Ft -> ₹87,12,000', () => {
+      const eq = calculateLandEquivalents(2 * 43560);
+      const totalCost = Math.round(eq.sqft * 100);
+      expect(totalCost).toBe(8712000);
+    });
+
+    it('calculates Example 3: 2 Acres @ ₹1,000 per Sq. Yd -> ₹96,80,000', () => {
+      const eq = calculateLandEquivalents(2 * 43560);
+      const totalCost = Math.round(eq.sqyd * 1000);
+      expect(totalCost).toBe(9680000);
+    });
+
+    it('calculates Example 4: 2 Acres @ ₹10,00,000 per Acre -> ₹20,00,000', () => {
+      const eq = calculateLandEquivalents(2 * 43560);
+      const totalCost = Math.round(eq.acres * 1000000);
+      expect(totalCost).toBe(2000000);
+    });
+
+    it('calculates dimensions 200 ft × 435.6 ft -> 87,120 Sq. Ft (2 Acres)', () => {
+      const sqft = 200 * 435.6;
+      const eq = calculateLandEquivalents(sqft);
+      expect(eq.sqft).toBe(87120);
+      expect(eq.acres).toBe(2);
+      expect(eq.sqyd).toBe(9680);
+      expect(eq.guntas).toBe(80);
     });
   });
 });

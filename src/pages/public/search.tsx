@@ -42,6 +42,7 @@ import {
   Sparkles,
   Rows3,
   AlertTriangle,
+  Loader2,
 } from 'lucide-react';
 import { type PropertyFilters, fetchPublishedProperties, sanitizeSearchQuery, normalizeSearchQuery } from '../../lib/properties';
 import { useClickOutside } from '../../hooks/useClickOutside';
@@ -54,6 +55,7 @@ import { getPropertyPricingDisplay, getPriceUnitLabel } from '../../lib/plot-pri
 import { sharePropertyNativeOrCopy } from '../../lib/share-service';
 import type { Property } from '../../lib/types';
 import { getCategoryMeta, normalizeCategorySlug } from '../../lib/categories';
+import { formatAmenityLabel } from '../../lib/amenities';
 import { ContactAgentModal } from '../../components/contact-agent-modal';
 import { BookVisitModal } from '../../components/book-visit-modal';
 
@@ -65,6 +67,7 @@ import { isCompared, toggleCompareProperty, getCompareIds } from '../../lib/comp
 import { getSafePropertyImages, DEFAULT_PROPERTY_IMAGE } from '../../lib/property-images';
 import { PropertyImage } from '../../components/property-image';
 import { AdvancedFilters } from '../../components/advanced-filters';
+import { LocationCityAreaFilter } from '../../components/location-city-area-filter';
 import { useSEO } from '../../hooks/use-seo';
 import { PostPropertyLink } from '../../components/post-property-link';
 
@@ -405,7 +408,7 @@ function HorizontalCard({ property: p, onSave, onCompare, saved = false, compare
                   key={a}
                   className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50/70 px-2.5 py-0.5 text-[11px] font-medium text-slate-700"
                 >
-                  <span className="text-emerald-600">✓</span> {a}
+                  <span className="text-emerald-600">✓</span> {formatAmenityLabel(a)}
                 </span>
               ))}
               {extraAmenityCount > 0 && (
@@ -487,7 +490,7 @@ function HorizontalCard({ property: p, onSave, onCompare, saved = false, compare
                           key={a}
                           className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-700"
                         >
-                          <span className="text-emerald-600">✓</span> {a}
+                          <span className="text-emerald-600">✓</span> {formatAmenityLabel(a)}
                         </span>
                       ))}
                     </div>
@@ -514,7 +517,7 @@ function HorizontalCard({ property: p, onSave, onCompare, saved = false, compare
               }}
               className="flex items-center justify-center gap-1.5 rounded-xl bg-[#d8232a] hover:bg-[#b81d23] px-2.5 py-2.5 text-xs font-bold text-white transition-all shadow-sm cursor-pointer"
             >
-              <Phone className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{t('property.contactAgent', 'Contact Agent')}</span>
+              <Phone className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{t('property.contactAgent', 'Contact Us')}</span>
             </button>
             <button
               type="button"
@@ -814,31 +817,17 @@ function FilterSidebar({ params, setFilter, clearAll, activeCount, types, cities
         <div className="border-b border-slate-50 pb-2">
           <SectionHeader id="location" label={t('search.cityLabel', 'Location')} />
           {open('location') && (
-            <div className="mt-2 space-y-2">
-              <select
-                value={params.get('city') ?? ''}
-                onChange={(e) => setFilter('city', e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-200"
-              >
-                <option value="">{t('search.anyCity', 'Any City')}</option>
-                {cities?.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={params.get('locality') ?? ''}
-                onChange={(e) => setFilter('locality', e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-200"
-              >
-                <option value="">{t('search.anyLocality', 'Any Locality')}</option>
-                {localities?.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.name}
-                  </option>
-                ))}
-              </select>
+            <div className="mt-2">
+              <LocationCityAreaFilter
+                selectedCityId={params.get('city') ?? undefined}
+                selectedCityName={cities?.find((c) => c.id === params.get('city'))?.name || params.get('city') || undefined}
+                selectedLocalityId={params.get('locality') ?? undefined}
+                selectedLocalityName={localities?.find((l) => l.id === params.get('locality'))?.name || params.get('locality') || undefined}
+                onChange={(loc) => {
+                  setFilter('city', loc.cityId || '');
+                  setFilter('locality', loc.localityName || loc.localityId || '');
+                }}
+              />
             </div>
           )}
         </div>
@@ -1061,6 +1050,8 @@ function describeFilterChip(
     resolved = lookups.localities?.find((l) => l.id === value)?.name ?? value;
   } else if (key === 'type' || key === 'type_id') {
     resolved = lookups.types?.find((ty) => ty.id === value)?.name ?? value;
+  } else if (key === 'amenities') {
+    resolved = value.split(',').map(formatAmenityLabel).join(', ');
   }
   return { label, value: resolved };
 }
@@ -1072,6 +1063,7 @@ export function SearchPage() {
   const { t } = useLanguageContext();
   const { user } = useAuth();
   const { addToast } = useToast();
+  const navigate = useNavigate();
   const { category: routeCategory } = useParams<{ category?: string }>();
   const [params, setParams] = useSearchParams();
   const [showFilters, setShowFilters] = useState(false);
@@ -1080,7 +1072,6 @@ export function SearchPage() {
     const next = new URLSearchParams(params);
     next.set('view', v);
     setParams(next);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   
   const rawQParam = params.get('q') || '';
@@ -1091,9 +1082,8 @@ export function SearchPage() {
     next.set('sort', s);
     next.delete('page');
     setParams(next);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
-  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
   const queryClient = useQueryClient();
   const { data: dbFavoriteIds } = useFavorites(user?.id);
   const [guestFavoriteIds, setGuestFavoriteIds] = useState<string[]>(getLocalFavoriteIds());
@@ -1179,16 +1169,15 @@ export function SearchPage() {
     }
 
     try {
-      // 1. Fetch matching properties from live search view
+      // 1. Fetch matching properties from live search view with full details
       const { data: propData } = await supabase
         .from('v_properties_search')
-        .select('title')
+        .select('id, title, seo_slug, price, rent_amount, purpose, locality_name, city_name, bedrooms, property_type_name, cover_image_url, images')
         .or('status.eq.published,status.eq.live,is_live.eq.true')
         .ilike('search_text', `%${cleaned}%`)
-        .limit(5);
+        .limit(6);
 
-      const propTitles = (propData ?? []).map((p: { title: string }) => p.title);
-      setSuggestions(propTitles);
+      setSuggestions(propData ?? []);
 
       // 2. Check if the query matches a locality/city to provide instant location discovery
       const locationMatches: RichSuggestion[] = [];
@@ -1232,31 +1221,34 @@ export function SearchPage() {
       if (found) resolvedTypeId = found.id;
     }
 
-    // Resolve ?city=CityName → city_id UUID (footer links use names not UUIDs)
-    // ?city_id=UUID (filter sidebar) takes precedence when present
-    const cityIdParam = params.get('city_id') || undefined;
-    const cityParam = params.get('city') || undefined;
+    // Resolve ?city_id=UUID/Name or ?city=Name (normalize to readable city name)
+    const cityIdParam = params.get('city_id') || params.get('city') || undefined;
     let resolvedCityId: string | undefined = cityIdParam;
-    if (!resolvedCityId && cityParam) {
-      const isUuid = /^[0-9a-f-]{36}$/i.test(cityParam);
-      resolvedCityId = isUuid
-        ? cityParam
-        : cities?.find((c) => c.name.toLowerCase() === cityParam.toLowerCase())?.id;
+    if (cityIdParam) {
+      const isUuid = /^[0-9a-f-]{36}$/i.test(cityIdParam);
+      if (isUuid) {
+        if (cityIdParam === 'fa963656-a6dc-4167-ae42-6dab041befe6' || cityIdParam === '04ec1d24-d2e8-4ee7-91aa-90fb4dfd3b9e') {
+          resolvedCityId = 'Hyderabad';
+        } else if (cities) {
+          const found = cities.find((c) => c.id === cityIdParam);
+          if (found) resolvedCityId = found.name;
+        }
+      }
     }
 
-    // Resolve ?locality=LocalityName → locality_id UUID
-    const localityParam = params.get('locality') || undefined;
-    let resolvedLocalityId: string | undefined;
-    if (localityParam && localities) {
+    // Resolve ?locality_id=... or ?locality=... (keep readable locality name for flexible matching)
+    const localityParam = params.get('locality_id') || params.get('locality') || undefined;
+    let resolvedLocalityId: string | undefined = localityParam;
+    if (localityParam) {
       const isUuid = /^[0-9a-f-]{36}$/i.test(localityParam);
-      resolvedLocalityId = isUuid
-        ? localityParam
-        : localities.find(
-            (l) =>
-              l.name.toLowerCase() === localityParam.toLowerCase() &&
-              (!resolvedCityId || l.city_id === resolvedCityId),
-          )?.id;
+      if (isUuid && localities) {
+        const found = localities.find((l) => l.id === localityParam);
+        if (found) resolvedLocalityId = found.name;
+      }
     }
+
+    const rawAmenities = params.get('amenities');
+    const amenitiesList = rawAmenities ? rawAmenities.split(',').map((s) => s.trim()).filter(Boolean) : undefined;
 
     return {
       q: params.get('q') || undefined,
@@ -1272,12 +1264,13 @@ export function SearchPage() {
       bathrooms: parseNumberParam(params, 'bathrooms'),
       min_area: parseNumberParam(params, 'min_area'),
       max_area: parseNumberParam(params, 'max_area'),
+      amenities: amenitiesList,
       furnishing: params.get('furnishing') || undefined,
       facing: params.get('facing') || undefined,
       possession_status: params.get('possession_status') || undefined,
       verified_status: params.get('verified_status') || undefined,
       is_luxury: params.get('luxury') === '1' || undefined,
-      sort_by: sort,
+      sort_by: sort === 'relevance' ? undefined : (sort as any),
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE,
     };
@@ -1285,10 +1278,25 @@ export function SearchPage() {
 
   // Target Location for Cross-Category Discovery
   const targetLocation = useMemo(() => {
-    const loc = params.get('locality');
-    if (loc) return loc;
-    const city = params.get('city');
-    if (city) return city;
+    const loc = params.get('locality_id') || params.get('locality');
+    if (loc) {
+      if (/^[0-9a-f-]{36}$/i.test(loc) && localities) {
+        const found = localities.find((l) => l.id === loc);
+        if (found) return found.name;
+      }
+      return loc;
+    }
+    const city = params.get('city_id') || params.get('city');
+    if (city) {
+      if (/^[0-9a-f-]{36}$/i.test(city)) {
+        if (city === 'fa963656-a6dc-4167-ae42-6dab041befe6' || city === '04ec1d24-d2e8-4ee7-91aa-90fb4dfd3b9e') {
+          return 'Hyderabad';
+        }
+        const found = cities?.find((c) => c.id === city);
+        if (found) return found.name;
+      }
+      return city;
+    }
     const locationParam = params.get('location');
     if (locationParam) return locationParam;
     if (filters.locality_id && localities) {
@@ -1318,35 +1326,11 @@ export function SearchPage() {
   }, [filters]);
 
   // Fetch Live Synced Category Discovery (grouped category counts strictly from real active inventory matching all non-category filters)
+  // Fetch Live Synced Category Discovery (grouped category counts strictly from real active inventory matching all non-category filters)
   const { data: locationDiscovery } = useQuery({
     queryKey: ['search-category-discovery-sync', baseCategoryFilters],
     queryFn: () => fetchSearchCategoryCounts(baseCategoryFilters),
   });
-
-  const categoryCountsMap = useMemo(() => {
-    if (!locationDiscovery?.categories) return undefined;
-    const map: Partial<Record<CategorySlug, number>> = {};
-    for (const cat of locationDiscovery.categories) {
-      map[cat.type] = cat.count;
-    }
-    return map;
-  }, [locationDiscovery]);
-
-  const handleCategorySelect = (catSlug: CategorySlug | null) => {
-    const next = new URLSearchParams(params);
-    if (catSlug) {
-      next.set('category', catSlug);
-      next.delete('type');
-      next.delete('type_id');
-    } else {
-      next.delete('category');
-      next.delete('type');
-      next.delete('type_id');
-    }
-    next.delete('page');
-    setParams(next);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
 
   // Query canonical live properties with intelligence and relevance ranking
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
@@ -1370,9 +1354,55 @@ export function SearchPage() {
         });
       }
 
-      return { data: res.properties, count: res.totalCount };
+      return {
+        data: res.properties,
+        count: res.totalCount,
+        baseTotalCount: res.baseTotalCount,
+        categoryCounts: res.categoryCounts,
+      };
     },
+    placeholderData: (previousData) => previousData,
   });
+
+  const categoryCountsMap = useMemo(() => {
+    if (data?.categoryCounts) return data.categoryCounts;
+    if (!locationDiscovery?.categories) return undefined;
+    const map: Partial<Record<CategorySlug, number>> = {};
+    for (const cat of locationDiscovery.categories) {
+      map[cat.type] = cat.count;
+    }
+    return map;
+  }, [data?.categoryCounts, locationDiscovery]);
+
+  const unifiedDiscovery = useMemo(() => {
+    if (!locationDiscovery) return null;
+    if (!data?.categoryCounts) return locationDiscovery;
+
+    return {
+      ...locationDiscovery,
+      totalCount: data.baseTotalCount ?? locationDiscovery.totalCount,
+      categories: locationDiscovery.categories.map((c) => ({
+        ...c,
+        count: data.categoryCounts[c.type] ?? c.count,
+      })),
+    };
+  }, [locationDiscovery, data?.categoryCounts, data?.baseTotalCount]);
+
+  const handleCategorySelect = (catSlug: CategorySlug | null) => {
+    const next = new URLSearchParams(params);
+    if (catSlug) {
+      next.set('category', catSlug);
+      next.delete('type');
+      next.delete('type_id');
+    } else {
+      next.delete('category');
+      next.delete('type');
+      next.delete('type_id');
+    }
+    next.delete('page');
+    setParams(next);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // Supabase Realtime synchronization for instant property discovery
   useEffect(() => {
@@ -1401,9 +1431,7 @@ export function SearchPage() {
     else next.delete(key);
     next.delete('page');
     setParams(next);
-    if (key !== 'q') {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   useEffect(() => {
@@ -1463,6 +1491,31 @@ export function SearchPage() {
     }
   };
 
+  const activeLocalityName = useMemo(() => {
+    const raw = params.get('locality_id') || params.get('locality') || filters.locality_id;
+    if (!raw) return undefined;
+    if (/^[0-9a-f-]{36}$/i.test(raw) && localities) {
+      const found = localities.find((l) => l.id === raw);
+      if (found) return found.name;
+    }
+    return raw;
+  }, [params, filters.locality_id, localities]);
+
+  const activeCityName = useMemo(() => {
+    const raw = params.get('city_id') || params.get('city') || filters.city_id;
+    if (!raw) return undefined;
+    if (/^[0-9a-f-]{36}$/i.test(raw)) {
+      if (raw === 'fa963656-a6dc-4167-ae42-6dab041befe6' || raw === '04ec1d24-d2e8-4ee7-91aa-90fb4dfd3b9e') {
+        return 'Hyderabad';
+      }
+      if (cities) {
+        const found = cities.find((c) => c.id === raw);
+        if (found) return found.name;
+      }
+    }
+    return raw;
+  }, [params, filters.city_id, cities]);
+
   const cityName = useMemo(() => {
     if (filters.city_id && cities) {
       return cities.find((c) => c.id === filters.city_id)?.name;
@@ -1506,15 +1559,28 @@ export function SearchPage() {
           <div className="flex flex-wrap items-center gap-3">
             {/* Search Input */}
             <div ref={searchContainerRef} className="relative flex-1 min-w-0 sm:min-w-[200px] max-w-md w-full sm:w-auto">
-              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 value={query}
                 onChange={(e) => {
                   setFilter('q', e.target.value);
                   searchSuggestions(e.target.value);
                 }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const trimmed = query.trim().toLowerCase();
+                    const exactMatch = suggestions.find(
+                      (p) => p.title && p.title.trim().toLowerCase() === trimmed
+                    );
+                    if (exactMatch) {
+                      setSuggestions([]);
+                      setRichSuggestions([]);
+                      navigate(generatePropertyUrl(exactMatch));
+                    }
+                  }
+                }}
                 placeholder={t('search.placeholder', 'City, locality, project or builder...')}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-20 text-sm text-slate-800 placeholder:text-slate-400 focus:border-red-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-100"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-11 pr-20 text-sm text-slate-800 placeholder:text-slate-400 focus:border-red-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-100"
               />
               <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
                 {query && (
@@ -1596,28 +1662,58 @@ export function SearchPage() {
                       </div>
                     )}
 
-                    {/* Standard Property Title Suggestions */}
+                    {/* Direct Matching Property Listings */}
                     {suggestions.length > 0 && (
-                      <div className="py-1">
-                        {richSuggestions.length > 0 && (
-                          <div className="px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-                            Matching Listings
-                          </div>
-                        )}
-                        {suggestions.map((s) => (
-                          <button
-                            key={s}
-                            onClick={() => {
-                              setFilter('q', s);
-                              setSuggestions([]);
-                              setRichSuggestions([]);
-                              window.scrollTo({ top: 0, behavior: 'smooth' });
-                            }}
-                            className="flex w-full items-center gap-2 px-4 py-2 text-xs font-medium text-slate-700 hover:bg-red-50 hover:text-red-700 transition text-left"
-                          >
-                            <Search className="h-3 w-3 text-slate-400 shrink-0" /> <span className="line-clamp-1">{s}</span>
-                          </button>
-                        ))}
+                      <div className="py-2 divide-y divide-slate-100">
+                        <div className="px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                          Matching Properties ({suggestions.length})
+                        </div>
+                        {suggestions.map((p) => {
+                          const cover = p.cover_image_url || (Array.isArray(p.images) ? p.images[0] : null) || DEFAULT_PROPERTY_IMAGE;
+                          const priceDisplay = p.price
+                            ? formatCompactPrice(p.price)
+                            : p.rent_amount
+                              ? `${formatCompactPrice(p.rent_amount)}/mo`
+                              : 'Price on Request';
+
+                          return (
+                            <div
+                              key={p.id}
+                              onClick={() => {
+                                setSuggestions([]);
+                                setRichSuggestions([]);
+                                navigate(generatePropertyUrl(p));
+                              }}
+                              className="flex items-center gap-3 px-3 py-2.5 hover:bg-red-50/70 transition-all text-left cursor-pointer group"
+                            >
+                              <img
+                                src={cover}
+                                alt={p.title || 'Property'}
+                                className="h-10 w-13 rounded-lg object-cover shrink-0 border border-slate-100 shadow-2xs"
+                                onError={(e) => {
+                                  (e.target as HTMLElement).setAttribute('src', DEFAULT_PROPERTY_IMAGE);
+                                }}
+                              />
+                              <div className="min-w-0 flex-1">
+                                <h6 className="text-xs font-bold text-slate-900 group-hover:text-red-600 line-clamp-1">
+                                  {p.title}
+                                </h6>
+                                <p className="text-[11px] text-slate-500 truncate flex items-center gap-1">
+                                  <MapPin className="h-3 w-3 text-slate-400 shrink-0" />
+                                  {[p.locality_name, p.city_name].filter(Boolean).join(', ') || 'Hyderabad'}
+                                </p>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <span className="text-xs font-extrabold text-red-600 block">
+                                  {priceDisplay}
+                                </span>
+                                <span className="text-[10px] font-bold text-slate-400 group-hover:text-red-600 inline-flex items-center gap-0.5">
+                                  View Property <ChevronRight className="h-3 w-3 inline" />
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </motion.div>
@@ -1737,9 +1833,10 @@ export function SearchPage() {
             <div className="sticky top-[88px]">
               <AdvancedFilters
                 cities={cities ?? []}
+                localities={localities ?? []}
                 filters={filters}
                 categoryCounts={categoryCountsMap}
-                totalCount={locationDiscovery?.totalCount}
+                totalCount={data?.baseTotalCount ?? unifiedDiscovery?.totalCount ?? locationDiscovery?.totalCount}
                 onFilterChange={(newFilters) => {
                   const updated = { ...filters, ...newFilters };
                   const newParams = new URLSearchParams(params);
@@ -1778,12 +1875,12 @@ export function SearchPage() {
           </aside>
 
           {/* Results Area */}
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 min-h-[600px]">
             {/* Location Category Discovery Banner: ONLY shown when exploring ALL categories (no specific category filter selected) */}
-            {locationDiscovery && locationDiscovery.categories.length > 0 && !activeCategorySlug && (
+            {(unifiedDiscovery || locationDiscovery) && ((unifiedDiscovery || locationDiscovery)?.categories?.length ?? 0) > 0 && !activeCategorySlug && (
               <div className="mb-5">
                 <LocationCategoryDiscovery
-                  discovery={locationDiscovery}
+                  discovery={unifiedDiscovery || locationDiscovery || null}
                   activeCategory={null}
                   onSelectCategory={handleCategorySelect}
                   purpose={filters.purpose}
@@ -1792,15 +1889,23 @@ export function SearchPage() {
             )}
 
             {/* Results heading */}
-              <div className="mb-4 flex items-center justify-between">
-              <h1 className="font-display text-xl font-bold text-slate-900">
-                {pageTitle}
-                {data?.count != null && (
-                  <span className="ml-2 text-sm font-normal text-slate-500">
-                    ({formatNumber(data.count)} {t('search.results', 'results')})
-                  </span>
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <h1 className="font-display text-xl font-bold text-slate-900">
+                  {pageTitle}
+                  {data?.count != null && (
+                    <span className="ml-2 text-sm font-normal text-slate-500">
+                      ({formatNumber(data.count)} {t('search.results', 'results')})
+                    </span>
+                  )}
+                </h1>
+                {isFetching && (
+                  <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-50 border border-red-200 text-red-600 text-xs font-bold shadow-2xs animate-pulse">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-red-600" />
+                    <span>Loading properties...</span>
+                  </div>
                 )}
-              </h1>
+              </div>
             </div>
 
             {/* Map view */}
@@ -1937,6 +2042,8 @@ export function SearchPage() {
                   <>
                     <div
                       className={cn(
+                        'transition-opacity duration-200',
+                        isFetching && 'opacity-60 pointer-events-none',
                         view === 'grid'
                           ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6'
                           : 'flex flex-col',
@@ -2016,23 +2123,45 @@ export function SearchPage() {
 
                     {/* Title */}
                     <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 capitalize">
-                      {activeCategoryMeta
-                        ? `No ${activeCategoryMeta.pluralName} Available in ${displayLocation}`
-                        : filters.q || filters.city_id
-                          ? `No properties found${filters.q ? ` matching "${filters.q}"` : ` in ${displayLocation}`}`
-                          : t('search.notFoundTitle', 'No properties found')}
+                      {activeLocalityName
+                        ? `No Properties Found in ${activeLocalityName}${activeCityName ? `, ${activeCityName}` : ''}`
+                        : activeCategoryMeta
+                          ? `No ${activeCategoryMeta.pluralName} Available in ${displayLocation}`
+                          : filters.q || filters.city_id
+                            ? `No properties found${filters.q ? ` matching "${filters.q}"` : ` in ${displayLocation}`}`
+                            : t('search.notFoundTitle', 'No properties found')}
                     </h2>
 
                     {/* Description */}
-                    <p className="mt-2 text-xs sm:text-sm text-slate-500 max-w-lg mx-auto leading-relaxed">
-                      {activeCategoryMeta
-                        ? `We couldn't find any ${activeCategoryMeta.pluralName.toLowerCase()} matching your current location and filters. Try exploring other property categories, clearing filters, or asking our AI Assistant.`
-                        : 'Try adjusting your filters, searching a different city or locality, or explore other categories.'}
+                    <p className="mt-2 text-xs sm:text-sm text-slate-600 max-w-lg mx-auto leading-relaxed">
+                      {activeLocalityName ? (
+                        <span>
+                          There are currently no active listings in <strong className="text-slate-900 font-bold">{activeLocalityName}</strong>. Properties in this specific area may be recently sold or undergoing verification. You can browse all available properties in <strong className="text-slate-900 font-bold">{activeCityName || 'the city'}</strong> or explore nearby popular areas below.
+                        </span>
+                      ) : activeCategoryMeta ? (
+                        `We couldn't find any ${activeCategoryMeta.pluralName.toLowerCase()} matching your current location and filters. Try exploring other property categories, clearing filters, or asking our AI Assistant.`
+                      ) : (
+                        'Try adjusting your filters, searching a different city or locality, or explore other categories.'
+                      )}
                     </p>
 
                     {/* Action buttons */}
                     <div className="mt-6 flex flex-wrap items-center justify-center gap-2.5 sm:gap-3">
-                      {activeCategorySlug && (
+                      {activeLocalityName && (
+                        <button
+                          onClick={() => {
+                            const next = new URLSearchParams(params);
+                            next.delete('locality_id');
+                            next.delete('locality');
+                            next.delete('page');
+                            setParams(next);
+                          }}
+                          className="rounded-xl bg-red-600 text-white px-4 sm:px-5 py-2.5 text-xs sm:text-sm font-bold shadow-md shadow-red-600/20 hover:bg-red-700 transition cursor-pointer"
+                        >
+                          View All in {activeCityName || 'City'}
+                        </button>
+                      )}
+                      {activeCategorySlug && !activeLocalityName && (
                         <button
                           onClick={() => handleCategorySelect(null)}
                           className="rounded-xl bg-red-600 text-white px-4 sm:px-5 py-2.5 text-xs sm:text-sm font-bold shadow-md shadow-red-600/20 hover:bg-red-700 transition cursor-pointer"
@@ -2053,6 +2182,37 @@ export function SearchPage() {
                         Ask AI Assistant
                       </Link>
                     </div>
+
+                    {/* Quick Nearby Area Shortcuts when a specific locality has 0 results */}
+                    {activeLocalityName && activeCityName && (
+                      <div className="mt-8 pt-6 border-t border-slate-100 text-left">
+                        <div className="flex items-center justify-between gap-2 mb-3">
+                          <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                            Explore popular areas in <span className="text-red-600 font-bold">{activeCityName}</span>:
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-slate-200">
+                          {['Madhapur', 'Gachibowli', 'Kondapur', 'Hitech City', 'Banjara Hills', 'Tellapur', 'Kollur', 'Kukatpally']
+                            .filter((area) => area.toLowerCase() !== activeLocalityName.toLowerCase())
+                            .slice(0, 6)
+                            .map((areaName) => (
+                              <button
+                                key={areaName}
+                                onClick={() => {
+                                  const next = new URLSearchParams(params);
+                                  next.set('locality_id', areaName);
+                                  next.delete('page');
+                                  setParams(next);
+                                }}
+                                className="group flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-slate-200 bg-slate-50/80 hover:bg-red-50 hover:border-red-300 hover:text-red-700 transition cursor-pointer shrink-0"
+                              >
+                                <MapPin className="h-3 w-3 text-red-500" />
+                                <span>{areaName}</span>
+                              </button>
+                            ))}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Alternative Category Suggestions (clearly separated from primary results) */}
                     {locationDiscovery && locationDiscovery.categories.some((c) => c.count > 0 && c.type !== activeCategorySlug) && (
@@ -2200,6 +2360,14 @@ export function CategoryPage({ category }: { category: 'buy' | 'rent' | 'commerc
     },
   });
 
+  const { data: localities } = useQuery({
+    queryKey: ['localities-all'],
+    queryFn: async () => {
+      const { data } = await supabase.from('localities').select('id, name, city_id').order('name').limit(200);
+      return data ?? [];
+    },
+  });
+
   const { data: types } = useQuery({
     queryKey: ['ptypes-all'],
     queryFn: async () => {
@@ -2242,8 +2410,11 @@ export function CategoryPage({ category }: { category: 'buy' | 'rent' | 'commerc
       const isUuid = /^[0-9a-f-]{36}$/i.test(cityParam);
       resolvedCityId = isUuid
         ? cityParam
-        : cities?.find((c) => c.name.toLowerCase() === cityParam.toLowerCase())?.id;
+        : (cities?.find((c) => c.name.toLowerCase() === cityParam.toLowerCase())?.id || cityParam);
     }
+
+    const rawAmenities = params.get('amenities');
+    const amenitiesList = rawAmenities ? rawAmenities.split(',').map((s) => s.trim()).filter(Boolean) : undefined;
 
     return {
       q: params.get('q') || undefined,
@@ -2257,6 +2428,7 @@ export function CategoryPage({ category }: { category: 'buy' | 'rent' | 'commerc
       bathrooms: parseNumberParam(params, 'bathrooms'),
       min_area: parseNumberParam(params, 'min_area'),
       max_area: parseNumberParam(params, 'max_area'),
+      amenities: amenitiesList,
       furnishing: params.get('furnishing') || undefined,
       facing: params.get('facing') || undefined,
       is_luxury: params.get('luxury') === '1' || defaultIsLuxury,
@@ -2280,73 +2452,35 @@ export function CategoryPage({ category }: { category: 'buy' | 'rent' | 'commerc
     queryFn: () => fetchSearchCategoryCounts(baseCategoryFilters),
   });
 
+  const { data, isLoading, isError, refetch, isFetching } = useQuery({
+    queryKey: ['category', category, filters, page],
+    queryFn: async () => {
+      const res = await executeGlobalPropertySearch({
+        ...filters,
+        category: activeCategoryFilter || category,
+        page,
+        pageSize: PAGE_SIZE,
+      });
+
+      return {
+        data: res.properties,
+        count: res.totalCount,
+        baseTotalCount: res.baseTotalCount,
+        categoryCounts: res.categoryCounts,
+      };
+    },
+    placeholderData: (previousData) => previousData,
+  });
+
   const categoryCountsMap = useMemo(() => {
+    if (data?.categoryCounts) return data.categoryCounts;
     if (!locationDiscovery?.categories) return undefined;
     const map: Partial<Record<CategorySlug, number>> = {};
     for (const cat of locationDiscovery.categories) {
       map[cat.type] = cat.count;
     }
     return map;
-  }, [locationDiscovery]);
-
-  // Same v_properties_search source/status as the main search page and every
-  // other listing surface — search_text covers locality/city/project/title so
-  // a locality-only q never returns 0 just because title/description omit it.
-  const { data, isLoading, isError, refetch, isFetching } = useQuery({
-    queryKey: ['category', category, filters, page],
-    queryFn: async () => {
-      let q = supabase
-        .from('v_properties_search')
-        .select('*', { count: 'exact' })
-        .or('status.eq.published,is_live.eq.true');
-
-      if (category === 'projects') {
-        q = q.or('possession_status.ilike.%New Launch%,possession_status.ilike.%Under Construction%,listing_category.ilike.%Project%');
-      } else if (category === 'plots') {
-        q = q.or('property_type_category.eq.Plot,property_type_name.ilike.%Plot%,property_type_name.ilike.%Land%');
-      } else if (filters.property_type_id) {
-        q = q.eq('property_type_id', filters.property_type_id);
-      } else if (typeFilter && typeFilter.length > 0) {
-        q = q.in('property_type_id', typeFilter);
-      }
-
-      if (filters.purpose) q = q.eq('purpose', filters.purpose);
-      if (filters.city_id) q = q.eq('city_id', filters.city_id);
-
-      if (filters.min_price != null) q = q.gte('price', filters.min_price);
-      if (filters.max_price != null) q = q.lte('price', filters.max_price);
-      if (filters.bedrooms != null) q = q.eq('bedrooms', filters.bedrooms);
-      if (filters.bathrooms != null) q = q.eq('bathrooms', filters.bathrooms);
-      if (filters.min_area != null) q = q.gte('built_up_area', filters.min_area);
-      if (filters.max_area != null) q = q.lte('built_up_area', filters.max_area);
-      if (filters.furnishing) q = q.eq('furnishing', filters.furnishing);
-      if (filters.facing) q = q.eq('facing', filters.facing);
-      if (filters.is_luxury) q = q.eq('is_luxury', true);
-      if (filters.q) {
-        const cleaned = sanitizeSearchQuery(filters.q);
-        if (cleaned) q = q.ilike('search_text', `%${cleaned}%`);
-      }
-
-      q = q
-        .order('is_featured', { ascending: false })
-        .order('published_at', { ascending: false })
-        .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
-
-      const { data, error, count } = await q;
-      if (error) {
-        console.error('Category query error, falling back:', error);
-        // Graceful fallback without crashing the whole UI
-        const { data: fallbackData } = await supabase
-          .from('v_properties_search')
-          .select('*')
-          .or('status.eq.published,is_live.eq.true')
-          .order('published_at', { ascending: false })
-          .limit(20);
-        return { data: (fallbackData ?? []) as unknown as Property[], count: fallbackData?.length ?? 0 };
-      }
-      return { data: (data ?? []) as unknown as Property[], count: count ?? (data?.length ?? 0) };
-    },
-  });
+  }, [data?.categoryCounts, locationDiscovery]);
 
   const totalPages = data?.count ? Math.ceil(data.count / PAGE_SIZE) : 1;
 
@@ -2386,9 +2520,10 @@ export function CategoryPage({ category }: { category: 'buy' | 'rent' | 'commerc
             <div className="sticky top-[88px]">
               <AdvancedFilters
                 cities={cities ?? []}
+                localities={localities ?? []}
                 filters={filters}
                 categoryCounts={categoryCountsMap}
-                totalCount={locationDiscovery?.totalCount}
+                totalCount={data?.baseTotalCount ?? locationDiscovery?.totalCount}
                 onFilterChange={(newFilters) => {
                   const updated = { ...filters, ...newFilters };
                   const newParams = new URLSearchParams(params);
@@ -2425,7 +2560,7 @@ export function CategoryPage({ category }: { category: 'buy' | 'rent' | 'commerc
           </aside>
 
           {/* Main Listings Column */}
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 min-h-[600px]">
             {isLoading ? (
               <div className="space-y-4">
                 {Array.from({ length: 4 }).map((_, i) => (

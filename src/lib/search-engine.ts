@@ -12,6 +12,7 @@ import { supabase } from './supabase';
 import { normalizeCategorySlug, categorizeProperty, CATEGORY_LIST } from './categories';
 import type { CategorySlug } from './categories';
 import { buildPublishedQuery, type PropertyFilters } from './properties';
+import { matchesAllAmenities } from './amenities';
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -61,49 +62,49 @@ const CATEGORY_META: Record<CategorySlug, { label: string; pluralLabel: string; 
     label: 'Apartment',
     pluralLabel: 'Apartments',
     emoji: '🏢',
-    keywords: ['apartment', 'apartments', 'flat', 'flats', 'builder floor', 'studio', 'penthouse'],
+    keywords: ['apartment', 'apartments', 'flat', 'flats', 'builder floor', 'studio', 'penthouse', 'apartmnt', 'appartment'],
   },
   villa: {
     label: 'Villa',
     pluralLabel: 'Villas',
     emoji: '🏡',
-    keywords: ['villa', 'villas', 'bungalow', 'duplex', 'gated villa'],
+    keywords: ['villa', 'villas', 'vilas', 'vila', 'bungalow', 'bungalows', 'duplex', 'triplex', 'gated villa', 'luxury villa'],
   },
   'independent-house': {
     label: 'Independent House',
     pluralLabel: 'Independent Houses',
     emoji: '🏘️',
-    keywords: ['house', 'houses', 'home', 'homes', 'independent house', 'independent houses', 'row house', 'individual house'],
+    keywords: ['house', 'houses', 'home', 'homes', 'independent house', 'independent houses', 'row house', 'row houses', 'individual house', 'kothi', 'haveli'],
   },
   plots: {
     label: 'Plot',
     pluralLabel: 'Plots',
     emoji: '🌳',
-    keywords: ['plot', 'plots', 'land', 'open plot', 'open plots', 'plot land', 'land plot', 'hmda', 'dtcp', 'residential plot', 'residential plots', 'gated plot', 'farm land'],
+    keywords: ['plot', 'plots', 'land', 'lands', 'open plot', 'open plots', 'plot land', 'land plot', 'hmda', 'dtcp', 'residential plot', 'residential plots', 'gated plot', 'farm land', 'farm plots'],
   },
   'commercial-office': {
     label: 'Commercial Office',
     pluralLabel: 'Commercial Offices',
     emoji: '💼',
-    keywords: ['office', 'offices', 'commercial', 'commercial property', 'commercial properties', 'it park', 'business center', 'commercial office'],
+    keywords: ['office', 'offices', 'commercial', 'commercial property', 'commercial properties', 'it park', 'business center', 'commercial office', 'commercial space'],
   },
   'retail-shop': {
     label: 'Retail Shop',
     pluralLabel: 'Retail Shops',
     emoji: '🏬',
-    keywords: ['shop', 'shops', 'retail', 'showroom', 'commercial shop'],
+    keywords: ['shop', 'shops', 'retail', 'showroom', 'showrooms', 'commercial shop'],
   },
   warehouse: {
     label: 'Warehouse',
     pluralLabel: 'Warehouses',
     emoji: '🏭',
-    keywords: ['warehouse', 'warehouses', 'godown', 'industrial shed', 'cold storage'],
+    keywords: ['warehouse', 'warehouses', 'godown', 'godowns', 'industrial shed', 'cold storage'],
   },
   'co-working': {
     label: 'Co-working',
     pluralLabel: 'Co-working Spaces',
     emoji: '🧑‍💻',
-    keywords: ['co-working', 'coworking', 'pg', 'coliving', 'hostel', 'shared office'],
+    keywords: ['co-working', 'coworking', 'pg', 'coliving', 'co-living', 'hostel', 'shared office'],
   },
 };
 
@@ -118,6 +119,9 @@ const LUXURY_RE = /\b(luxury|ultra\s+luxury|premium|gated|duplex|penthouse|high\
 
 // Spelling & alias corrections for robust fuzzy search
 const TYPO_REPLACEMENTS: [RegExp, string][] = [
+  [/\bvilas\b/gi, 'villa'],
+  [/\bvila\b/gi, 'villa'],
+  [/\bvillas\b/gi, 'villa'],
   [/\bjublee\s*hills?\b/gi, 'Jubilee Hills'],
   [/\bhyderbad\b/gi, 'Hyderabad'],
   [/\bhyd\b/gi, 'Hyderabad'],
@@ -448,13 +452,18 @@ export async function fetchSearchCategoryCounts(
     const { data, error } = await q;
     if (error) throw error;
 
-    const rows = (data ?? []) as {
+    let rows = (data ?? []) as {
       property_type_name: string | null;
       property_type_category: string | null;
       purpose: string;
       city_name?: string | null;
       locality_name?: string | null;
+      amenities?: string[] | null;
     }[];
+
+    if (filters.amenities && filters.amenities.length > 0) {
+      rows = rows.filter((r) => matchesAllAmenities(r.amenities, filters.amenities));
+    }
 
     const totalCount = rows.length;
 

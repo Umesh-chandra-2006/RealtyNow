@@ -356,7 +356,7 @@ export function AgentRegisterPage() {
             </p>
             <ul className="mt-8 space-y-4">
               {[
-                { icon: Building2, text: 'Access 10,000+ active listings' },
+                { icon: Building2, text: 'Access verified active listings' },
                 { icon: Star, text: 'Priority lead distribution' },
                 { icon: ShieldCheck, text: 'Verified agent badge on profile' },
                 { icon: Clock, text: '24/7 dedicated agent support' },

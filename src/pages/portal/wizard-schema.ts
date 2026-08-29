@@ -167,5 +167,4 @@ export const WIZARD_STEPS = [
   'Ownership',
   'SEO',
   'Review',
-  'Submit',
 ];

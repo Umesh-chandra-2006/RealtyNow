@@ -17,18 +17,21 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import type { PropertyFilters } from '../lib/properties';
+import { LocationCityAreaFilter } from './location-city-area-filter';
 import {
   CATEGORY_LIST,
   getCategoryMeta,
   normalizeCategorySlug,
   type CategorySlug,
 } from '../lib/categories';
+import { isSameAmenity, getCategoryAmenities } from '../lib/amenities';
 
 interface AdvancedFiltersProps {
   filters: PropertyFilters;
   onFilterChange: (filters: Partial<PropertyFilters>) => void;
   onCloseMobile?: () => void;
   cities?: { id: string; name: string }[];
+  localities?: { id: string; name: string; city_id?: string }[];
   categoryCounts?: Partial<Record<CategorySlug, number>>;
   totalCount?: number;
 }
@@ -38,13 +41,14 @@ const POSSESSION_STATUSES = ['Ready to Move', 'Under Construction', 'New Launch'
 const FACING_OPTIONS = ['North', 'South', 'East', 'West', 'North-East', 'North-West'];
 const FURNISHING_OPTIONS = ['Unfurnished', 'Semi-Furnished', 'Fully Furnished'];
 const SEAT_TYPES = ['Dedicated Desk', 'Hot Desk', 'Private Cabin', 'Meeting Room'];
-const PLOT_APPROVALS = ['HMDA Approved', 'DTCP Approved', 'RERA Approved', 'Open Plot'];
+const PLOT_APPROVALS = ['HMDA Approved', 'DTCP Approved', 'FCDA Approved', 'RERA Approved', 'Open Plot'];
 
 export function AdvancedFilters({
   filters,
   onFilterChange,
   onCloseMobile,
   cities = [],
+  localities = [],
   categoryCounts,
   totalCount,
 }: AdvancedFiltersProps) {
@@ -60,7 +64,7 @@ export function AdvancedFilters({
     possession: true,
     furnishing: false,
     facing: false,
-    amenities: false,
+    amenities: true,
     plots: true,
     coworking: true,
   });
@@ -71,8 +75,9 @@ export function AdvancedFilters({
 
   const handleAmenityChange = (amenity: string) => {
     const current = filters.amenities || [];
-    const next = current.includes(amenity)
-      ? current.filter((a) => a !== amenity)
+    const exists = current.some((a) => isSameAmenity(a, amenity));
+    const next = exists
+      ? current.filter((a) => !isSameAmenity(a, amenity))
       : [...current, amenity];
     onFilterChange({ amenities: next });
   };
@@ -90,16 +95,7 @@ export function AdvancedFilters({
   ];
 
   const AMENITIES = useMemo(() => {
-    if (activeSlug === 'villa' || activeSlug === 'independent-house') {
-      return ['Private Pool', 'Garden', 'Gated Community', 'Clubhouse', 'Power Backup', 'Security', 'Parking', 'Gym'];
-    }
-    if (activeSlug === 'commercial-office' || activeSlug === 'retail-shop') {
-      return ['Power Backup', 'Lift', 'Central AC', 'Security', 'Reserved Parking', 'Conference Room', 'CCTV'];
-    }
-    if (activeSlug === 'warehouse') {
-      return ['Loading Dock', 'Truck Access', '24/7 Power', 'CCTV Security', 'Fire Safety', 'Water Storage'];
-    }
-    return ['Lift', 'Gym', 'Swimming Pool', 'Security', 'Power Backup', 'Club House', 'Children Park', 'Parking', 'Garden'];
+    return getCategoryAmenities(activeSlug);
   }, [activeSlug]);
 
   return (
@@ -170,6 +166,7 @@ export function AdvancedFilters({
             <div className="space-y-2">
               <div className="flex flex-wrap gap-1.5">
                 <button
+                  type="button"
                   onClick={() => onFilterChange({ category: undefined, type: undefined })}
                   className={cn(
                     'px-3 py-1.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5',
@@ -195,6 +192,7 @@ export function AdvancedFilters({
                   const count = categoryCounts ? categoryCounts[cat.slug] : undefined;
                   return (
                     <button
+                      type="button"
                       key={cat.id}
                       onClick={() =>
                         onFilterChange({
@@ -243,21 +241,24 @@ export function AdvancedFilters({
             />
           </h4>
           {expandedSections.location && (
-            <div className="relative">
-              <MapPin className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-              <select
-                value={filters.city_id || ''}
-                onChange={(e) => onFilterChange({ city_id: e.target.value || undefined })}
-                className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-navy-500/20 appearance-none cursor-pointer"
-              >
-                <option value="">All Cities</option>
-                {cities.map((c: any) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <LocationCityAreaFilter
+              selectedCityId={filters.city_id}
+              selectedCityName={
+                cities.find((c: any) => c.id === filters.city_id)?.name ||
+                (filters.city_id === 'fa963656-a6dc-4167-ae42-6dab041befe6' ? 'Hyderabad' : filters.city_id)
+              }
+              selectedLocalityId={filters.locality_id}
+              selectedLocalityName={
+                localities.find((l: any) => l.id === filters.locality_id)?.name ||
+                filters.locality_id
+              }
+              onChange={(loc) => {
+                onFilterChange({
+                  city_id: loc.cityName || loc.cityId,
+                  locality_id: loc.localityName || loc.localityId,
+                });
+              }}
+            />
           )}
         </div>
 
@@ -566,19 +567,20 @@ export function AdvancedFilters({
             {expandedSections.amenities && (
               <div className="flex flex-wrap gap-2">
                 {AMENITIES.map((amenity) => {
-                  const isSelected = (filters.amenities || []).includes(amenity);
+                  const isSelected = (filters.amenities || []).some((a) => isSameAmenity(a, amenity));
                   return (
                     <button
                       key={amenity}
+                      type="button"
                       onClick={() => handleAmenityChange(amenity)}
                       className={cn(
-                        'px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border flex items-center gap-1.5',
+                        'px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border flex items-center gap-1.5 cursor-pointer',
                         isSelected
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300'
+                          ? 'bg-red-50 text-red-700 border-red-300 shadow-sm ring-1 ring-red-500/30 font-extrabold'
+                          : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-100'
                       )}
                     >
-                      {isSelected && <CheckCircle2 className="h-3 w-3" />}
+                      {isSelected && <Check className="h-3 w-3 text-red-600 stroke-[3]" />}
                       {amenity}
                     </button>
                   );

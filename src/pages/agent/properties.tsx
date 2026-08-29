@@ -17,6 +17,7 @@ import { DataTable, type Column } from '../../components/data-table';
 import { mapJoined } from '../../lib/join-helpers';
 import { formatPrice, formatDate, generatePropertyUrl } from '../../lib/utils';
 import { getPropertyPricingDisplay, getPriceUnitLabel } from '../../lib/plot-pricing';
+import { PropertyPriceCell } from '../../components/ui/property-price-cell';
 import { useRealtimeCount } from '../../lib/realtime';
 import type { Property } from '../../lib/types';
 import { getPropertyCoverImage, handleImageError, DEFAULT_PROPERTY_IMAGE } from '../../lib/property-images';
@@ -163,22 +164,20 @@ export function AgentProperties() {
       key: 'price',
       header: 'Price',
       sortable: true,
-      render: (p) => {
-        const pricing = getPropertyPricingDisplay(p);
-        return (
-          <span className="font-semibold text-navy-900">
-            {pricing.primaryPrice}
-            {pricing.isLand && pricing.totalEstimatedPrice && (
-              <span className="block text-xs font-normal text-navy-500">
-                Total: {pricing.totalEstimatedPrice}
-              </span>
-            )}
-          </span>
-        );
-      },
+      render: (p) => <PropertyPriceCell property={p} showInvalidWarning={false} />,
     },
     { key: 'status', header: 'Status', render: (p) => <StatusBadge status={p.status} /> },
-    { key: 'view_count', header: 'Views', sortable: true },
+    {
+      key: 'view_count',
+      header: 'Views',
+      sortable: true,
+      render: (p) => (
+        <div className="inline-flex items-center gap-1.5 rounded-lg bg-red-50/90 px-2.5 py-1 text-xs font-black text-red-600 border border-red-100/90 shadow-2xs">
+          <Eye className="h-3.5 w-3.5" />
+          <span>{p.view_count || 0} {p.view_count === 1 ? 'View' : 'Views'}</span>
+        </div>
+      ),
+    },
     { key: 'created_at', header: 'Created', sortable: true, render: (p) => formatDate(p.created_at) },
     {
       key: 'actions',

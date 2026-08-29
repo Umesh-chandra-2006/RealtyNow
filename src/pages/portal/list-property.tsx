@@ -1046,7 +1046,11 @@ export function ListPropertyWizard({ isAdminMode = false, disableLayout = false 
         navigate(targetUrl);
       }, 1200);
     } catch (err: any) {
-      toast.addToast('error', err?.message || 'Submission failed');
+      if (err?.message?.includes('PROPERTY_LIMIT_EXCEEDED') || err?.message?.includes('MONTHLY_PROPERTY_LIMIT_EXCEEDED')) {
+        toast.addToast('warning', 'You have reached your listing capacity. Please upgrade your subscription plan to list more properties.');
+      } else {
+        toast.addToast('error', err?.message || 'Submission failed');
+      }
     } finally {
       setSaving(false);
     }
@@ -2262,7 +2266,7 @@ export function ListPropertyWizard({ isAdminMode = false, disableLayout = false 
                           <div className="flex items-start gap-3">
                             <Check className="h-5 w-5 text-green-600 mt-0.5 shrink-0" />
                             <p className="text-sm text-green-800 font-medium">
-                              Your listing looks great! Click <strong>Submit</strong> or <strong>Next Step</strong> to send it for admin review. It will
+                              Your listing looks great! Click <strong>Submit Property</strong> below to send it for admin review. It will
                               go live once approved.
                             </p>
                           </div>
@@ -2270,52 +2274,16 @@ export function ListPropertyWizard({ isAdminMode = false, disableLayout = false 
                             type="button"
                             onClick={() => handleSubmit(onSubmit, onFormError)()}
                             disabled={saving}
-                            className="shrink-0 h-10 px-5 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold text-xs shadow-md shadow-green-600/20 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                            className="shrink-0 h-10 px-5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white font-bold text-xs shadow-md shadow-red-600/20 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
                           >
                             {saving ? (
                               <div className="h-3.5 w-3.5 border-2 border-white/50 border-t-white rounded-full animate-spin" />
                             ) : (
                               <Star className="h-3.5 w-3.5" />
                             )}
-                            Submit Listing Now
+                            Submit Property
                           </button>
                         </div>
-                      </div>
-                    )}
-
-                    {/* ─── STEP 12: Submit ─── */}
-                    {activeStep === 12 && (
-                      <div className="flex flex-col items-center justify-center py-12 space-y-6 text-center max-w-md mx-auto">
-                        <motion.div
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          transition={{ type: 'spring', stiffness: 200 }}
-                          className="h-20 w-20 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center shadow-lg shadow-green-500/30"
-                        >
-                          <Check className="h-10 w-10 text-white stroke-[3]" />
-                        </motion.div>
-                        <div>
-                          <h3 className="text-2xl font-display font-bold text-navy-900">Ready to Submit!</h3>
-                          <p className="text-navy-500 text-sm mt-2">
-                            Your property listing will be sent for review. Once approved, it goes live on RealtyNow.
-                          </p>
-                        </div>
-                        <button
-                          type="submit"
-                          disabled={saving}
-                          className="w-full h-12 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 text-white font-bold text-sm hover:from-red-700 hover:to-rose-700 transition-all shadow-md shadow-red-500/25 disabled:opacity-50 flex items-center justify-center gap-2"
-                        >
-                          {saving ? (
-                            <>
-                              <div className="h-4 w-4 border-2 border-white/50 border-t-white rounded-full animate-spin" />{' '}
-                              Submitting...
-                            </>
-                          ) : (
-                            <>
-                              <Star className="h-4 w-4" /> Submit for Review
-                            </>
-                          )}
-                        </button>
                       </div>
                     )}
                   </motion.div>
@@ -2355,13 +2323,13 @@ export function ListPropertyWizard({ isAdminMode = false, disableLayout = false 
                   >
                     <Eye className="h-4 w-4" /> Preview
                   </button>
-                  {activeStep < 12 ? (
+                  {activeStep < WIZARD_STEPS.length - 1 ? (
                     <button
                       type="button"
                       onClick={handleNext}
                       className="h-11 rounded-xl px-7 flex items-center justify-center gap-2 font-semibold text-sm bg-navy-900 hover:bg-navy-950 text-white shadow-md transition-all group"
                     >
-                      Next Step <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                      Next <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                     </button>
                   ) : (
                     <button
@@ -2374,7 +2342,7 @@ export function ListPropertyWizard({ isAdminMode = false, disableLayout = false 
                       ) : (
                         <Star className="h-4 w-4" />
                       )}{' '}
-                      Submit
+                      Submit Property
                     </button>
                   )}
                 </div>

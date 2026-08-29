@@ -23,7 +23,7 @@ import { Badge, Button, Card, EmptyState, Select, Textarea } from '../../compone
 import { useToast } from '../../components/toast';
 import { useRealtimeCount } from '../../lib/realtime';
 import { logBuilderAudit } from '../../lib/builder-audit';
-import { formatDate, formatDateTime } from '../../lib/utils';
+import { formatDate, formatDateTime, isUuid } from '../../lib/utils';
 
 type BuilderLeadStatus = 'new' | 'contacted' | 'site_visit' | 'negotiation' | 'won' | 'lost' | 'closed';
 type BuilderLeadActivityType = 'note' | 'call' | 'email' | 'meeting' | 'site_visit' | 'status_change';
@@ -122,12 +122,13 @@ function CrmLeadDetail({ leadId }: { leadId: string }) {
       if (error) throw error;
       return data as BuilderLead | null;
     },
-    enabled: !!user,
+    enabled: !!user && !!leadId && isUuid(leadId),
   });
 
   const { data: activities, isLoading: activitiesLoading } = useQuery({
     queryKey: ['builder-lead-activities', leadId, realtimeTick],
     queryFn: async () => {
+      if (!isUuid(leadId)) return [];
       const { data, error } = await supabase
         .from('builder_lead_activities')
         .select('*')
@@ -136,7 +137,7 @@ function CrmLeadDetail({ leadId }: { leadId: string }) {
       if (error) throw error;
       return (data ?? []) as BuilderLeadActivity[];
     },
-    enabled: !!leadId,
+    enabled: !!leadId && isUuid(leadId),
   });
 
   const addActivity = useMutation({

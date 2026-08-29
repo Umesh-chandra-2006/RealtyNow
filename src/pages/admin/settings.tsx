@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ShieldCheck, CheckCircle2, Bell, Upload, Monitor, Globe, Building2, Smartphone } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, Bell, Upload, Trash2, Monitor, Globe, Building2, Smartphone } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { DashboardLayout, PageHeader } from '../../components/dashboard-layout';
@@ -98,8 +98,22 @@ export function AdminSettings() {
   const handleAvatarUpload = async (file: File) => {
     setUploadingAvatar(true);
     const { url, error } = await uploadFile('profile-images', file);
-    if (!error && url) setAvatarUrl(url);
+    if (!error && url) {
+      setAvatarUrl(url);
+      if (user?.id) {
+        await supabase.from('profiles').update({ avatar_url: url }).eq('id', user.id);
+        await refreshProfile();
+      }
+    }
     setUploadingAvatar(false);
+  };
+
+  const handleRemoveAvatar = async () => {
+    setAvatarUrl('');
+    if (user?.id) {
+      await supabase.from('profiles').update({ avatar_url: null }).eq('id', user.id);
+      await refreshProfile();
+    }
   };
 
   const revokeSession = async (sessionId: string) => {
@@ -117,18 +131,24 @@ export function AdminSettings() {
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="p-6">
           <div className="flex flex-col items-center text-center">
-            {avatarUrl && <img src={avatarUrl} alt="" className="h-20 w-20 rounded-full object-cover mb-3" />}
-            <Avatar src={avatarUrl} name={`${profile?.first_name ?? 'A'} ${profile?.last_name ?? ''}`} size={80} />
-            <p className="mt-3 font-display font-semibold text-navy-900">
+            <div className="relative mb-3">
+              <Avatar src={avatarUrl || null} name={`${profile?.first_name ?? 'A'} ${profile?.last_name ?? ''}`} size={84} />
+              {uploadingAvatar && (
+                <div className="absolute inset-0 grid place-items-center rounded-full bg-black/40 text-white text-[11px] font-bold">
+                  Uploading…
+                </div>
+              )}
+            </div>
+            <p className="mt-1 font-display font-semibold text-navy-900">
               {profile?.first_name} {profile?.last_name}
             </p>
             <p className="text-sm text-navy-500">{profile?.email}</p>
             <Badge variant="error" className="mt-2">
               Administrator
             </Badge>
-            <div className="mt-4">
-              <label className="cursor-pointer inline-flex items-center gap-2 rounded-lg bg-navy-50 px-3 py-2 text-sm text-navy-700 hover:bg-navy-100">
-                <Upload className="h-4 w-4" /> Change avatar
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+              <label className="cursor-pointer inline-flex items-center gap-2 rounded-xl bg-navy-50 px-3.5 py-2 text-xs font-semibold text-navy-700 hover:bg-navy-100 transition-colors shadow-2xs">
+                <Upload className="h-3.5 w-3.5" /> Change avatar
                 <input
                   type="file"
                   accept="image/*"
@@ -139,6 +159,16 @@ export function AdminSettings() {
                   }}
                 />
               </label>
+              {avatarUrl && (
+                <button
+                  type="button"
+                  onClick={handleRemoveAvatar}
+                  className="inline-flex items-center gap-1 rounded-xl border border-red-200 bg-red-50/60 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-100 transition-colors cursor-pointer"
+                  title="Remove avatar"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Remove
+                </button>
+              )}
             </div>
           </div>
           <div className="mt-6 space-y-3 border-t border-navy-100 pt-4">

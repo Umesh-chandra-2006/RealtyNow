@@ -18,6 +18,7 @@ import { mapJoined } from '../../lib/join-helpers';
 import { formatPrice, formatDate, cn, generatePropertyUrl } from '../../lib/utils';
 import { getPropertyPricingDisplay, getPriceUnitLabel } from '../../lib/plot-pricing';
 import { isPropertyPublishable } from '../../lib/price-validation';
+import { PropertyPriceCell } from '../../components/ui/property-price-cell';
 import { useRealtimeCount } from '../../lib/realtime';
 import { useToast } from '../../components/toast';
 import type { Property, AiVerification } from '../../lib/types';
@@ -25,6 +26,7 @@ import { getPropertyCoverImage, handleImageError, DEFAULT_PROPERTY_IMAGE } from 
 import { ExportMenuAsync } from '../../components/export-menu';
 import { SavedFiltersMenu } from '../../components/saved-filters-menu';
 import { useSavedFilters } from '../../lib/saved-filters';
+import { fetchAllIndianCities, fetchAllPropertyTypes, ensureCityInDatabase, type CityOption, type PropertyTypeOption } from '../../lib/indian-cities';
 
 const ADMIN_PROPERTIES_PAGE_SIZE = 12;
 const ADMIN_PROPERTIES_EXPORT_COLUMNS = [
@@ -428,14 +430,7 @@ export function AdminApprovals() {
       key: 'price',
       header: 'Price',
       sortable: true,
-      render: (p) => (
-        <span className="font-semibold">
-          {formatPrice(p.price, p.purpose)}
-          {p.status !== 'draft' && !isPropertyPublishable(p) && (
-            <span className="block text-xs font-bold text-red-600">⚠ Invalid Price</span>
-          )}
-        </span>
-      ),
+      render: (p) => <PropertyPriceCell property={p} />,
     },
     { key: 'purpose', header: 'Listing Type', render: (p) => <Badge variant="default">{p.purpose}</Badge> },
     { key: 'status', header: 'Status', render: (p) => <StatusBadge status={p.status} /> },
@@ -988,6 +983,17 @@ export function AdminProperties() {
   const [bulkPublishOpen, setBulkPublishOpen] = useState(false);
   const [bulkPublishMode, setBulkPublishMode] = useState<'publish' | 'remove'>('publish');
 
+  // Helper to format date into local datetime-local string (YYYY-MM-DDTHH:mm) without UTC shifting
+  const toLocalISOString = (d: Date = new Date()) => {
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const year = d.getFullYear();
+    const month = pad(d.getMonth() + 1);
+    const day = pad(d.getDate());
+    const hours = pad(d.getHours());
+    const minutes = pad(d.getMinutes());
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
+
   // Hero Campaign state
   const [heroProperty, setHeroProperty] = useState<PendingProperty | null>(null);
   const [heroForm, setHeroForm] = useState({
@@ -996,7 +1002,7 @@ export function AdminProperties() {
     banner_image: '',
     cta_text: 'Explore Project',
     priority: 1,
-    start_date: new Date().toISOString().slice(0, 16),
+    start_date: toLocalISOString(),
     end_date: ''
   });
   const [savingHero, setSavingHero] = useState(false);
@@ -1096,11 +1102,11 @@ export function AdminProperties() {
       
       const queries = [
         supabase.from('properties').select('id', { count: 'exact', head: true }).then(res => countsMap.all = res.count || 0),
-        supabase.from('properties').select('id', { count: 'exact', head: true }).in('status', ['published', 'approved']).then(res => countsMap.published = res.count || 0),
-        supabase.from('properties').select('id', { count: 'exact', head: true }).in('status', ['submitted', 'pending_verification']).then(res => countsMap.pending = res.count || 0),
+        supabase.from('properties').select('id', { count: 'exact', head: true }).in('status', ['published', 'live', 'approved']).then(res => countsMap.published = res.count || 0),
+        supabase.from('properties').select('id', { count: 'exact', head: true }).in('status', ['submitted', 'pending_verification', 'under_review']).then(res => countsMap.pending = res.count || 0),
         supabase.from('properties').select('id', { count: 'exact', head: true }).eq('status', 'approved').then(res => countsMap.approved = res.count || 0),
         supabase.from('properties').select('id', { count: 'exact', head: true }).eq('status', 'rejected').then(res => countsMap.rejected = res.count || 0),
-        supabase.from('properties').select('id', { count: 'exact', head: true }).in('status', ['draft', 'submitted']).then(res => countsMap.draft = res.count || 0),
+        supabase.from('properties').select('id', { count: 'exact', head: true }).eq('status', 'draft').then(res => countsMap.draft = res.count || 0),
       ];
       await Promise.all(queries);
       setCounts(countsMap);
@@ -1136,8 +1142,9 @@ export function AdminProperties() {
       .select('*')
       .order('created_at', { ascending: false });
     if (tab !== 'all') {
-      if (tab === 'pending') q = q.in('status', ['submitted', 'pending_verification']);
-      else if (tab === 'published' || tab === 'approved') q = q.in('status', ['published', 'approved']);
+      if (tab === 'pending') q = q.in('status', ['submitted', 'pending_verification', 'under_review']);
+      else if (tab === 'published') q = q.in('status', ['published', 'live', 'approved']);
+      else if (tab === 'approved') q = q.eq('status', 'approved');
       else q = q.eq('status', tab);
     }
     if (search) q = q.ilike('search_text', `%${search}%`);
@@ -1205,12 +1212,23 @@ export function AdminProperties() {
   const [rejectReason, setRejectReason] = useState('');
   const [rejectError, setRejectError] = useState('');
   const [regeneratingSeo, setRegeneratingSeo] = useState(false);
-  const [cities, setCities] = useState<{ id: string; name: string }[]>([]);
-  const [propertyTypes, setPropertyTypes] = useState<{ id: string; name: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const [page, setPage] = useState(1);
   const realtimeTick = useRealtimeCount('properties');
   const savedFilters = useSavedFilters<AdminPropertiesFilterState>('admin-properties');
+
+  // Dedicated queries for all Indian cities and property types
+  const { data: cities = [] } = useQuery<CityOption[]>({
+    queryKey: ['admin-all-indian-cities'],
+    queryFn: fetchAllIndianCities,
+    staleTime: 1000 * 60 * 30,
+  });
+
+  const { data: propertyTypes = [] } = useQuery<PropertyTypeOption[]>({
+    queryKey: ['admin-all-property-types'],
+    queryFn: fetchAllPropertyTypes,
+    staleTime: 1000 * 60 * 30,
+  });
 
   const toggleVerifiedMutation = useMutation({
     mutationFn: async ({ id, isVerified }: { id: string; isVerified: boolean }) => {
@@ -1248,18 +1266,15 @@ export function AdminProperties() {
   const { data, isLoading, error: queryError } = useQuery({
     queryKey: ['admin-properties', tab, search, filters, page, realtimeTick],
     queryFn: async () => {
-      const { data: citiesData } = await supabase.from('cities').select('id, name').order('name');
-      const { data: typesData } = await supabase.from('property_types').select('id, name').order('name');
-      setCities(citiesData ?? []);
-      setPropertyTypes(typesData ?? []);
       let q = supabase
         .from('v_properties_search')
         .select('*', { count: 'exact' })
         .order('created_at', { ascending: false });
 
       if (tab !== 'all') {
-        if (tab === 'pending') q = q.in('status', ['submitted', 'pending_verification']);
-        else if (tab === 'published' || tab === 'approved') q = q.in('status', ['published', 'approved']);
+        if (tab === 'pending') q = q.in('status', ['submitted', 'pending_verification', 'under_review']);
+        else if (tab === 'published') q = q.in('status', ['published', 'live', 'approved']);
+        else if (tab === 'approved') q = q.eq('status', 'approved');
         else q = q.eq('status', tab);
       }
       if (search) {
@@ -1270,11 +1285,27 @@ export function AdminProperties() {
           q = q.ilike('search_text', `%${search}%`);
         }
       }
-      if (filters.city) q = q.eq('city_id', filters.city);
+      if (filters.city) {
+        const selectedCityObj = cities.find((c) => c.id === filters.city);
+        if (selectedCityObj && (filters.city.startsWith('city-seed-') || filters.city.startsWith('city-'))) {
+          q = q.or(`city_name.ilike.%${selectedCityObj.name}%,city.ilike.%${selectedCityObj.name}%`);
+        } else if (selectedCityObj) {
+          q = q.or(`city_id.eq.${filters.city},city_name.ilike.%${selectedCityObj.name}%,city.ilike.%${selectedCityObj.name}%`);
+        } else {
+          q = q.eq('city_id', filters.city);
+        }
+      }
       if (filters.minPrice) q = q.gte('price', Number(filters.minPrice));
       if (filters.maxPrice) q = q.lte('price', Number(filters.maxPrice));
       if (filters.purpose) q = q.eq('purpose', filters.purpose);
-      if (filters.type) q = q.eq('property_type_id', filters.type);
+      if (filters.type) {
+        const selectedTypeObj = propertyTypes.find((t) => t.id === filters.type);
+        if (selectedTypeObj && filters.type.startsWith('pt-')) {
+          q = q.ilike('property_type_name', `%${selectedTypeObj.name}%`);
+        } else {
+          q = q.eq('property_type_id', filters.type);
+        }
+      }
       if (filters.dateFrom) q = q.gte('created_at', filters.dateFrom);
       if (filters.dateTo) q = q.lte('created_at', `${filters.dateTo}T23:59:59Z`);
 
@@ -1330,66 +1361,7 @@ export function AdminProperties() {
   const properties = data?.properties ?? [];
   const totalCount = data?.count ?? 0;
 
-  const seedSampleProperties = async () => {
-    try {
-      const { data: authData } = await supabase.auth.getUser();
-      const userId = authData?.user?.id || '00000000-0000-0000-0000-000000000001';
 
-      const samples = [
-        {
-          title: 'DLF The Camellias Luxury Penthouse',
-          description:
-            'Ultra-luxurious 4 BHK penthouse with Golf Course views, private elevator, and smart automation.',
-          purpose: 'Buy',
-          price: 35000000,
-          area_sqft: 4200,
-          bedrooms: 4,
-          bathrooms: 5,
-          address: 'Golf Course Road, Sector 42',
-          status: 'published',
-          is_featured: true,
-          owner_id: userId,
-          images: ['https://images.pexels.com/photos/323780/pexels-photo-323780.jpeg'],
-        },
-        {
-          title: 'Prestige Lakeside Habitat Villa',
-          description: 'Contemporary 3 BHK independent villa with private garden, swimming pool, and solar power.',
-          purpose: 'Buy',
-          price: 28000000,
-          area_sqft: 3100,
-          bedrooms: 3,
-          bathrooms: 4,
-          address: 'Varthur Main Road, Whitefield',
-          status: 'published',
-          is_featured: true,
-          owner_id: userId,
-          images: ['https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg'],
-        },
-        {
-          title: 'Cyber Towers Grade-A Office Space',
-          description:
-            'Fully furnished commercial office space with 120 workstations, 4 conference rooms, and 100% power backup.',
-          purpose: 'Commercial',
-          price: 180000,
-          area_sqft: 5500,
-          bedrooms: 0,
-          bathrooms: 4,
-          address: 'Hitec City, Madhapur',
-          status: 'published',
-          is_featured: false,
-          owner_id: userId,
-          images: ['https://images.pexels.com/photos/269077/pexels-photo-269077.jpeg'],
-        },
-      ];
-
-      const { error } = await supabase.from('properties').insert(samples);
-      if (error) throw error;
-      queryClient.invalidateQueries({ queryKey: ['admin-properties'] });
-      toast.addToast('success', 'Restored demo properties successfully!');
-    } catch (err) {
-      toast.addToast('error', err instanceof Error ? err.message : 'Failed to seed properties');
-    }
-  };
 
   const columns: Column<PendingProperty>[] = [
     {
@@ -1439,22 +1411,7 @@ export function AdminProperties() {
       key: 'price',
       header: 'Price',
       sortable: true,
-      render: (p) => {
-        const pricing = getPropertyPricingDisplay(p);
-        return (
-          <span className="font-semibold text-slate-900">
-            {pricing.primaryPrice}
-            {pricing.isLand && pricing.totalEstimatedPrice && (
-              <span className="block text-xs font-normal text-slate-500">
-                Total: {pricing.totalEstimatedPrice}
-              </span>
-            )}
-            {p.status !== 'draft' && !isPropertyPublishable(p) && (
-              <span className="block text-xs font-bold text-red-600">⚠ Invalid Price</span>
-            )}
-          </span>
-        );
-      },
+      render: (p) => <PropertyPriceCell property={p} />,
     },
     { key: 'purpose', header: 'Purpose', render: (p) => <Badge variant="default">{p.purpose}</Badge> },
     { key: 'status', header: 'Status', render: (p) => <StatusBadge status={p.status} /> },
@@ -1541,7 +1498,7 @@ export function AdminProperties() {
                     banner_image: p.images?.[0] || '',
                     cta_text: 'Explore Project',
                     priority: 1,
-                    start_date: new Date().toISOString().slice(0, 16),
+                    start_date: toLocalISOString(),
                     end_date: ''
                   });
                 }}
@@ -1550,7 +1507,7 @@ export function AdminProperties() {
             </>
           )}
           {(() => {
-            const isPropVerified = p.verification_status === 'AI Verified' || p.verified_status === 'verified' || !!p.is_verified;
+            const isPropVerified = p.verification_status === 'AI Verified' || p.verified_status === 'verified' || !!(p as any).is_verified;
             return (
               <Button
                 size="sm"
@@ -1568,15 +1525,27 @@ export function AdminProperties() {
             variant="ghost"
             title="Quick Edit"
             onClick={() => {
+              const matchedCity = cities.find(
+                (c) =>
+                  c.id === p.city_id ||
+                  (p.city_name && c.name.toLowerCase() === p.city_name.toLowerCase()) ||
+                  (p.locality_name && c.name.toLowerCase().includes(p.locality_name.toLowerCase())),
+              );
+              const matchedType = propertyTypes.find(
+                (t) =>
+                  t.id === p.property_type_id ||
+                  (p.property_type_name && t.name.toLowerCase() === p.property_type_name.toLowerCase()),
+              );
+
               setEditing(p);
               setEditForm({
-                title: p.title,
-                price: String(p.price),
-                purpose: p.purpose,
-                city_id: p.city_id ?? '',
+                title: p.title || '',
+                price: String(p.price || ''),
+                purpose: p.purpose || 'Sale',
+                city_id: matchedCity?.id || p.city_id || '',
                 locality_id: p.locality_id ?? '',
-                property_type_id: p.property_type_id ?? '',
-                status: p.status,
+                property_type_id: matchedType?.id || p.property_type_id || '',
+                status: p.status || 'draft',
                 seo_title: p.seo_title ?? '',
                 seo_description: p.seo_description ?? '',
                 seo_slug: p.seo_slug ?? '',
@@ -1643,27 +1612,41 @@ export function AdminProperties() {
   const saveEdit = async () => {
     if (!editing) return;
     setSaving(true);
-    await supabase
-      .from('properties')
-      .update({
-        title: editForm.title,
-        price: Number(editForm.price),
-        purpose: editForm.purpose as 'Sale' | 'Rent',
-        city_id: editForm.city_id,
-        locality_id: editForm.locality_id,
-        property_type_id: editForm.property_type_id,
-        status: editForm.status,
-        seo_title: editForm.seo_title || null,
-        seo_description: editForm.seo_description || null,
-        seo_slug: editForm.seo_slug || null,
-        seo_keywords: editForm.seo_keywords
-          ? editForm.seo_keywords.split(',').map((k) => k.trim()).filter(Boolean)
-          : [],
-      })
-      .eq('id', editing.id);
-    setSaving(false);
-    setEditing(null);
-    queryClient.invalidateQueries({ queryKey: ['admin-properties'] });
+    try {
+      let resolvedCityId = editForm.city_id;
+      const chosenCity = cities.find((c) => c.id === editForm.city_id);
+      if (chosenCity && (!resolvedCityId || resolvedCityId.startsWith('city-seed-') || resolvedCityId.startsWith('city-'))) {
+        const realId = await ensureCityInDatabase(chosenCity.name, chosenCity.state || undefined);
+        if (realId) resolvedCityId = realId;
+      }
+
+      await supabase
+        .from('properties')
+        .update({
+          title: editForm.title,
+          price: Number(editForm.price),
+          purpose: editForm.purpose as 'Sale' | 'Rent',
+          city_id: resolvedCityId || null,
+          locality_id: editForm.locality_id || null,
+          property_type_id: editForm.property_type_id && !editForm.property_type_id.startsWith('pt-') ? editForm.property_type_id : null,
+          status: editForm.status,
+          seo_title: editForm.seo_title || null,
+          seo_description: editForm.seo_description || null,
+          seo_slug: editForm.seo_slug || null,
+          seo_keywords: editForm.seo_keywords
+            ? editForm.seo_keywords.split(',').map((k) => k.trim()).filter(Boolean)
+            : [],
+        })
+        .eq('id', editing.id);
+
+      toast.addToast('success', 'Property updated successfully.');
+    } catch (err: any) {
+      toast.addToast('error', err?.message || 'Failed to update property.');
+    } finally {
+      setSaving(false);
+      setEditing(null);
+      queryClient.invalidateQueries({ queryKey: ['admin-properties'] });
+    }
   };
 
   const regenerateSeo = async () => {
@@ -1777,80 +1760,101 @@ export function AdminProperties() {
 
         {/* Rich filters */}
         <Card className="p-4">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-          <Select
-            value={filters.city}
-            onChange={(e) => setFilters((f) => ({ ...f, city: e.target.value }))}
-            className="text-sm"
-          >
-            <option value="">All cities</option>
-            {cities.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </Select>
-          <Select
-            value={filters.purpose}
-            onChange={(e) => setFilters((f) => ({ ...f, purpose: e.target.value }))}
-            className="text-sm"
-          >
-            <option value="">All purposes</option>
-            <option value="Sale">Sale</option>
-            <option value="Rent">Rent</option>
-          </Select>
-          <Select
-            value={filters.type}
-            onChange={(e) => setFilters((f) => ({ ...f, type: e.target.value }))}
-            className="text-sm"
-          >
-            <option value="">All types</option>
-            {propertyTypes.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </Select>
-          <Input
-            type="number"
-            placeholder="Min price"
-            value={filters.minPrice}
-            onChange={(e) => setFilters((f) => ({ ...f, minPrice: e.target.value }))}
-            className="text-sm"
-          />
-          <Input
-            type="number"
-            placeholder="Max price"
-            value={filters.maxPrice}
-            onChange={(e) => setFilters((f) => ({ ...f, maxPrice: e.target.value }))}
-            className="text-sm"
-          />
-          <Input
-            type="date"
-            placeholder="Date from"
-            value={filters.dateFrom}
-            onChange={(e) => setFilters((f) => ({ ...f, dateFrom: e.target.value }))}
-            className="text-sm"
-          />
-        </div>
-        <div className="mt-3 flex items-center gap-2">
-          <Input
-            type="date"
-            placeholder="Date to"
-            value={filters.dateTo}
-            onChange={(e) => setFilters((f) => ({ ...f, dateTo: e.target.value }))}
-            className="text-sm w-auto"
-          />
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() =>
-              setFilters({ city: '', minPrice: '', maxPrice: '', purpose: '', type: '', dateFrom: '', dateTo: '' })
-            }
-          >
-            Clear filters
-          </Button>
-        </div>
+          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+            <Select
+              value={filters.city}
+              onChange={(e) => setFilters((f) => ({ ...f, city: e.target.value }))}
+              className="text-sm"
+            >
+              <option value="">All cities (India)</option>
+              {cities.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} {c.state ? `(${c.state})` : ''}
+                </option>
+              ))}
+            </Select>
+            <Select
+              value={filters.purpose}
+              onChange={(e) => setFilters((f) => ({ ...f, purpose: e.target.value }))}
+              className="text-sm"
+            >
+              <option value="">All purposes</option>
+              <option value="Sale">Sale</option>
+              <option value="Rent">Rent</option>
+              <option value="Lease">Lease</option>
+              <option value="PG">PG (Paying Guest)</option>
+              <option value="CoLiving">Co-Living</option>
+              <option value="Hostel">Hostel</option>
+              <option value="Vacation Rental">Vacation Rental</option>
+              <option value="Commercial">Commercial</option>
+              <option value="Plots">Plots / Land</option>
+            </Select>
+            <Select
+              value={filters.type}
+              onChange={(e) => setFilters((f) => ({ ...f, type: e.target.value }))}
+              className="text-sm"
+            >
+              <option value="">All types</option>
+              {propertyTypes.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </Select>
+            <Input
+              type="number"
+              placeholder="Min price (₹)"
+              value={filters.minPrice}
+              onChange={(e) => setFilters((f) => ({ ...f, minPrice: e.target.value }))}
+              className="text-sm"
+            />
+            <Input
+              type="number"
+              placeholder="Max price (₹)"
+              value={filters.maxPrice}
+              onChange={(e) => setFilters((f) => ({ ...f, maxPrice: e.target.value }))}
+              className="text-sm"
+            />
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold text-slate-500">Date Range:</span>
+              <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs">
+                <span className="text-slate-400 text-[10px] font-bold uppercase">From:</span>
+                <input
+                  type="date"
+                  value={filters.dateFrom}
+                  onChange={(e) => setFilters((f) => ({ ...f, dateFrom: e.target.value }))}
+                  className="bg-transparent text-xs text-slate-700 outline-none"
+                  title="Filter properties created from date"
+                />
+              </div>
+              <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs">
+                <span className="text-slate-400 text-[10px] font-bold uppercase">To:</span>
+                <input
+                  type="date"
+                  value={filters.dateTo}
+                  onChange={(e) => setFilters((f) => ({ ...f, dateTo: e.target.value }))}
+                  className="bg-transparent text-xs text-slate-700 outline-none"
+                  title="Filter properties created to date"
+                />
+              </div>
+            </div>
+
+            {(filters.city || filters.purpose || filters.type || filters.minPrice || filters.maxPrice || filters.dateFrom || filters.dateTo) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  setFilters({ city: '', minPrice: '', maxPrice: '', purpose: '', type: '', dateFrom: '', dateTo: '' })
+                }
+                className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+              >
+                Clear filters
+              </Button>
+            )}
+          </div>
         </Card>
       </div>
 
@@ -1931,7 +1935,6 @@ export function AdminProperties() {
                     Clear All Filters
                   </Button>
                 )}
-                <Button onClick={seedSampleProperties}>Restore Demo Properties</Button>
               </div>
             }
           />
@@ -2033,14 +2036,14 @@ export function AdminProperties() {
               <option value="Rent">Rent</option>
             </Select>
             <Select
-              label="City"
+              label="City (All India)"
               value={editForm.city_id}
               onChange={(e) => setEditForm((f) => ({ ...f, city_id: e.target.value }))}
             >
-              <option value="">Select city</option>
+              <option value="">Select city (All India)</option>
               {cities.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name}
+                  {c.name} {c.state ? `(${c.state})` : ''}
                 </option>
               ))}
             </Select>
@@ -2052,7 +2055,7 @@ export function AdminProperties() {
               <option value="">Select type</option>
               {propertyTypes.map((t) => (
                 <option key={t.id} value={t.id}>
-                  {t.name}
+                  {t.name} {t.category ? `[${t.category}]` : ''}
                 </option>
               ))}
             </Select>
@@ -2149,18 +2152,67 @@ export function AdminProperties() {
             onChange={(e) => setHeroForm(f => ({ ...f, cta_text: e.target.value }))}
           />
           <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="Start Date"
-              type="datetime-local"
-              value={heroForm.start_date}
-              onChange={(e) => setHeroForm((f) => ({ ...f, start_date: e.target.value }))}
-            />
-            <Input
-              label="End Date (Optional)"
-              type="datetime-local"
-              value={heroForm.end_date}
-              onChange={(e) => setHeroForm((f) => ({ ...f, end_date: e.target.value }))}
-            />
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-semibold text-slate-700">Start Date & Time</label>
+                <button
+                  type="button"
+                  onClick={() => setHeroForm((f) => ({ ...f, start_date: toLocalISOString() }))}
+                  className="text-[11px] font-bold text-red-600 hover:text-red-700 underline cursor-pointer"
+                >
+                  Set to Now
+                </button>
+              </div>
+              <Input
+                type="datetime-local"
+                value={heroForm.start_date}
+                onChange={(e) => setHeroForm((f) => ({ ...f, start_date: e.target.value }))}
+              />
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-semibold text-slate-700">End Date (Optional)</label>
+                {heroForm.end_date && (
+                  <button
+                    type="button"
+                    onClick={() => setHeroForm((f) => ({ ...f, end_date: '' }))}
+                    className="text-[11px] font-medium text-slate-500 hover:text-red-600 underline cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <Input
+                type="datetime-local"
+                value={heroForm.end_date}
+                onChange={(e) => setHeroForm((f) => ({ ...f, end_date: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          {/* Quick Duration Presets */}
+          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+            <span className="text-[11px] font-semibold text-slate-500 mr-1">Quick Duration:</span>
+            {[
+              { label: '+7 Days', days: 7 },
+              { label: '+15 Days', days: 15 },
+              { label: '+30 Days', days: 30 },
+              { label: '+90 Days', days: 90 },
+              { label: '+1 Year', days: 365 },
+            ].map((preset) => (
+              <button
+                key={preset.label}
+                type="button"
+                onClick={() => {
+                  const base = heroForm.start_date ? new Date(heroForm.start_date) : new Date();
+                  const target = new Date(base.getTime() + preset.days * 24 * 60 * 60 * 1000);
+                  setHeroForm((f) => ({ ...f, end_date: toLocalISOString(target) }));
+                }}
+                className="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:bg-red-50 hover:text-red-700 hover:border-red-200 transition-colors cursor-pointer"
+              >
+                {preset.label}
+              </button>
+            ))}
           </div>
           <Input
             label="Priority (Higher number = shows first)"

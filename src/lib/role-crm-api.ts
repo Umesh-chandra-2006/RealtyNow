@@ -1,8 +1,8 @@
 import { supabase } from './supabase';
+import { isUuid } from './utils';
 
 export type RoleType = 'agent' | 'builder' | 'partner' | 'business-partner';
 
-// ─── LEADS & KANBAN ──────────────────────────────────────────────────────────
 // ─── LEADS & KANBAN ──────────────────────────────────────────────────────────
 export async function fetchRoleLeads(role: RoleType) {
   const leadsList: any[] = [];
@@ -112,8 +112,8 @@ export async function createLead(data: {
         email: data.email || null,
         phone: data.phone || null,
         message: data.message || (data.source ? `Source: ${data.source}` : 'Direct Lead CRM Entry'),
-        property_id: data.property_id || null,
-        agent_id: data.agent_id || null,
+        property_id: data.property_id && isUuid(data.property_id) ? data.property_id : null,
+        agent_id: data.agent_id && isUuid(data.agent_id) ? data.agent_id : null,
         status: data.status === 'contacted' ? 'contacted' : 'new',
         created_at: new Date().toISOString(),
       })
@@ -132,35 +132,42 @@ export async function assignLeadToAgent(leadId: string, agentId: string) {
   // If it's an appointment
   if (leadId.startsWith('apt-')) {
     const aptId = leadId.replace(/^apt-/, '');
-    const { data, error } = await supabase
-      .from('appointments')
-      .update({ agent_id: agentId })
-      .eq('id', aptId)
-      .select()
-      .single();
-    if (error) console.warn('Appointment update error:', error);
-    return data || { id: leadId, agent_id: agentId };
+    if (isUuid(aptId) && isUuid(agentId)) {
+      const { data, error } = await supabase
+        .from('appointments')
+        .update({ agent_id: agentId })
+        .eq('id', aptId)
+        .select()
+        .single();
+      if (error) console.warn('Appointment update error:', error);
+      return data || { id: leadId, agent_id: agentId };
+    }
+    return { id: leadId, agent_id: agentId };
   }
 
-  // If it's an enquiry
-  const { data, error } = await supabase
-    .from('enquiries')
-    .update({ agent_id: agentId, status: 'contacted' })
-    .eq('id', leadId)
-    .select()
-    .single();
-
-  if (!error && data) return data;
-
-  // Try crm_leads
-  try {
-    const { data: crmData } = await supabase
-      .from('crm_leads')
-      .update({ assigned_to: agentId, lead_status: 'assigned', updated_at: new Date().toISOString() })
+  // If it's an enquiry and valid UUID
+  if (isUuid(leadId) && isUuid(agentId)) {
+    const { data, error } = await supabase
+      .from('enquiries')
+      .update({ agent_id: agentId, status: 'contacted' })
       .eq('id', leadId)
       .select()
       .single();
-    if (crmData) return crmData;
+
+    if (!error && data) return data;
+  }
+
+  // Try crm_leads
+  try {
+    if (isUuid(leadId)) {
+      const { data: crmData } = await supabase
+        .from('crm_leads')
+        .update({ assigned_to: agentId, lead_status: 'assigned', updated_at: new Date().toISOString() })
+        .eq('id', leadId)
+        .select()
+        .single();
+      if (crmData) return crmData;
+    }
   } catch {
     // ignore
   }
@@ -173,33 +180,40 @@ export async function updateLeadStatus(leadId: string, status: string) {
 
   if (leadId.startsWith('apt-')) {
     const aptId = leadId.replace(/^apt-/, '');
-    const aptStatus = status === 'won' ? 'completed' : status === 'site_visit' ? 'confirmed' : 'requested';
-    const { data } = await supabase
-      .from('appointments')
-      .update({ status: aptStatus })
-      .eq('id', aptId)
-      .select()
-      .single();
-    return data || { id: leadId, status };
+    if (isUuid(aptId)) {
+      const aptStatus = status === 'won' ? 'completed' : status === 'site_visit' ? 'confirmed' : 'requested';
+      const { data } = await supabase
+        .from('appointments')
+        .update({ status: aptStatus })
+        .eq('id', aptId)
+        .select()
+        .single();
+      return data || { id: leadId, status };
+    }
+    return { id: leadId, status };
   }
 
-  const { data } = await supabase
-    .from('enquiries')
-    .update({ status: enquiryStatus })
-    .eq('id', leadId)
-    .select()
-    .single();
-
-  if (data) return data;
-
-  try {
-    const { data: crmData } = await supabase
-      .from('crm_leads')
-      .update({ lead_status: status, updated_at: new Date().toISOString() })
+  if (isUuid(leadId)) {
+    const { data } = await supabase
+      .from('enquiries')
+      .update({ status: enquiryStatus })
       .eq('id', leadId)
       .select()
       .single();
-    if (crmData) return crmData;
+
+    if (data) return data;
+  }
+
+  try {
+    if (isUuid(leadId)) {
+      const { data: crmData } = await supabase
+        .from('crm_leads')
+        .update({ lead_status: status, updated_at: new Date().toISOString() })
+        .eq('id', leadId)
+        .select()
+        .single();
+      if (crmData) return crmData;
+    }
   } catch {
     // ignore
   }

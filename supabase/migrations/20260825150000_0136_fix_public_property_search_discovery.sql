@@ -1,24 +1,84 @@
 -- =============================================================================
 -- Migration: 20260825150000_0136_fix_public_property_search_discovery.sql
--- Description: Ensure all published properties are completely discoverable and visible
---              in the customer frontend search across all keywords, locations, categories.
---              Includes comprehensive search_text in v_properties_search, RLS grants,
---              and synchronization of is_live/is_active flags for all published records.
+-- Description: Self-contained migration ensuring lister tracking columns exist,
+--              recreating v_properties_search with exhaustive full-text indexing,
+--              granting permissions, and syncing live status for all published properties.
 -- =============================================================================
 
--- 1. Ensure all published/approved properties have is_live = true, is_active = true, deleted_at = NULL
-UPDATE public.properties
-SET 
-  is_live = true,
-  is_active = true,
-  deleted_at = NULL,
-  published_at = COALESCE(published_at, approved_at, created_at, now())
-WHERE status IN ('published', 'live') OR approval_status = 'Approved';
+-- 1. Ensure lister tracking columns exist on public.properties
+ALTER TABLE public.properties
+  ADD COLUMN IF NOT EXISTS listed_by_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS listed_by_mobile  TEXT,
+  ADD COLUMN IF NOT EXISTS is_live           BOOLEAN DEFAULT false,
+  ADD COLUMN IF NOT EXISTS is_active         BOOLEAN DEFAULT true,
+  ADD COLUMN IF NOT EXISTS approval_status   TEXT DEFAULT 'Pending',
+  ADD COLUMN IF NOT EXISTS approved_by       UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS approved_at       TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS deleted_at        TIMESTAMPTZ;
 
--- 2. Drop and recreate v_properties_search with exhaustive, fault-tolerant search_text
-DROP VIEW IF EXISTS public.v_saved_properties;
-DROP VIEW IF EXISTS public.v_properties_search;
+CREATE INDEX IF NOT EXISTS idx_properties_listed_by_user_id ON public.properties(listed_by_user_id);
+CREATE INDEX IF NOT EXISTS idx_properties_listed_by_mobile ON public.properties(listed_by_mobile);
+CREATE INDEX IF NOT EXISTS idx_properties_is_live ON public.properties(is_live);
+CREATE INDEX IF NOT EXISTS idx_properties_is_active ON public.properties(is_active);
 
+-- 2. Trigger function to automatically capture lister user and mobile from profile / auth
+CREATE OR REPLACE FUNCTION public.fn_track_property_lister_mobile()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_phone TEXT;
+  v_user_id UUID;
+BEGIN
+  v_user_id := COALESCE(auth.uid(), NEW.owner_id, NEW.listed_by_user_id);
+
+  IF TG_OP = 'INSERT' THEN
+    NEW.listed_by_user_id := COALESCE(NEW.listed_by_user_id, v_user_id);
+
+    IF v_user_id IS NOT NULL THEN
+      SELECT phone INTO v_phone FROM public.profiles WHERE id = v_user_id;
+      IF v_phone IS NULL OR trim(v_phone) = '' THEN
+        SELECT phone INTO v_phone FROM auth.users WHERE id = v_user_id;
+      END IF;
+    END IF;
+
+    IF v_phone IS NOT NULL AND trim(v_phone) != '' THEN
+      NEW.listed_by_mobile := trim(v_phone);
+    END IF;
+
+  ELSIF TG_OP = 'UPDATE' THEN
+    NEW.listed_by_user_id := COALESCE(OLD.listed_by_user_id, NEW.listed_by_user_id, NEW.owner_id);
+
+    IF OLD.listed_by_mobile IS NOT NULL AND trim(OLD.listed_by_mobile) != '' THEN
+      NEW.listed_by_mobile := OLD.listed_by_mobile;
+    ELSE
+      v_user_id := COALESCE(NEW.listed_by_user_id, NEW.owner_id);
+      IF v_user_id IS NOT NULL THEN
+        SELECT phone INTO v_phone FROM public.profiles WHERE id = v_user_id;
+        IF v_phone IS NULL OR trim(v_phone) = '' THEN
+          SELECT phone INTO v_phone FROM auth.users WHERE id = v_user_id;
+        END IF;
+      END IF;
+
+      IF v_phone IS NOT NULL AND trim(v_phone) != '' THEN
+        NEW.listed_by_mobile := trim(v_phone);
+      END IF;
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_track_property_lister_mobile ON public.properties;
+CREATE TRIGGER trg_track_property_lister_mobile
+  BEFORE INSERT OR UPDATE ON public.properties
+  FOR EACH ROW
+  EXECUTE FUNCTION public.fn_track_property_lister_mobile();
+
+-- 3. Create or replace v_properties_search with comprehensive full-text indexing
 CREATE OR REPLACE VIEW public.v_properties_search AS
 SELECT 
     p.id,
@@ -162,7 +222,7 @@ SELECT
     b.name AS builder_name,
     pr.name AS project_name,
     COALESCE(p.listed_by_mobile, prof_owner.phone) AS owner_phone,
-    -- Exhaustive full-text search vector indexing all location, category, builder, project, and title strings
+    -- Comprehensive lowercased search text across all fields
     LOWER(
       COALESCE(p.title, '') || ' ' ||
       COALESCE(p.description, '') || ' ' ||
@@ -236,31 +296,30 @@ LEFT JOIN public.projects pr ON p.project_id = pr.id
 LEFT JOIN public.profiles prof_agent ON p.assigned_agent_id = prof_agent.id
 LEFT JOIN public.profiles prof_owner ON p.owner_id = prof_owner.id;
 
--- 3. Recreate v_saved_properties view if it depends on v_properties_search
-CREATE OR REPLACE VIEW public.v_saved_properties AS
-SELECT 
-    f.id AS favorite_id,
-    f.user_id,
-    f.created_at AS favorited_at,
-    p.*
-FROM public.favorites f
-JOIN public.v_properties_search p ON p.id = f.property_id;
-
--- 4. Grant explicit select permissions on views and properties
+-- 4. Grant permissions on view
 GRANT SELECT ON public.v_properties_search TO anon, authenticated, service_role;
-GRANT SELECT ON public.v_saved_properties TO anon, authenticated, service_role;
 
--- 5. Confirm properties RLS policy allows selecting all live / published properties
-DROP POLICY IF EXISTS "properties_select" ON public.properties;
-CREATE POLICY "properties_select" ON public.properties
-  FOR SELECT TO anon, authenticated
-  USING (
-    (
-      (status IN ('published', 'live') OR is_live = true)
-      AND (is_active IS NULL OR is_active = true)
-      AND (deleted_at IS NULL)
-    )
-    OR auth.uid() = owner_id
-    OR auth.uid() = assigned_agent_id
-    OR public.is_staff()
-  );
+-- 5. Backfill lister mobile & sync published properties live flags
+UPDATE public.properties p
+SET
+  listed_by_user_id = COALESCE(p.listed_by_user_id, p.owner_id),
+  listed_by_mobile = COALESCE(
+    NULLIF(trim(p.listed_by_mobile), ''),
+    NULLIF(trim(prof.phone), '')
+  ),
+  is_live = true,
+  is_active = true,
+  deleted_at = NULL,
+  published_at = COALESCE(p.published_at, p.approved_at, p.created_at, now())
+FROM public.profiles prof
+WHERE p.owner_id = prof.id
+  AND (p.status IN ('published', 'live') OR p.approval_status = 'Approved');
+
+-- 6. Also sync any published properties where owner profile join wasn't matched
+UPDATE public.properties
+SET 
+  is_live = true,
+  is_active = true,
+  deleted_at = NULL,
+  published_at = COALESCE(published_at, approved_at, created_at, now())
+WHERE status IN ('published', 'live') OR approval_status = 'Approved';

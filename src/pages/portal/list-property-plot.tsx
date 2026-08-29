@@ -17,18 +17,19 @@ import { ensureUserProfile } from '../../lib/profile-utils';
 import { useServiceStatus, SERVICE_KEYS } from '../../lib/service-status';
 import { ServiceUnavailable } from '../../components/service-unavailable';
 import { cn, formatPrice } from '../../lib/utils';
-import { toAreaUnitCode, getPriceUnitLabel, calculatePlotTotalPrice } from '../../lib/plot-pricing';
+import { toAreaUnitCode, getPriceUnitLabel, calculatePlotTotalPrice, calculateLandEquivalents, normalizeAreaUnit } from '../../lib/plot-pricing';
 import { validateUnitPrice, validatePropertyPrice, MIN_PROPERTY_PRICE } from '../../lib/price-validation';
 
 // ─── Plot-specific vocab ──────────────────────────────────────────────────
 const PLOT_TYPES = [
   'Open Plot', 'Residential Plot', 'Commercial Plot', 'Agricultural Land',
   'Farm Land', 'Gated Community Plot', 'HMDA Layout Plot', 'DTCP Layout Plot',
+  'FCDA Layout Plot',
 ];
 const FACINGS = ['East', 'West', 'North', 'South', 'North-East', 'North-West', 'South-East', 'South-West'];
-const AREA_UNITS = ['Sq. Ft', 'Sq. Yd', 'Acres', 'Guntas'];
+const SELLING_AREA_UNITS = ['Sq. Ft', 'Sq. Yd', 'Acre', 'Gunta'];
 const ROAD_FACING = ['Single Road', 'Two Roads', 'Three Roads', 'Four Roads'];
-const LAYOUT_TYPES = ['HMDA Approved', 'DTCP Approved', 'GHMC Approved', 'RERA Registered Layout', 'Panchayat Layout', 'Gram Panchayat', 'Venture', 'Unapproved', 'Other'];
+const LAYOUT_TYPES = ['HMDA Approved', 'DTCP Approved', 'FCDA Approved', 'GHMC Approved', 'RERA Registered Layout', 'Panchayat Layout', 'Gram Panchayat', 'Venture', 'Unapproved', 'Other'];
 const PLOT_FEATURES = [
   'Gated Community', 'Black Top Roads', 'CC Roads', 'Street Lights', 'Electricity Available',
   'Water Connection', 'Drainage', 'Underground Drainage', 'Avenue Plantation', 'Compound Wall',
@@ -69,7 +70,11 @@ interface PlotFormState {
   // Plot details
   propertyTypeName: string;
   purposeIntent: 'Sale' | 'Investment';
-  length: string; width: string; totalArea: string; areaUnit: string;
+  areaInputMethod: 'dimensions' | 'acres';
+  acres: string;
+  length: string; lengthUnit: 'Ft' | 'Yd';
+  width: string; widthUnit: 'Ft' | 'Yd';
+  totalArea: string; areaUnit: string;
   facing: string; cornerPlot: 'Yes' | 'No' | ''; roadFacing: string; roadWidth: string;
   plotNumber: string; blockSector: string;
   // Approval
@@ -105,7 +110,11 @@ const EMPTY_STATE: PlotFormState = {
   address: '', city: '', locality: '', state: '', country: 'India', pincode: '',
   latitude: null, longitude: null, placeId: '',
   propertyTypeName: '', purposeIntent: 'Sale',
-  length: '', width: '', totalArea: '', areaUnit: 'Sq. Ft',
+  areaInputMethod: 'dimensions',
+  acres: '',
+  length: '', lengthUnit: 'Ft',
+  width: '', widthUnit: 'Ft',
+  totalArea: '', areaUnit: 'Sq. Ft',
   facing: '', cornerPlot: '', roadFacing: '', roadWidth: '', plotNumber: '', blockSector: '',
   layoutType: '', approvalAuthority: '', approvalNumber: '', approvalDate: '', reraNumber: '', layoutNumber: '', lpNumber: '',
   approvalDocs: [],
@@ -221,37 +230,67 @@ export function OpenPlotWizard() {
     }));
   };
 
-  // Auto-calculate area from length × width.
+  // ─── Real-time Normalized Land Calculation Engine ────────────────────────
+  const getBaseSqFt = (): number => {
+    if (form.areaInputMethod === 'acres') {
+      const ac = parseFloat(form.acres);
+      return ac > 0 && !isNaN(ac) ? ac * 43560 : 0;
+    }
+    const l = parseFloat(form.length);
+    const w = parseFloat(form.width);
+    if (l > 0 && w > 0 && !isNaN(l) && !isNaN(w)) {
+      const lFt = form.lengthUnit === 'Yd' ? l * 3 : l;
+      const wFt = form.widthUnit === 'Yd' ? w * 3 : w;
+      return lFt * wFt;
+    }
+    return 0;
+  };
+
+  const baseSqFt = getBaseSqFt();
+  const equivalents = calculateLandEquivalents(baseSqFt);
+
+  // Exact area value in chosen selling unit
+  const getAreaInSellingUnit = (): number => {
+    if (baseSqFt <= 0) return 0;
+    const norm = normalizeAreaUnit(form.areaUnit) || 'sqft';
+    switch (norm) {
+      case 'acre':
+        return equivalents.acres;
+      case 'gunta':
+        return equivalents.guntas;
+      case 'sqyd':
+        return equivalents.sqyd;
+      case 'sqft':
+      default:
+        return equivalents.sqft;
+    }
+  };
+
+  const areaInSellingUnit = getAreaInSellingUnit();
+  const numericRate = parseFloat(form.pricePerUnit);
+  const totalPropertyCost = areaInSellingUnit > 0 && numericRate > 0 && !isNaN(numericRate) ? Math.round(areaInSellingUnit * numericRate) : 0;
+
+  // Keep totalArea and expectedPrice continuously synchronized
   useEffect(() => {
-    const l = parseFloat(form.length), w = parseFloat(form.width);
-    if (l > 0 && w > 0) {
-      const area = (l * w).toFixed(2);
-      if (area !== form.totalArea) set('totalArea', area);
+    if (baseSqFt > 0) {
+      const areaStr = String(areaInSellingUnit);
+      if (form.totalArea !== areaStr) {
+        set('totalArea', areaStr);
+      }
+    }
+    if (totalPropertyCost > 0) {
+      const costStr = String(totalPropertyCost);
+      if (form.expectedPrice !== costStr) {
+        set('expectedPrice', costStr);
+      }
+    } else if ((numericRate <= 0 || isNaN(numericRate)) && form.expectedPrice && baseSqFt > 0) {
+      if (form.expectedPrice !== '') set('expectedPrice', '');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.length, form.width]);
-
-  // Total price is always derived from area × rate — never independently
-  // editable — so it can never drift (also re-enforced server-side by the
-  // recalculate_plot_total_price trigger on submit/save). Only overwrites
-  // expectedPrice once a valid rate is actually entered, so restoring an
-  // older draft (saved before this field existed) never blanks out a
-  // price it already had.
-  useEffect(() => {
-    const area = parseFloat(form.totalArea);
-    const pu = parseFloat(form.pricePerUnit);
-    const total = calculatePlotTotalPrice(area, pu);
-    if (total > 0 && String(total) !== form.expectedPrice) set('expectedPrice', String(total));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.totalArea, form.pricePerUnit]);
+  }, [baseSqFt, areaInSellingUnit, totalPropertyCost, numericRate]);
 
   // When the customer changes which unit the plot is measured/priced in,
-  // a previously entered rate no longer means anything (₹45,000 could have
-  // meant "per Sq. Yard" or "per Acre") — clear it and ask them to
-  // re-enter rather than silently reinterpreting it under the new unit.
-  // Guarded by `restoring`: while an existing draft is loading, areaUnit
-  // jumps straight from its default to the saved value, which must NOT be
-  // treated as a user-driven change that wipes the restored price.
+  // a previously entered rate no longer means anything — clear it and prompt.
   const prevAreaUnitRef = useRef(form.areaUnit);
   useEffect(() => {
     if (restoring) {
@@ -260,7 +299,7 @@ export function OpenPlotWizard() {
     }
     if (prevAreaUnitRef.current && prevAreaUnitRef.current !== form.areaUnit && form.pricePerUnit) {
       set('pricePerUnit', '');
-      toast.addToast('info', `Unit changed to ${form.areaUnit} — please re-enter the price per ${getPriceUnitLabel(form.areaUnit)}.`);
+      toast.addToast('info', `Selling unit changed to ${form.areaUnit} — please enter the price per ${getPriceUnitLabel(form.areaUnit)}.`);
     }
     prevAreaUnitRef.current = form.areaUnit;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -289,15 +328,12 @@ export function OpenPlotWizard() {
     place_id: form.placeId || null,
     latitude: form.latitude,
     longitude: form.longitude,
-    plot_area: form.totalArea ? parseFloat(form.totalArea) : null,
+    plot_area: areaInSellingUnit > 0 ? areaInSellingUnit : (form.totalArea ? parseFloat(form.totalArea) : null),
     area_unit: toAreaUnitCode(form.areaUnit),
     price_per_unit: form.pricePerUnit ? parseFloat(form.pricePerUnit) : null,
     facing: form.facing || null,
     ownership_type: form.ownershipType || null,
-    // Recomputed authoritatively server-side (recalculate_plot_total_price
-    // trigger) from plot_area * price_per_unit — sent here too so a
-    // freshly-typed rate is reflected immediately, before the round-trip.
-    price: form.expectedPrice ? parseFloat(form.expectedPrice) : 0,
+    price: totalPropertyCost > 0 ? totalPropertyCost : (form.expectedPrice ? parseFloat(form.expectedPrice) : 0),
     amenities: form.features,
     images: form.photos.map((p) => p.url),
     cover_image_url: form.photos[0]?.url || null,
@@ -325,9 +361,14 @@ export function OpenPlotWizard() {
 
   const validateStep = (): string | null => {
     if (activeStep === 0 && (!form.city || !form.latitude)) return 'Please select the plot location from the map search.';
-    if (activeStep === 1 && (!form.propertyTypeName || !form.totalArea)) return 'Please select a plot type and enter plot dimensions.';
     if (activeStep === 1) {
-      const unitPriceError = validateUnitPrice(form.pricePerUnit);
+      if (!form.propertyTypeName) return 'Please select a plot type.';
+      if (baseSqFt <= 0) {
+        return form.areaInputMethod === 'acres'
+          ? 'Please enter a valid number of acres.'
+          : 'Please enter valid plot length and width dimensions.';
+      }
+      const unitPriceError = validateUnitPrice(form.pricePerUnit, form.areaUnit);
       if (unitPriceError) return unitPriceError;
     }
     if (activeStep === 6) {
@@ -487,46 +528,246 @@ export function OpenPlotWizard() {
 
             {/* ── Step 1: Plot Details ── */}
             {activeStep === 1 && (
-              <div className="space-y-5">
+              <div className="space-y-6">
                 <SectionTitle title="Plot Details" sub="What kind of plot is this, and how big?" />
-                <div><FieldLabel>Property Type</FieldLabel><ChipSelect options={PLOT_TYPES} value={form.propertyTypeName} onChange={(v) => set('propertyTypeName', v)} /></div>
-                <div><FieldLabel>Purpose</FieldLabel><ChipSelect options={['Sale', 'Investment']} value={form.purposeIntent} onChange={(v) => set('purposeIntent', v as any)} /></div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div><FieldLabel>Length</FieldLabel><InputField type="number" value={form.length} onChange={(e) => set('length', e.target.value)} placeholder="ft" /></div>
-                  <div><FieldLabel>Width</FieldLabel><InputField type="number" value={form.width} onChange={(e) => set('width', e.target.value)} placeholder="ft" /></div>
-                  <div><FieldLabel>Total Area</FieldLabel><InputField type="number" value={form.totalArea} onChange={(e) => set('totalArea', e.target.value)} placeholder="Auto-calculated" /></div>
-                </div>
-                <div><FieldLabel>Area Unit</FieldLabel><ChipSelect options={AREA_UNITS} value={form.areaUnit} onChange={(v) => set('areaUnit', v)} /></div>
                 <div>
-                  <FieldLabel>Price Per {getPriceUnitLabel(form.areaUnit)}</FieldLabel>
-                  <InputField
-                    id="wizard-field-pricePerUnit"
-                    type="number"
-                    min={MIN_PROPERTY_PRICE}
-                    value={form.pricePerUnit}
-                    onChange={(e) => onPricePerUnitChange(e.target.value)}
-                    placeholder={`₹ e.g. 45,000 / ${getPriceUnitLabel(form.areaUnit)}`}
-                    className={form.pricePerUnit && validateUnitPrice(form.pricePerUnit, form.areaUnit) ? 'border-red-400 focus:border-red-500 focus:ring-red-400/20' : ''}
-                  />
-                  {form.pricePerUnit && validateUnitPrice(form.pricePerUnit, form.areaUnit) ? (
-                    <p className="mt-1.5 text-xs font-semibold text-red-600">{validateUnitPrice(form.pricePerUnit, form.areaUnit)}</p>
-                  ) : (
-                    <p className="mt-1.5 text-xs text-navy-500">Enter the selling price for each {getPriceUnitLabel(form.areaUnit)}.</p>
-                  )}
-                  {parseFloat(form.totalArea) > 0 && parseFloat(form.pricePerUnit) > 0 && (
-                    <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-red-100 bg-red-50/60 px-4 py-3">
-                      <div className="text-xs font-semibold text-navy-500">
-                        {form.totalArea} {form.areaUnit} × {formatPrice(parseFloat(form.pricePerUnit))} / {getPriceUnitLabel(form.areaUnit)}
+                  <FieldLabel>Property Type</FieldLabel>
+                  <ChipSelect options={PLOT_TYPES} value={form.propertyTypeName} onChange={(v) => set('propertyTypeName', v)} />
+                </div>
+                <div>
+                  <FieldLabel>Purpose</FieldLabel>
+                  <ChipSelect options={['Sale', 'Investment']} value={form.purposeIntent} onChange={(v) => set('purposeIntent', v as any)} />
+                </div>
+
+                {/* 1. Plot Area Section */}
+                <div className="rounded-2xl border border-navy-100 bg-white p-5 shadow-xs space-y-4">
+                  <div>
+                    <h3 className="text-base font-bold text-navy-900">Plot Area</h3>
+                    <p className="text-xs text-navy-500 mt-0.5">Enter the land dimensions or total land area.</p>
+                  </div>
+
+                  {/* Area Input Method Selector */}
+                  <div>
+                    <FieldLabel>Area Input Method</FieldLabel>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { id: 'dimensions', label: 'Dimensions' },
+                        { id: 'acres', label: 'Total Acres' },
+                      ].map((opt) => (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => set('areaInputMethod', opt.id as any)}
+                          className={cn(
+                            'rounded-xl border py-2.5 px-4 text-sm font-semibold transition-all text-center cursor-pointer',
+                            form.areaInputMethod === opt.id
+                              ? 'border-red-500 bg-red-50 text-red-600 shadow-xs font-bold'
+                              : 'border-navy-150 bg-white text-navy-600 hover:border-navy-300'
+                          )}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* When Dimensions is selected */}
+                  {form.areaInputMethod === 'dimensions' && (
+                    <div className="space-y-4 pt-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <FieldLabel>Length</FieldLabel>
+                          <div className="flex gap-2">
+                            <InputField
+                              type="number"
+                              min="0"
+                              step="any"
+                              value={form.length}
+                              onChange={(e) => set('length', e.target.value)}
+                              placeholder="e.g. 200"
+                              className="flex-1"
+                            />
+                            <select
+                              value={form.lengthUnit}
+                              onChange={(e) => set('lengthUnit', e.target.value as any)}
+                              className="w-20 rounded-xl border border-navy-150 bg-white px-3 py-2.5 text-sm font-semibold text-navy-800 focus:border-red-500 focus:outline-none cursor-pointer"
+                            >
+                              <option value="Ft">Ft</option>
+                              <option value="Yd">Yd</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div>
+                          <FieldLabel>Width</FieldLabel>
+                          <div className="flex gap-2">
+                            <InputField
+                              type="number"
+                              min="0"
+                              step="any"
+                              value={form.width}
+                              onChange={(e) => set('width', e.target.value)}
+                              placeholder="e.g. 435.6"
+                              className="flex-1"
+                            />
+                            <select
+                              value={form.widthUnit}
+                              onChange={(e) => set('widthUnit', e.target.value as any)}
+                              className="w-20 rounded-xl border border-navy-150 bg-white px-3 py-2.5 text-sm font-semibold text-navy-800 focus:border-red-500 focus:outline-none cursor-pointer"
+                            >
+                              <option value="Ft">Ft</option>
+                              <option value="Yd">Yd</option>
+                            </select>
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Estimated Total Property Price</p>
-                        <p className="font-display text-lg font-extrabold text-red-600">
-                          {formatPrice(calculatePlotTotalPrice(parseFloat(form.totalArea), parseFloat(form.pricePerUnit)))}
-                        </p>
+                    </div>
+                  )}
+
+                  {/* When Total Acres is selected */}
+                  {form.areaInputMethod === 'acres' && (
+                    <div className="space-y-1 pt-1">
+                      <FieldLabel>No. of Acres</FieldLabel>
+                      <InputField
+                        type="number"
+                        min="0"
+                        step="any"
+                        value={form.acres}
+                        onChange={(e) => set('acres', e.target.value)}
+                        placeholder="Enter number of acres"
+                      />
+                      <p className="mt-1 text-xs text-navy-400">Enter numbers only. Example: 2</p>
+                    </div>
+                  )}
+
+                  {/* Calculated Area Summary Card */}
+                  {baseSqFt > 0 && (
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 space-y-3 mt-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Calculated Area Summary</span>
+                        <span className="text-xs font-bold text-slate-700 bg-white border border-slate-200 px-2.5 py-1 rounded-full shadow-xs">
+                          Total Land: <span className="text-red-600 font-extrabold">{equivalents.acresFormatted} Acres</span>
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                        <div className="rounded-xl bg-white border border-slate-200 p-2.5 text-center shadow-xs">
+                          <span className="text-[11px] text-slate-500 block font-medium">Acres</span>
+                          <span className="text-sm font-extrabold text-slate-900">{equivalents.acresFormatted}</span>
+                        </div>
+                        <div className="rounded-xl bg-white border border-slate-200 p-2.5 text-center shadow-xs">
+                          <span className="text-[11px] text-slate-500 block font-medium">Sq. Ft</span>
+                          <span className="text-sm font-extrabold text-slate-900">{equivalents.sqftFormatted}</span>
+                        </div>
+                        <div className="rounded-xl bg-white border border-slate-200 p-2.5 text-center shadow-xs">
+                          <span className="text-[11px] text-slate-500 block font-medium">Sq. Yd</span>
+                          <span className="text-sm font-extrabold text-slate-900">{equivalents.sqydFormatted}</span>
+                        </div>
+                        <div className="rounded-xl bg-white border border-slate-200 p-2.5 text-center shadow-xs">
+                          <span className="text-[11px] text-slate-500 block font-medium">Guntas</span>
+                          <span className="text-sm font-extrabold text-slate-900">{equivalents.guntasFormatted}</span>
+                        </div>
                       </div>
                     </div>
                   )}
                 </div>
+
+                {/* 2. Selling Price Unit & Dynamic Price Input & Total Cost */}
+                <div className="rounded-2xl border border-navy-100 bg-white p-5 shadow-xs space-y-4">
+                  <div>
+                    <h3 className="text-base font-bold text-navy-900">Selling Price Unit</h3>
+                    <p className="text-xs text-navy-500 mt-0.5">Choose the unit in which you want to sell this property.</p>
+                  </div>
+
+                  {/* Selectable Segmented Buttons */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {SELLING_AREA_UNITS.map((u) => {
+                      const isSelected = form.areaUnit === u || normalizeAreaUnit(form.areaUnit) === normalizeAreaUnit(u);
+                      return (
+                        <button
+                          key={u}
+                          type="button"
+                          onClick={() => set('areaUnit', u)}
+                          className={cn(
+                            'rounded-xl border py-2.5 px-3 text-sm font-semibold transition-all text-center cursor-pointer',
+                            isSelected
+                              ? 'border-red-500 bg-red-50 text-red-600 shadow-xs font-bold'
+                              : 'border-navy-150 bg-white text-navy-600 hover:border-navy-300'
+                          )}
+                        >
+                          {u}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Dynamic Price Input */}
+                  <div>
+                    <FieldLabel>Price per {getPriceUnitLabel(form.areaUnit)}</FieldLabel>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-navy-400 font-bold text-sm">₹</span>
+                      <InputField
+                        id="wizard-field-pricePerUnit"
+                        type="number"
+                        min={MIN_PROPERTY_PRICE}
+                        step="any"
+                        value={form.pricePerUnit}
+                        onChange={(e) => onPricePerUnitChange(e.target.value)}
+                        placeholder="e.g. 4,500"
+                        className={cn(
+                          'pl-8 font-semibold text-navy-900',
+                          form.pricePerUnit && validateUnitPrice(form.pricePerUnit, form.areaUnit) ? 'border-red-400 focus:border-red-500 focus:ring-red-400/20' : ''
+                        )}
+                      />
+                    </div>
+                    {form.pricePerUnit && validateUnitPrice(form.pricePerUnit, form.areaUnit) ? (
+                      <p className="mt-1.5 text-xs font-semibold text-red-600">{validateUnitPrice(form.pricePerUnit, form.areaUnit)}</p>
+                    ) : (
+                      <p className="mt-1.5 text-xs text-navy-400">Enter the selling price for each {getPriceUnitLabel(form.areaUnit)}.</p>
+                    )}
+                  </div>
+
+                  {/* 3. Automatic Total Property Cost Card */}
+                  {baseSqFt > 0 && parseFloat(form.pricePerUnit) > 0 && (
+                    <div className="rounded-2xl border-2 border-red-200 bg-gradient-to-br from-red-50/90 via-white to-red-50/40 p-5 shadow-xs space-y-3.5">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-red-100">
+                        <div>
+                          <span className="text-[11px] font-extrabold uppercase tracking-wider text-red-600 block">Total Property Cost</span>
+                          <span className="text-xs text-navy-500">Automatically calculated from land area × price</span>
+                        </div>
+                        <div className="text-left sm:text-right">
+                          <span className="text-2xl sm:text-3xl font-display font-black text-red-600 tracking-tight">
+                            {formatPrice(totalPropertyCost)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Transparent Calculation Breakdown */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                        <div className="rounded-xl bg-white/90 border border-red-100 p-3 shadow-2xs">
+                          <span className="text-navy-400 block font-medium">Land Area</span>
+                          <span className="font-bold text-navy-800 text-sm mt-0.5 block">
+                            {form.areaInputMethod === 'acres' && normalizeAreaUnit(form.areaUnit) !== 'acre'
+                              ? `${equivalents.acresFormatted} Acres = ${new Intl.NumberFormat('en-IN').format(areaInSellingUnit)} ${getPriceUnitLabel(form.areaUnit)}s`
+                              : `${new Intl.NumberFormat('en-IN').format(areaInSellingUnit)} ${getPriceUnitLabel(form.areaUnit)}s`
+                            }
+                          </span>
+                        </div>
+                        <div className="rounded-xl bg-white/90 border border-red-100 p-3 shadow-2xs">
+                          <span className="text-navy-400 block font-medium">Price</span>
+                          <span className="font-bold text-navy-800 text-sm mt-0.5 block">
+                            ₹{new Intl.NumberFormat('en-IN').format(parseFloat(form.pricePerUnit))} / {getPriceUnitLabel(form.areaUnit)}
+                          </span>
+                        </div>
+                        <div className="rounded-xl bg-red-600 text-white p-3 text-center flex flex-col justify-center shadow-xs">
+                          <span className="text-red-100 text-[10px] uppercase font-bold tracking-wider">Total Property Cost</span>
+                          <span className="font-black text-base">{formatPrice(totalPropertyCost)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. Additional Plot Specs */}
                 <div><FieldLabel>Facing</FieldLabel><ChipSelect options={FACINGS} value={form.facing} onChange={(v) => set('facing', v)} /></div>
                 <div><FieldLabel>Corner Plot</FieldLabel><ChipSelect options={['Yes', 'No']} value={form.cornerPlot} onChange={(v) => set('cornerPlot', v as any)} /></div>
                 <div><FieldLabel>Road Facing</FieldLabel><ChipSelect options={ROAD_FACING} value={form.roadFacing} onChange={(v) => set('roadFacing', v)} /></div>
@@ -617,19 +858,21 @@ export function OpenPlotWizard() {
                 <div className="rounded-2xl border border-navy-100 bg-navy-50/60 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Total Area</p>
-                      <p className="font-semibold text-navy-800">{form.totalArea ? `${form.totalArea} ${form.areaUnit}` : '—'}</p>
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Total Land Area</p>
+                      <p className="font-semibold text-navy-800">
+                        {baseSqFt > 0 ? `${new Intl.NumberFormat('en-IN').format(areaInSellingUnit)} ${getPriceUnitLabel(form.areaUnit)}s (${equivalents.acresFormatted} Acres)` : (form.totalArea ? `${form.totalArea} ${form.areaUnit}` : '—')}
+                      </p>
                     </div>
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Price Per {getPriceUnitLabel(form.areaUnit)}</p>
-                      <p className="font-semibold text-navy-800">{form.pricePerUnit ? formatPrice(parseFloat(form.pricePerUnit)) : '—'}</p>
+                      <p className="font-semibold text-navy-800">{form.pricePerUnit ? `₹${new Intl.NumberFormat('en-IN').format(parseFloat(form.pricePerUnit))}` : '—'}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Estimated Total Property Price</p>
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-navy-400">Total Property Cost</p>
                       <p className="font-display text-lg font-extrabold text-red-600">{form.expectedPrice ? formatPrice(parseFloat(form.expectedPrice)) : '—'}</p>
                     </div>
                   </div>
-                  <button type="button" onClick={() => setActiveStep(1)} className="mt-3 text-xs font-bold text-red-600 hover:underline">Edit price per unit</button>
+                  <button type="button" onClick={() => setActiveStep(1)} className="mt-3 text-xs font-bold text-red-600 hover:underline cursor-pointer">Edit plot area & price per unit</button>
                 </div>
                 <div><FieldLabel>Negotiability</FieldLabel><ChipSelect options={NEGOTIABILITY} value={form.negotiability} onChange={(v) => set('negotiability', v)} /></div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -695,7 +938,7 @@ export function OpenPlotWizard() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <ReviewRow label="Type" value={form.propertyTypeName} onEdit={() => setActiveStep(1)} />
                   <ReviewRow label="Location" value={[form.locality, form.city].filter(Boolean).join(', ')} onEdit={() => setActiveStep(0)} />
-                  <ReviewRow label="Area" value={form.totalArea ? `${form.totalArea} ${form.areaUnit}` : ''} onEdit={() => setActiveStep(1)} />
+                  <ReviewRow label="Area" value={baseSqFt > 0 ? `${equivalents.acresFormatted} Acres (${new Intl.NumberFormat('en-IN').format(areaInSellingUnit)} ${getPriceUnitLabel(form.areaUnit)}s)` : (form.totalArea ? `${form.totalArea} ${form.areaUnit}` : '')} onEdit={() => setActiveStep(1)} />
                   <ReviewRow label="Facing" value={form.facing} onEdit={() => setActiveStep(1)} />
                   <ReviewRow label="Layout Approval" value={form.layoutType} onEdit={() => setActiveStep(2)} />
                   <ReviewRow label="Legal Status" value={form.legallyClear} onEdit={() => setActiveStep(4)} />
@@ -718,9 +961,9 @@ export function OpenPlotWizard() {
           <div className="flex items-center gap-2">
             <Button variant="secondary" onClick={handleSaveDraft} disabled={saving}>{saving ? 'Saving…' : 'Save Draft'}</Button>
             {activeStep < STEPS.length - 1 ? (
-              <Button onClick={goNext} icon={<ChevronRight className="h-4 w-4" />}>Continue</Button>
+              <Button onClick={goNext} icon={<ChevronRight className="h-4 w-4" />}>Next</Button>
             ) : (
-              <Button onClick={handleSubmit} disabled={submitting}>{submitting ? 'Submitting…' : 'Submit for Verification'}</Button>
+              <Button onClick={handleSubmit} disabled={submitting}>{submitting ? 'Submitting…' : 'Submit Property'}</Button>
             )}
           </div>
         </div>

@@ -58,8 +58,8 @@ export function HyderabadLocalitiesPage() {
         </Link>
 
         <div className="mb-8">
-          <h1 className="font-display text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
-            Explore Hyderabad
+          <h1 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
+            Explore <span className="text-red-600">Hyderabad</span>
           </h1>
           <p className="mt-2 text-sm text-slate-500 sm:text-base">
             All localities in Hyderabad and their available properties.

@@ -137,82 +137,114 @@ function parseSearchFiltersFromMessage(message: string): {
   return { bedrooms, purpose, typeLabel, typeSingular, q, max_price, min_price };
 }
 
-// Answers property-search-style chat messages directly from RealtyNow's own listings,
+import { executeGlobalPropertySearch } from './search-service';
+
 // Answers property-search-style chat messages directly from RealtyNow's own listings,
 // bypassing the LLM entirely so results can never include fabricated data or competitor mentions.
 // Also includes live verified cross-category discovery from real DB inventory.
 async function answerRealtyNowPropertySearch(message: string): Promise<string> {
-  const { bedrooms, purpose, typeLabel, typeSingular, q, max_price, min_price } = parseSearchFiltersFromMessage(message);
   const parsedIntent = parsePropertySearchQuery(message);
-  const detectedLocation = parsedIntent.location || q;
+  const detectedLocation = parsedIntent.location || '';
+  const detectedType = parsedIntent.propertyType || '';
+  const purpose = parsedIntent.purpose;
 
-  const bhkLabel = bedrooms.length > 0 ? `${bedrooms.map((b) => `${b}BHK`).join(' and ')} ` : '';
-  const placeLabel = q ? ` in ${q}` : '';
-  const priceLabel =
-    max_price != null ? ` under ${formatCompactPrice(max_price)}` : min_price != null ? ` above ${formatCompactPrice(min_price)}` : '';
+  const bhkLabel = parsedIntent.bedrooms ? `${parsedIntent.bedrooms} BHK ` : '';
+  const typeLabel = detectedType ? `${detectedType}s` : 'properties';
+  const placeLabel = detectedLocation ? ` near ${detectedLocation}` : '';
+  const priceLabel = parsedIntent.maxPrice != null ? ` under ${formatCompactPrice(parsedIntent.maxPrice)}` : parsedIntent.minPrice != null ? ` above ${formatCompactPrice(parsedIntent.minPrice)}` : '';
   const purposeLabel = purpose === 'Rent' ? 'for Rent' : purpose === 'Sale' ? 'for Sale' : '';
-  const intro = `Sure! I'll search RealtyNow for available ${bhkLabel}${typeLabel}${placeLabel}${priceLabel}${purposeLabel ? ' ' + purposeLabel : ''}.`;
+  const intro = `Sure! I found matching RealtyNow listings for **${bhkLabel}${typeLabel}${placeLabel}${priceLabel}${purposeLabel ? ' ' + purposeLabel : ''}**:`;
 
   try {
-    let query = supabase
-      .from('v_properties_search')
-      .select('*')
-      .or('status.eq.published,is_live.eq.true')
-      .or('price.gte.1000,rent_amount.gte.1000')
-      .order('published_at', { ascending: false })
-      .limit(6);
+    const cleanSearchQuery = message.replace(/[,()]/g, ' ').replace(/\s+/g, ' ').trim();
+    const searchRes = await executeGlobalPropertySearch({
+      q: cleanSearchQuery,
+      page: 1,
+      pageSize: 5,
+      sortBy: 'relevance',
+    });
 
-    if (purpose) query = query.eq('purpose', purpose);
-    if (bedrooms.length > 0) query = query.in('bedrooms', bedrooms);
-    if (typeSingular) query = query.ilike('property_type_name', `%${typeSingular}%`);
-    if (max_price != null) query = query.lte('price', max_price);
-    if (min_price != null) query = query.gte('price', min_price);
+    let matches = searchRes.properties;
 
-    const tokens = q.split(' ').filter(Boolean);
-    for (const token of tokens) {
-      query = query.ilike('search_text', `%${token}%`);
+    // Fallback 1: If strict search returned 0 but location/type was detected
+    if (matches.length === 0 && (detectedLocation || detectedType)) {
+      const fallbackRes = await executeGlobalPropertySearch({
+        q: (detectedLocation || detectedType).replace(/[,()]/g, ' ').trim(),
+        purpose: purpose || undefined,
+        page: 1,
+        pageSize: 5,
+        sortBy: 'relevance',
+      });
+      matches = fallbackRes.properties;
     }
 
-    const { data, error } = await query;
-    if (error) throw error;
-    const matches = (data ?? []) as Property[];
+    // Fallback 2: If still 0 matches, search individual sub-keywords (e.g. "villas", "taramatipet", "ORR")
+    if (matches.length === 0) {
+      const subWords = message
+        .replace(/[,()]/g, ' ')
+        .split(/\s+/)
+        .filter((w) => w.length > 2 && !['near', 'with', 'for', 'and', 'city'].includes(w.toLowerCase()));
 
-    // Fetch verified location category discovery if location was detected
+      for (const word of subWords) {
+        if (matches.length >= 3) break;
+        const subRes = await executeGlobalPropertySearch({
+          q: word,
+          purpose: purpose || undefined,
+          page: 1,
+          pageSize: 4,
+          sortBy: 'relevance',
+        });
+        if (subRes.properties.length > 0) {
+          matches = Array.from(new Set([...matches, ...subRes.properties]));
+        }
+      }
+    }
+
+    // Location Discovery if location was detected
     let discoveryText = '';
-    if (detectedLocation && detectedLocation.length >= 2) {
-      const disc = await fetchLocationCategoryDiscovery(detectedLocation, purpose);
-      if (disc.categories.length > 0) {
-        const catLines = disc.categories
-          .map((c) => `• ${c.emoji} [${c.label} (${c.count})](/search?locality=${encodeURIComponent(disc.location)}&category=${c.type}${purpose ? `&purpose=${purpose}` : ''})`)
-          .join('\n');
-        discoveryText = `\n\n**Explore other verified property types in ${disc.location}:**\n${catLines}`;
+    const locForDisc = detectedLocation || searchRes.parsedIntent.location;
+    if (locForDisc && locForDisc.length >= 2) {
+      try {
+        const disc = await fetchLocationCategoryDiscovery(locForDisc, purpose);
+        if (disc.categories.length > 0) {
+          const catLines = disc.categories
+            .filter((c) => c.count > 0)
+            .map((c) => `• ${c.emoji} [${c.label} (${c.count})](/search?q=${encodeURIComponent(disc.location)}&category=${c.type}${purpose ? `&purpose=${purpose}` : ''})`)
+            .join('\n');
+          if (catLines) {
+            discoveryText = `\n\n**Explore active verified inventory in ${disc.location}:**\n${catLines}`;
+          }
+        }
+      } catch (discErr) {
+        console.warn('Location discovery error in AI:', discErr);
       }
     }
 
     if (matches.length === 0) {
-      const hint = purpose
-        ? `Try searching for a specific locality or city for ${purpose === 'Rent' ? 'rental' : 'sale'} properties.`
-        : `Try nearby locations or adjust your budget/preferences.`;
-      
-      if (discoveryText) {
-        return `${intro}\n\nI couldn't find active ${typeLabel || 'matching'} listings in ${detectedLocation || 'this area'} right now.${discoveryText}\n\nYou can also browse all listings on our [search page](/search${purpose ? `?purpose=${purpose}` : ''}).`;
-      }
-
-      return `${intro}\n\nI couldn't find an exact match on RealtyNow right now. ${hint} You can also browse all current RealtyNow listings${placeLabel} on our [search page](/search${purpose ? `?purpose=${purpose}` : ''}).`;
+      return `I searched for **${message}**. While we don't have active listings matching all these specific keywords in this exact pocket right now, you can explore verified properties across Hyderabad on our [Search Page](/search?q=${encodeURIComponent(message.trim())}).\n\n💡 *Tip: Try searching by individual locality (e.g., "Villas in Hyderabad" or "Properties near ORR").*`;
     }
 
-    const lines = matches.map((p, i) => {
-      const priceLabel = formatPrice(p.purpose === 'Rent' ? (p.rent_amount ?? p.price) : p.price, p.purpose);
-      const bhk = p.bedrooms ? `${p.bedrooms}BHK ` : '';
+    const lines = matches.slice(0, 5).map((p, i) => {
+      const priceVal = p.purpose === 'Rent' ? (p.rent_amount ?? p.price) : p.price;
+      const priceLabel = formatPrice(priceVal, p.purpose);
+      const bhk = p.bedrooms ? `${p.bedrooms} BHK ` : '';
       const type = p.property_type_name ? `${p.property_type_name} ` : '';
-      const where = [p.locality_name, p.city_name].filter(Boolean).join(', ');
+      const where = [p.locality_name || (p as any).locality, p.city_name || (p as any).city].filter(Boolean).join(', ');
       const url = generatePropertyUrl(p);
-      return `${i + 1}. [${p.title}](${url}) — ${bhk}${type}in ${where} — ${priceLabel}`;
+      const specs = [
+        p.built_up_area ? `${p.built_up_area} sq.ft` : null,
+        p.bathrooms ? `${p.bathrooms} Bath` : null,
+        p.parking ? `${p.parking} Park` : null,
+      ].filter(Boolean).join(' • ');
+
+      return `${i + 1}. **[${p.title}](${url})**\n   📍 ${where || 'Hyderabad'} | 💰 **${priceLabel}**\n   🏠 ${bhk}${type}${specs ? `(${specs})` : ''}`;
     });
 
-    return `${intro}\n\nHere's what's currently listed on RealtyNow:\n${lines.join('\n')}${discoveryText}\n\nOpen any listing above on RealtyNow for full details or to schedule a visit.`;
-  } catch {
-    return `${intro}\n\nI'm having trouble searching RealtyNow listings right now. Please try again in a moment or use the RealtyNow [search page](/search) directly.`;
+    const searchLink = `/search?q=${encodeURIComponent(message.trim())}${purpose ? `&purpose=${purpose}` : ''}`;
+    return `${intro}\n\n${lines.join('\n\n')}${discoveryText}\n\n👉 [**View all matching properties on RealtyNow**](${searchLink})\n\nClick any property title above to view floor plans, video walkthroughs, and schedule an on-site visit.`;
+  } catch (err) {
+    console.error('AI Property search error:', err);
+    return `I searched our live database for **${message}**. You can browse all verified properties directly on our [Search Page](/search?q=${encodeURIComponent(message.trim())}) or try searching by city or budget.`;
   }
 }
 

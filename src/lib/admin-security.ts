@@ -154,16 +154,15 @@ export const logAdminOtpLogin = () => call<{ success: boolean }>('log-otp-login'
 
 export const logAdminLogout = () => call<{ success: boolean }>('logout').catch(() => undefined);
 
-// Session-scoped 2FA gate — clears on tab close, and independently expires after the same
-// idle window as the admin route's own inactivity timeout (App.tsx ADMIN_IDLE_TIMEOUT_MS).
 const SESSION_KEY = 'admin2faVerifiedAt';
-const SESSION_MAX_AGE_MS = 3 * 60 * 60 * 1000; // 3 hours
+const SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours active session
 
 export function isAdmin2faVerified(): boolean {
-  const raw = sessionStorage.getItem(SESSION_KEY);
+  const raw = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
   if (!raw) return false;
   const verifiedAt = parseInt(raw, 10);
   if (!verifiedAt || Date.now() - verifiedAt > SESSION_MAX_AGE_MS) {
+    localStorage.removeItem(SESSION_KEY);
     sessionStorage.removeItem(SESSION_KEY);
     return false;
   }
@@ -171,9 +170,12 @@ export function isAdmin2faVerified(): boolean {
 }
 
 export function markAdmin2faVerified() {
-  sessionStorage.setItem(SESSION_KEY, Date.now().toString());
+  const now = Date.now().toString();
+  localStorage.setItem(SESSION_KEY, now);
+  sessionStorage.setItem(SESSION_KEY, now);
 }
 
 export function clearAdmin2faVerified() {
+  localStorage.removeItem(SESSION_KEY);
   sessionStorage.removeItem(SESSION_KEY);
 }

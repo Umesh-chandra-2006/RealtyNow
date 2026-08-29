@@ -49,51 +49,6 @@ interface PartnerTask {
   created_at: string;
 }
 
-const DEFAULT_SAMPLE_TASKS: PartnerTask[] = [
-  {
-    id: 'pt-1',
-    title: 'Call Rahul Sharma regarding Tellapur 3BHK visit',
-    referral_code: 'RN-REF-000012',
-    client_name: 'Rahul Sharma',
-    client_phone: '+91 9876543210',
-    task_type: 'call',
-    due_date: new Date().toISOString().split('T')[0],
-    due_time: '14:30',
-    priority: 'high',
-    completed: false,
-    notes: 'Check if Sunday 11 AM works for developer site tour.',
-    created_at: new Date(Date.now() - 3600000 * 24).toISOString(),
-  },
-  {
-    id: 'pt-2',
-    title: 'Collect KYC PAN & Cheque for Gachibowli Flat Booking',
-    referral_code: 'RN-REF-000008',
-    client_name: 'Anita Deshmukh',
-    client_phone: '+91 9123456789',
-    task_type: 'document',
-    due_date: new Date().toISOString().split('T')[0],
-    due_time: '17:00',
-    priority: 'high',
-    completed: false,
-    notes: 'Down payment advance token slip needs to be uploaded.',
-    created_at: new Date(Date.now() - 3600000 * 48).toISOString(),
-  },
-  {
-    id: 'pt-3',
-    title: 'Follow up on Home Loan Sanction letter with HDFC',
-    referral_code: 'RN-REF-000015',
-    client_name: 'Venkatesh Rao',
-    client_phone: '+91 9988776655',
-    task_type: 'whatsapp',
-    due_date: new Date(Date.now() + 86400000).toISOString().split('T')[0],
-    due_time: '11:00',
-    priority: 'medium',
-    completed: false,
-    notes: 'Loan sanction in final stage. Commission unlocks post sanction.',
-    created_at: new Date().toISOString(),
-  },
-];
-
 export function PartnerFollowUpsPage() {
   const { t } = useLanguageContext();
   const sections = getPartnerSections(t);
@@ -126,7 +81,7 @@ export function PartnerFollowUpsPage() {
     } catch {
       // ignore
     }
-    return DEFAULT_SAMPLE_TASKS;
+    return [];
   });
 
   const saveTasks = (tasks: PartnerTask[]) => {
@@ -313,26 +268,26 @@ export function PartnerFollowUpsPage() {
         <StatCard
           label="Pending Tasks"
           value={pendingCount}
-          icon={CalendarClock}
-          description="Awaiting your action"
+          icon={<CalendarClock className="h-5 w-5" />}
+          trend="Awaiting your action"
         />
         <StatCard
           label="Due Today"
           value={dueTodayCount}
-          icon={AlertCircle}
-          description="High-priority actions"
+          icon={<AlertCircle className="h-5 w-5" />}
+          trend="High-priority actions"
         />
         <StatCard
           label="Completed"
           value={completedCount}
-          icon={CheckCircle2}
-          description="Finished follow-ups"
+          icon={<CheckCircle2 className="h-5 w-5" />}
+          trend="Finished follow-ups"
         />
         <StatCard
           label="Logged Events"
           value={activities.length}
-          icon={Clock}
-          description="Live CRM updates"
+          icon={<Clock className="h-5 w-5" />}
+          trend="Live CRM updates"
         />
       </div>
 
@@ -475,12 +430,12 @@ export function PartnerFollowUpsPage() {
                             </span>
                           )}
                           <Badge
-                            variant={t.priority === 'high' ? 'danger' : t.priority === 'medium' ? 'warning' : 'default'}
+                            variant={t.priority === 'high' ? 'error' : t.priority === 'medium' ? 'warning' : 'default'}
                             className="text-[10px] capitalize"
                           >
                             {t.priority}
                           </Badge>
-                          <Badge variant="blue" className="text-[10px] uppercase">
+                          <Badge variant="info" className="text-[10px] uppercase">
                             {t.task_type}
                           </Badge>
                         </div>

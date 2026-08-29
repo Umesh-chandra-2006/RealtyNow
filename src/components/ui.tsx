@@ -4,7 +4,7 @@ import { motion, type HTMLMotionProps } from 'framer-motion';
 import { X } from 'lucide-react';
 import { cn } from '../lib/utils';
 
-type ButtonVariant = 'primary' | 'secondary' | 'gold' | 'ghost' | 'danger';
+type ButtonVariant = 'primary' | 'secondary' | 'gold' | 'ghost' | 'danger' | 'outline';
 type ButtonSize = 'sm' | 'md' | 'lg';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -20,6 +20,7 @@ const variantClass: Record<ButtonVariant, string> = {
   gold: 'btn-gold',
   ghost: 'btn-ghost',
   danger: 'btn-danger',
+  outline: 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50',
 };
 
 const sizeClass: Record<ButtonSize, string> = {
@@ -63,7 +64,7 @@ export function Badge({
   className,
 }: {
   children: React.ReactNode;
-  variant?: 'default' | 'success' | 'warning' | 'error' | 'info' | 'gold';
+  variant?: 'default' | 'success' | 'warning' | 'error' | 'danger' | 'info' | 'blue' | 'navy' | 'gold';
   className?: string;
 }) {
   const styles: Record<string, string> = {
@@ -71,7 +72,10 @@ export function Badge({
     success: 'bg-success-100 text-success-700',
     warning: 'bg-warning-100 text-warning-700',
     error: 'bg-error-100 text-error-700',
+    danger: 'bg-error-100 text-error-700',
     info: 'bg-navy-100 text-navy-700',
+    blue: 'bg-blue-100 text-blue-700',
+    navy: 'bg-navy-100 text-navy-700',
     gold: 'bg-gold-100 text-gold-700',
   };
   return <span className={cn('badge', styles[variant], className)}>{children}</span>;

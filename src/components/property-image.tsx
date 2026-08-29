@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { cn } from '../lib/utils';
 import { DEFAULT_PROPERTY_IMAGE, handleImageError } from '../lib/property-images';
 
-export interface PropertyImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
+export interface PropertyImageProps extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> {
   src?: string | null;
   alt: string;
   fallbackSrc?: string;

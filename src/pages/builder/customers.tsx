@@ -8,7 +8,7 @@ import { getBuilderSections } from '../portal/sections';
 import { useLanguageContext } from '../../lib/i18n';
 import { DataTable } from '../../components/data-table';
 import type { Column } from '../../components/data-table';
-import { Button, EmptyState, Input, Modal, Select } from '../../components/ui';
+import { Button, EmptyState, Input, Modal, Select, Badge } from '../../components/ui';
 import { useToast } from '../../components/toast';
 import { useRealtimeCount } from '../../lib/realtime';
 import { logBuilderAudit } from '../../lib/builder-audit';
@@ -24,6 +24,7 @@ interface BuilderCustomer {
   phone: string | null;
   address: string | null;
   kyc_doc_url: string | null;
+  notes?: string | null;
   created_at: string;
   updated_at: string;
 }

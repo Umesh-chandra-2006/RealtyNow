@@ -249,7 +249,7 @@ export function AgentClients() {
                       {c.properties.slice(0, 3).map((p) => (
                         <Link
                           key={p.id}
-                          to={generatePropertyUrl(p.id, p.title)}
+                          to={generatePropertyUrl(p)}
                           className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-navy-800 text-xs font-medium truncate max-w-full"
                         >
                           <Building2 className="h-3 w-3 text-slate-400 shrink-0" />

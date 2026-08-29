@@ -147,7 +147,7 @@ export function PartnerDashboard() {
           label="Total Referrals"
           value={totalReferrals}
           icon={<Handshake className="h-5 w-5" />}
-          accent="default"
+          accent="navy"
           to="/partner/referrals"
         />
         <StatCard

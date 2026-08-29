@@ -126,6 +126,17 @@ export function HeaderSearchModal({
 
     addRecentSearch(clean);
     onClose();
+
+    // If query matches a specific property in suggestions, navigate directly to its view
+    const exactProp = suggestions?.properties.find(
+      (p) => p.title && p.title.trim().toLowerCase() === clean.toLowerCase()
+    );
+    if (exactProp) {
+      navigate(generatePropertyUrl(exactProp));
+      setQuery('');
+      return;
+    }
+
     navigate(`/search?q=${encodeURIComponent(clean)}`);
     setQuery('');
   };

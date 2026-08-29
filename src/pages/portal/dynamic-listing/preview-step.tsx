@@ -47,7 +47,7 @@ export function PreviewStep({ steps, fieldsByStep, answers, onPublish, publishin
         );
       })}
       <Button variant="primary" size="lg" className="w-full" loading={publishing} onClick={onPublish}>
-        Publish Listing
+        Submit Property
       </Button>
     </div>
   );

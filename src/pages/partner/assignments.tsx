@@ -337,7 +337,7 @@ export function PartnerAssignmentsPage() {
                         <h4 className="font-display font-bold text-base text-slate-900 mt-1">{agentName}</h4>
                         <p className="text-[11px] text-slate-500 font-semibold">RealtyNow Field Consultant</p>
                       </div>
-                      <Badge variant={r.status === 'completed' ? 'success' : r.status === 'in_process' ? 'gold' : 'blue'} className="text-[10px] uppercase">
+                      <Badge variant={r.status === 'completed' ? 'success' : r.status === 'in_process' ? 'gold' : 'info'} className="text-[10px] uppercase">
                         {r.status.replace('_', ' ')}
                       </Badge>
                     </div>

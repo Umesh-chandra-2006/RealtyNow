@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 70" width="100%" height="100%">
+  <g transform="translate(10, 4)">
+    <!-- Architectural blue A emblem -->
+    <g transform="translate(85, 0)">
+      <path d="M15,2 L4,26 L10,26 L12.5,20 L17.5,20 L20,26 L26,26 Z" fill="#0284c7"/>
+      <path d="M15,7 L13.5,16 L16.5,16 Z" fill="#ffffff"/>
+      <!-- Compass / needle -->
+      <line x1="0" y1="18" x2="30" y2="18" stroke="#0284c7" stroke-width="1.8"/>
+      <polygon points="15,14 18,18 15,22 12,18" fill="#0284c7"/>
+    </g>
+    
+    <!-- APARNA Lead the future -->
+    <text x="100" y="42" font-family="'Arial Black', Impact, sans-serif" font-size="14" font-weight="900" fill="#0284c7" letter-spacing="3" text-anchor="middle">APARNA</text>
+    <text x="100" y="52" font-family="Arial, sans-serif" font-size="7" font-weight="600" fill="#38bdf8" letter-spacing="0.8" text-anchor="middle">Lead the future</text>
+  </g>
+</svg>

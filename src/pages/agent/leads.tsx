@@ -28,7 +28,7 @@ import { DashboardLayout, PageHeader } from '../../components/dashboard-layout';
 import { getAgentSections } from '../portal/sections';
 import { Card, Badge, Select, Button, Input } from '../../components/ui';
 import { DataTable, type Column } from '../../components/data-table';
-import { formatDate, formatPrice, generatePropertyUrl, buildWhatsAppUrl } from '../../lib/utils';
+import { formatDate, formatPrice, generatePropertyUrl, buildWhatsAppUrl, isUuid } from '../../lib/utils';
 import { useRealtimeCount } from '../../lib/realtime';
 import { AgentKanbanBoard } from '../../components/agent/AgentKanbanBoard';
 import { UnifiedLeadDetailModal, AGENT_CRM_STAGES } from '../../components/crm/UnifiedLeadDetailModal';
@@ -80,7 +80,7 @@ export function AgentLeads() {
     if (found) {
       setSelectedLead(found);
       setDrawerOpen(true);
-    } else if (user) {
+    } else if (user && isUuid(leadIdParam)) {
       // Fetch specifically if not yet in list
       supabase
         .from('enquiries')
@@ -105,29 +105,42 @@ export function AgentLeads() {
       const oldLead = leads.find((l) => l.id === id);
       const oldStatus = oldLead?.lead_status || oldLead?.status;
 
-      await supabase
-        .from('enquiries')
-        .update({
-          lead_status: status,
-          status: status === 'won' || status === 'lost' ? 'closed' : status === 'new' ? 'new' : 'contacted',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id);
+      const isAppointment = id.startsWith('apt-');
+      const cleanId = isAppointment ? id.replace(/^apt-/, '') : id;
 
-      // Log activity
-      try {
-        await supabase.from('lead_activities').insert({
-          lead_id: id,
-          actor_id: user?.id ?? null,
-          activity_type: status === 'won' ? 'won' : status === 'lost' ? 'lost' : 'status_changed',
-          title: `Status changed to ${status.replace('_', ' ').toUpperCase()}`,
-          old_value: oldStatus,
-          new_value: status,
-          is_system: false,
-          created_at: new Date().toISOString(),
-        });
-      } catch {
-        // Non-blocking
+      if (isUuid(cleanId)) {
+        if (isAppointment) {
+          const aptStatus =
+            status === 'won' ? 'completed' :
+            status === 'site_visit' ? 'confirmed' :
+            status === 'lost' ? 'cancelled' : 'requested';
+          await supabase.from('appointments').update({ status: aptStatus, updated_at: new Date().toISOString() }).eq('id', cleanId);
+        } else {
+          await supabase
+            .from('enquiries')
+            .update({
+              lead_status: status,
+              status: status === 'won' || status === 'lost' ? 'closed' : status === 'new' ? 'new' : 'contacted',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', cleanId);
+
+          // Log activity
+          try {
+            await supabase.from('lead_activities').insert({
+              lead_id: cleanId,
+              actor_id: user?.id ?? null,
+              activity_type: status === 'won' ? 'won' : status === 'lost' ? 'lost' : 'status_changed',
+              title: `Status changed to ${status.replace('_', ' ').toUpperCase()}`,
+              old_value: oldStatus,
+              new_value: status,
+              is_system: false,
+              created_at: new Date().toISOString(),
+            });
+          } catch {
+            // Non-blocking
+          }
+        }
       }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['agent-leads'] }),

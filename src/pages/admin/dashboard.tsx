@@ -35,41 +35,7 @@ import { RemindersWidget } from '../../components/reminders-widget';
 
 type DateRange = '7d' | '30d' | '6m' | '1y';
 
-const MOCK_KANBAN_LEADS: KanbanLeadCard[] = [
-  {
-    id: '1',
-    title: '3BHK Villa Inquiry in Gachibowli',
-    customerName: 'Rajesh Sharma',
-    phone: '+91 98490 12345',
-    email: 'rajesh@gmail.com',
-    budget: '1.4 Cr',
-    stage: 'new',
-    priority: 'High',
-    createdAt: 'Today',
-  },
-  {
-    id: '2',
-    title: 'Commercial Space in HITEC City',
-    customerName: 'Anita Rao',
-    phone: '+91 97001 98765',
-    email: 'anita@corp.in',
-    budget: '2.8 Cr',
-    stage: 'contacted',
-    priority: 'High',
-    createdAt: 'Yesterday',
-  },
-  {
-    id: '3',
-    title: '2BHK Apartment in Kondapur',
-    customerName: 'Vikram Verma',
-    phone: '+91 99887 65432',
-    email: 'vikram@yahoo.com',
-    budget: '75 Lakhs',
-    stage: 'site_visit',
-    priority: 'Medium',
-    createdAt: '2 days ago',
-  },
-];
+
 
 export function AdminDashboard() {
   const { t } = useLanguageContext();
@@ -139,6 +105,28 @@ export function AdminDashboard() {
         revenue,
         conversionRate: enquiries.count ? (((closedEnquiries.count ?? 0) / enquiries.count) * 100).toFixed(1) : '0.0',
       };
+    },
+  });
+
+  const { data: realLeads = [] } = useQuery({
+    queryKey: ['admin-kanban-leads', realtimeTick],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('enquiries')
+        .select('id, name, phone, email, message, status, created_at, properties(title, price)')
+        .order('created_at', { ascending: false })
+        .limit(50);
+      return (data || []).map((e: any) => ({
+        id: e.id,
+        title: e.properties?.title || 'Property Inquiry',
+        customerName: e.name || 'Inquirer',
+        phone: e.phone || 'N/A',
+        email: e.email || 'N/A',
+        budget: e.properties?.price ? formatPrice(e.properties.price) : 'N/A',
+        stage: (e.status === 'closed' ? 'closed' : e.status === 'in_progress' ? 'contacted' : 'new') as KanbanLeadCard['stage'],
+        priority: 'High' as const,
+        createdAt: formatDate(e.created_at),
+      }));
     },
   });
 
@@ -285,7 +273,7 @@ export function AdminDashboard() {
       {activeTab === 'analytics' && <EnterpriseCharts />}
 
       {/* Tab 2: CRM Kanban Lead Pipeline */}
-      {activeTab === 'kanban' && <EnterpriseKanban initialLeads={MOCK_KANBAN_LEADS} />}
+      {activeTab === 'kanban' && <EnterpriseKanban initialLeads={realLeads} />}
 
       {/* Tab 3: Enterprise DataGrid */}
       {activeTab === 'datagrid' && (

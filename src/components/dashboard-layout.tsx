@@ -272,7 +272,7 @@ export function DashboardLayout({
       {/* Sidebar (desktop) */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-navy-100 bg-white lg:flex flex-col">
         <div className="flex h-16 items-center gap-2 border-b border-navy-100 px-5">
-          <Logo to="/" size={160} />
+          <Logo to="/" size={175} maxHeight={46} />
         </div>
         <nav
           ref={desktopNavRef}
@@ -321,7 +321,7 @@ export function DashboardLayout({
               className="fixed inset-y-0 left-0 z-50 w-64 bg-white lg:hidden flex flex-col"
             >
               <div className="flex h-16 items-center justify-between border-b border-navy-100 px-5">
-                <Logo to="/" size={160} />
+                <Logo to="/" size={175} maxHeight={46} />
                 <button onClick={() => setOpen(false)} className="cursor-pointer p-1">
                   <X className="h-5 w-5 text-navy-500" />
                 </button>
@@ -347,7 +347,7 @@ export function DashboardLayout({
 
       {/* Main content */}
       <div className="lg:pl-64">
-        <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-navy-100 bg-white/90 px-4 backdrop-blur sm:px-6">
+        <header className="sticky top-0 z-40 flex h-16 items-center gap-3 border-b border-navy-100 bg-white/90 px-4 backdrop-blur sm:px-6">
           <button
             onClick={() => setOpen(true)}
             className="lg:hidden grid place-items-center rounded-lg p-2 text-navy-700 hover:bg-navy-50"

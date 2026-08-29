@@ -4,6 +4,11 @@ export function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export function isUuid(val: any): boolean {
+  return typeof val === 'string' && UUID_REGEX.test(val.trim());
+}
+
 export const RENT_LIKE_PURPOSES = ['Rent', 'Lease', 'PG', 'CoLiving', 'Hostel', 'Short Stay', 'Vacation Rental'];
 
 export function getPropertyPrice(p?: { purpose?: string | null; price?: number | null; rent_amount?: number | null }): number | null {
@@ -27,14 +32,18 @@ export function formatPrice(value: number | null | undefined, purpose?: string):
   return isRent ? `${formatted}/month` : formatted;
 }
 
+function trimTrailingZeros(n: number): string {
+  return n.toFixed(2).replace(/\.?0+$/, '');
+}
+
 export function formatCompactPrice(value: number | null | undefined, purpose?: string): string {
   if (value == null) return '—';
   const isRent = RENT_LIKE_PURPOSES.includes(purpose || '');
   let formatted = `₹${value}`;
-  if (value >= 10000000) formatted = `₹${(value / 10000000).toFixed(2)} Cr`;
-  else if (value >= 100000) formatted = `₹${(value / 100000).toFixed(2)} L`;
+  if (value >= 10000000) formatted = `₹${trimTrailingZeros(value / 10000000)} Cr`;
+  else if (value >= 100000) formatted = `₹${trimTrailingZeros(value / 100000)} L`;
   else if (value >= 1000) formatted = `₹${(value / 1000).toFixed(0)}K`;
-  
+
   return isRent ? `${formatted}/month` : formatted;
 }
 
@@ -98,14 +107,26 @@ function serializeCell(value: unknown): string {
 }
 
 export function exportToCsv(
-  filename: string,
-  rows: Record<string, unknown>[],
-  columns: { key: string; label: string }[],
+  filenameOrRows: string | Record<string, unknown>[],
+  rowsOrFilename?: Record<string, unknown>[] | string,
+  columns: { key: string; label: string }[] = [],
 ) {
-  const cols = columns.length > 0 ? columns : Object.keys(rows[0] ?? {}).map((k) => ({ key: k, label: k }));
-  const header = cols.map((c) => `"${c.label.replace(/"/g, '""')}"`).join(',');
+  let filename: string;
+  let rows: Record<string, unknown>[];
+  const cols = columns;
+
+  if (typeof filenameOrRows === 'string') {
+    filename = filenameOrRows;
+    rows = (rowsOrFilename as Record<string, unknown>[]) || [];
+  } else {
+    rows = filenameOrRows || [];
+    filename = (rowsOrFilename as string) || 'export';
+  }
+
+  const effectiveCols = cols.length > 0 ? cols : Object.keys(rows[0] ?? {}).map((k) => ({ key: k, label: k }));
+  const header = effectiveCols.map((c) => `"${c.label.replace(/"/g, '""')}"`).join(',');
   const body = rows
-    .map((r) => cols.map((c) => `"${serializeCell(r[c.key]).replace(/"/g, '""')}"`).join(','))
+    .map((r) => effectiveCols.map((c) => `"${serializeCell(r[c.key]).replace(/"/g, '""')}"`).join(','))
     .join('\n');
   // UTF-8 BOM ensures Excel opens the file with correct encoding
   const BOM = '\uFEFF';
@@ -114,30 +135,42 @@ export function exportToCsv(
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `${filename}.csv`;
+  link.download = `${filename.replace(/\.csv$/, '')}.csv`;
   link.click();
   URL.revokeObjectURL(url);
 }
 
 export async function exportToExcel(
-  filename: string,
-  rows: Record<string, unknown>[],
-  columns: { key: string; label: string }[],
+  filenameOrRows: string | Record<string, unknown>[],
+  rowsOrFilename?: Record<string, unknown>[] | string,
+  columns: { key: string; label: string }[] = [],
 ) {
+  let filename: string;
+  let rows: Record<string, unknown>[];
+  const cols = columns;
+
+  if (typeof filenameOrRows === 'string') {
+    filename = filenameOrRows;
+    rows = (rowsOrFilename as Record<string, unknown>[]) || [];
+  } else {
+    rows = filenameOrRows || [];
+    filename = (rowsOrFilename as string) || 'export';
+  }
+
   const XLSX = await import('xlsx');
-  const cols = columns.length > 0 ? columns : Object.keys(rows[0] ?? {}).map((k) => ({ key: k, label: k }));
+  const effectiveCols = cols.length > 0 ? cols : Object.keys(rows[0] ?? {}).map((k) => ({ key: k, label: k }));
   const data = rows.map((r) =>
-    Object.fromEntries(cols.map((c) => [c.label, serializeCell(r[c.key])]))
+    Object.fromEntries(effectiveCols.map((c) => [c.label, serializeCell(r[c.key])]))
   );
   const worksheet = XLSX.utils.json_to_sheet(data);
   // Auto-size columns to fit content
-  const colWidths = cols.map((c) => ({
+  const colWidths = effectiveCols.map((c) => ({
     wch: Math.min(60, Math.max(c.label.length + 2, ...data.map((row) => String(row[c.label] ?? '').length))),
   }));
   worksheet['!cols'] = colWidths;
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Properties');
-  XLSX.writeFile(workbook, `${filename}.xlsx`);
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Data');
+  XLSX.writeFile(workbook, `${filename.replace(/\.xlsx$/, '')}.xlsx`);
 }
 
 function escapeHtml(value: unknown): string {
@@ -187,8 +220,12 @@ export function getFriendlyErrorMessage(err: unknown, fallback = 'Something went
   return fallback;
 }
 
-export function generatePropertyUrl(p?: { id?: string | null; title?: string | null } | null): string {
+export function generatePropertyUrl(p?: { id?: string | null; title?: string | null; seo_slug?: string | null } | null): string {
   if (!p || !p.id) return '#';
+  if (p.seo_slug && typeof p.seo_slug === 'string' && p.seo_slug.trim()) {
+    const cleanSeo = p.seo_slug.trim().replace(/^\/+/, '');
+    return `/property/${cleanSeo}`;
+  }
   if (!p.title) return `/property/${p.id}`;
   const slug = p.title
     .toLowerCase()
@@ -197,7 +234,7 @@ export function generatePropertyUrl(p?: { id?: string | null; title?: string | n
     .substring(0, 60)
     .replace(/-$/, '');
   
-  return `/property/${slug}-${p.id}`;
+  return `/property/${slug ? `${slug}-` : ''}${p.id}`;
 }
 
 /**

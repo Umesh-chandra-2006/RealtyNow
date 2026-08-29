@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 70" width="100%" height="100%">
+  <g transform="translate(10, 4)">
+    <!-- Red square emblem with white radiating sun rays -->
+    <rect x="85" y="0" width="30" height="30" fill="#e11d24" rx="2"/>
+    <!-- Rising sunburst -->
+    <circle cx="100" cy="22" r="5" fill="#ffffff"/>
+    <path d="M100,10 L100,6 M92,13 L87,10 M108,13 L113,10 M87,19 L83,18 M113,19 L117,18 M95,12 L93,8 M105,12 L107,8" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+    
+    <!-- Text -->
+    <text x="100" y="45" font-family="'Arial Black', Impact, sans-serif" font-size="14" font-weight="900" fill="#1c1917" letter-spacing="1.5" text-anchor="middle">RAJAPUSHPA</text>
+    <text x="100" y="55" font-family="Arial, sans-serif" font-size="6.5" font-weight="700" fill="#dc2626" letter-spacing="2" text-anchor="middle">PROPERTIES PVT LTD</text>
+    <line x1="60" y1="59" x2="140" y2="59" stroke="#dc2626" stroke-width="0.8"/>
+  </g>
+</svg>

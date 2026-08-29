@@ -8,7 +8,7 @@ import {
   CheckCircle2, XCircle, Clock, FileText, User,
   Building2, Phone, Mail, MapPin, Award, BadgeCheck, AlertCircle,
   ChevronRight, History, ShieldCheck, Eye, AlertTriangle,
-  Calendar, Globe, Briefcase, Check,
+  Calendar, Globe, Briefcase, Check, Landmark,
 } from 'lucide-react';
 import { formatDate } from '../../lib/utils';
 import type { AgentApplication, BuilderApplication, PartnerApplication, StepVerificationState } from '../../lib/types';
@@ -1481,15 +1481,15 @@ function PartnerStepContent({
           <div className="p-4 bg-success-50 border border-success-200 rounded-xl flex items-center gap-3">
             <CheckCircle2 className="h-5 w-5 text-success-600 shrink-0" />
             <div>
-              <p className="font-semibold text-success-800 text-sm">{t('admin.partnerApplicationReceived', 'Partner Application Received')}</p>
+              <p className="font-semibold text-success-800 text-sm">{t('admin.partnerApplicationReceived', 'Business Partner Application Received')}</p>
               <p className="text-xs text-success-600">{t('admin.submittedOn', 'Submitted on {{date}}').replace('{{date}}', formatDate(app.created_at))}</p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <InfoBox icon={User} label={t('admin.fullNameLabel', 'Full Name')} value={app.full_name} />
-            <InfoBox icon={Briefcase} label={t('admin.partnerTypeLabel2', 'Partner Type')} value={app.partner_type} />
-            <InfoBox icon={Mail} label={t('admin.emailLabel', 'Email')} value={app.email} />
-            <InfoBox icon={Phone} label={t('admin.mobileLabel', 'Mobile')} value={app.mobile_number} />
+            <InfoBox icon={User} label="Full Name" value={app.full_name || `${app.name ?? ''} ${app.surname ?? ''}`.trim()} />
+            <InfoBox icon={Building2} label="Business Name" value={app.business_name || app.company_name} />
+            <InfoBox icon={Phone} label="Mobile Number" value={app.mobile_number} />
+            <InfoBox icon={Mail} label="Email" value={app.email} />
             <InfoBox icon={Calendar} label={t('admin.appliedDateLabel', 'Applied Date')} value={formatDate(app.created_at)} />
             {app.application_number && (
               <div className="col-span-2 p-3 bg-navy-50 rounded-lg border border-navy-100">
@@ -1501,27 +1501,50 @@ function PartnerStepContent({
         </div>
       );
 
-    case 'pending_review':
+    case 'pending_review': {
+      const bankDetails = (typeof app.bank_account_details === 'object' && app.bank_account_details !== null)
+        ? app.bank_account_details as Record<string, string>
+        : null;
+
       return (
         <div className="space-y-4">
           <h4 className="text-sm font-semibold text-navy-900 flex items-center gap-2">
-            <User className="h-4 w-4 text-navy-400" /> {t('admin.partnerInformation', 'Partner Information')}
+            <User className="h-4 w-4 text-navy-400" /> Business Partner Information
           </h4>
           <div className="grid grid-cols-2 gap-3">
-            <InfoBox icon={Mail} label={t('admin.emailLabel', 'Email')} value={app.email} />
-            <InfoBox icon={Phone} label={t('admin.mobileLabel', 'Mobile')} value={app.mobile_number} />
-            <InfoBox icon={Building2} label={t('admin.companyLabel', 'Company')} value={app.company_name} />
-            <InfoBox icon={Briefcase} label={t('admin.gstNumberLabel2', 'GST Number')} value={app.gst_number} />
-            <InfoBox icon={BadgeCheck} label={t('admin.panNumberLabel2', 'PAN Number')} value={app.pan_number} />
-            <InfoBox icon={MapPin} label={t('admin.cityStateLabel', 'City / State')} value={app.city ? `${app.city}, ${app.state ?? ''}` : null} />
-            <InfoBox icon={Award} label={t('admin.yearsOfExperienceLabel2', 'Years of Experience')} value={app.years_of_experience ? t('admin.yrsValue', '{{count}} yrs').replace('{{count}}', String(app.years_of_experience)) : null} />
-            {app.preferred_property_types && app.preferred_property_types.length > 0 && (
-              <InfoBox icon={Building2} label={t('admin.preferredPropertyTypesLabel2', 'Preferred Property Types')} value={app.preferred_property_types.join(', ')} />
+            <InfoBox icon={User} label="Surname & Name" value={`${app.surname ?? ''} ${app.name ?? app.full_name ?? ''}`.trim()} />
+            <InfoBox icon={Building2} label="Business Name" value={app.business_name || app.company_name} />
+            <InfoBox icon={Phone} label="Mobile" value={app.mobile_number} />
+            <InfoBox icon={Mail} label="Email" value={app.email} />
+            <InfoBox icon={Briefcase} label="GST Number" value={app.gst_number} />
+            <InfoBox icon={BadgeCheck} label="PAN Number" value={app.pan_number} />
+            <InfoBox icon={ShieldCheck} label="Aadhaar Number" value={app.aadhaar_number} />
+            <InfoBox icon={MapPin} label="Location (State / City / Dist)" value={[app.city, app.district, app.state].filter(Boolean).join(', ') || null} />
+            {app.address_line_1 && (
+              <div className="col-span-2 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                <p className="text-xs text-slate-400 mb-0.5">Address</p>
+                <p className="text-xs font-medium text-slate-800">{app.address_line_1}</p>
+              </div>
             )}
-            {app.description && (
-              <div className="col-span-2 p-3 bg-navy-50 rounded-lg border border-navy-100">
-                <p className="text-xs text-navy-400 mb-1">{t('admin.aboutLabel', 'About')}</p>
-                <p className="text-sm text-navy-800">{app.description}</p>
+            {bankDetails && (
+              <div className="col-span-2 p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                <p className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                  <Landmark className="h-3.5 w-3.5 text-slate-500" /> Bank Account Details
+                </p>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-slate-400">Holder:</span> <span className="font-semibold text-slate-800">{bankDetails.account_holder_name ?? '—'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Bank:</span> <span className="font-semibold text-slate-800">{bankDetails.bank_name ?? '—'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">A/C No:</span> <span className="font-mono font-semibold text-slate-800">{bankDetails.account_number ?? '—'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">IFSC:</span> <span className="font-mono font-semibold text-slate-800">{bankDetails.ifsc_code ?? '—'}</span>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -1529,7 +1552,7 @@ function PartnerStepContent({
             <p className="text-xs font-semibold text-navy-600 uppercase tracking-wider">{t('admin.verificationChecklist', 'Verification Checklist')}</p>
             <CheckboxItem
               id="info_reviewed"
-              label={t('admin.checkApplicantContactVerified', 'Partner information and contact details reviewed and verified')}
+              label="Partner identification and registration details reviewed and verified"
               checked={!!checks.info_reviewed}
               onChange={(c) => onCheckChange('info_reviewed', c)}
               disabled={disabled}
@@ -1538,24 +1561,25 @@ function PartnerStepContent({
           </div>
         </div>
       );
+    }
 
     case 'document_verification': {
       const docs = [
-        { url: app.pan_doc_url, label: t('admin.docPanCard', 'PAN Card') },
-        { url: app.id_doc_url, label: t('admin.docAadhaar', 'Aadhaar / Government ID') },
-        { url: app.gst_doc_url, label: t('admin.docGstCertificate', 'GST Certificate') },
-        { url: app.business_reg_doc_url, label: t('admin.docBusinessRegCertificate', 'Business Registration Certificate') },
-        { url: app.address_proof_doc_url, label: t('admin.docAddressProof', 'Address Proof') },
+        { url: app.business_reg_doc_url, label: 'Business Registration Proof' },
+        { url: app.aadhaar_doc_url || app.id_doc_url, label: 'Aadhaar Card' },
+        { url: app.pan_doc_url, label: 'PAN Card' },
+        { url: app.gst_doc_url, label: 'GST Certificate' },
+        { url: app.address_proof_doc_url, label: 'Address Proof' },
       ].filter((d) => d.url);
       return (
         <div className="space-y-4">
           <h4 className="text-sm font-semibold text-navy-900 flex items-center gap-2">
-            <FileText className="h-4 w-4 text-navy-400" /> {t('admin.submittedDocuments', 'Submitted Documents')}
+            <FileText className="h-4 w-4 text-navy-400" /> Submitted Partner Documents
           </h4>
           {docs.length === 0 ? (
             <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-3">
               <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
-              <p className="text-sm text-amber-800">{t('admin.noDocumentsUploadedApplicant', 'No documents uploaded by the applicant.')}</p>
+              <p className="text-sm text-amber-800">No documents uploaded by the applicant.</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -1570,7 +1594,7 @@ function PartnerStepContent({
             <p className="text-xs font-semibold text-navy-600 uppercase tracking-wider">{t('admin.verificationChecklist', 'Verification Checklist')}</p>
             <CheckboxItem
               id="docs_inspected"
-              label={t('admin.checkDocsClear', 'All uploaded documents inspected and verified')}
+              label="All uploaded business and financial documents inspected and verified"
               checked={!!checks.docs_inspected}
               onChange={(c) => onCheckChange('docs_inspected', c)}
               disabled={disabled}

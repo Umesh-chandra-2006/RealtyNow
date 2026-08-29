@@ -83,8 +83,8 @@ export function AgentsPage() {
             </span>
             <span className="text-xs font-semibold text-slate-500">Certified Real Estate Advisors</span>
           </div>
-          <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-900">
-            Our Top Agents
+          <h1 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
+            Our Top <span className="text-red-600">Agents</span>
           </h1>
           <p className="mt-2 text-sm sm:text-base text-slate-600 max-w-2xl font-medium">
             Meet our experienced real estate professionals ready to help you discover, evaluate, and close your dream property.

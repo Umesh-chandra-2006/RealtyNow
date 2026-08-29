@@ -277,7 +277,7 @@ export const AppShowcase: React.FC = () => {
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 text-center divide-x divide-slate-200/60">
                 <div className="flex items-center justify-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-red-600" />
-                  <span className="text-xs font-bold text-slate-800">Trusted by 10,000+ Users</span>
+                  <span className="text-xs font-bold text-slate-800">Trusted Real Estate Platform</span>
                 </div>
                 <div className="flex items-center justify-center gap-2">
                   <Lock className="h-4 w-4 text-red-600" />

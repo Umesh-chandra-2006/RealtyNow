@@ -514,7 +514,7 @@ export function OtpLoginPage() {
                 <Star className="h-3.5 w-3.5 fill-gold-400 text-gold-400" /> 4.9/5 rated
               </span>
               <span className="h-3 w-px bg-white/15" />
-              <span>10,000+ verified listings</span>
+              <span>Verified real estate listings</span>
             </motion.div>
           </div>
 

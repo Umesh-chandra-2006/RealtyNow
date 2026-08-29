@@ -39,8 +39,8 @@ export function BuildersPage() {
       <div className="container-wide">
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-1.5">
-            <h1 className="font-display text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
-              Verified Builders
+            <h1 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
+              Verified <span className="text-red-600">Builders</span>
             </h1>
             <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-0.5 text-[10px] font-bold text-red-600 border border-red-100">
               <BadgeCheck className="h-3 w-3" /> RealtyNow Verified

@@ -236,17 +236,23 @@ export async function fetchPublicFeaturedProperties(cityId?: string): Promise<an
       }
     }
 
-    // 2. Fallback to properties where is_featured = true
+    // 2. Fetch properties where is_featured = true or newest published real-time inventory
     let legacyQuery = supabase
       .from('v_properties_search')
       .select('*')
-      .eq('is_featured', true)
+      .or('status.eq.published,status.eq.live,is_live.eq.true')
+      .order('is_featured', { ascending: false })
+      .order('created_at', { ascending: false })
       .limit(20);
+
+    if (cityId) {
+      legacyQuery = legacyQuery.eq('city_id', cityId);
+    }
 
     const { data: legacyData } = await legacyQuery;
     return (legacyData || []).map((p) => ({
       ...p,
-      _isFeaturedProperty: true,
+      _isFeaturedProperty: Boolean(p.is_featured),
     }));
   } catch (err) {
     console.error('Error fetching public featured properties:', err);

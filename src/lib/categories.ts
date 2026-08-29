@@ -248,21 +248,31 @@ export function normalizeCategorySlug(raw?: string | null): CategorySlug | null 
   if (
     s === 'apartment' ||
     s === 'apartments' ||
+    s === 'apartmnt' ||
+    s === 'apartmnts' ||
+    s === 'appartment' ||
+    s === 'appartments' ||
     s === 'flat' ||
     s === 'flats' ||
     s === 'builder-floor' ||
     s === 'studio' ||
     s === 'penthouse' ||
-    s === 'residential-apartment'
+    s === 'residential-apartment' ||
+    s === 'residential'
   ) {
     return 'apartment';
   }
   if (
     s === 'villa' ||
     s === 'villas' ||
+    s === 'vila' ||
+    s === 'vilas' ||
     s === 'bungalow' ||
+    s === 'bungalows' ||
     s === 'duplex' ||
-    s === 'luxury-villa'
+    s === 'triplex' ||
+    s === 'luxury-villa' ||
+    s === 'gated-villa'
   ) {
     return 'villa';
   }
@@ -272,7 +282,10 @@ export function normalizeCategorySlug(raw?: string | null): CategorySlug | null 
     s === 'house' ||
     s === 'houses' ||
     s === 'row-house' ||
-    s === 'individual-house'
+    s === 'row-houses' ||
+    s === 'individual-house' ||
+    s === 'kothi' ||
+    s === 'haveli'
   ) {
     return 'independent-house';
   }
@@ -280,10 +293,12 @@ export function normalizeCategorySlug(raw?: string | null): CategorySlug | null 
     s === 'commercial-office' ||
     s === 'commercialoffice' ||
     s === 'office' ||
+    s === 'offices' ||
     s === 'office-space' ||
     s === 'commercial-space' ||
     s === 'it-park' ||
-    s === 'business-center'
+    s === 'business-center' ||
+    s === 'commercial'
   ) {
     return 'commercial-office';
   }
@@ -294,6 +309,7 @@ export function normalizeCategorySlug(raw?: string | null): CategorySlug | null 
     s === 'shops' ||
     s === 'retail' ||
     s === 'showroom' ||
+    s === 'showrooms' ||
     s === 'commercial-shop'
   ) {
     return 'retail-shop';
@@ -302,6 +318,7 @@ export function normalizeCategorySlug(raw?: string | null): CategorySlug | null 
     s === 'warehouse' ||
     s === 'warehouses' ||
     s === 'godown' ||
+    s === 'godowns' ||
     s === 'industrial-shed' ||
     s === 'cold-storage'
   ) {
@@ -311,11 +328,14 @@ export function normalizeCategorySlug(raw?: string | null): CategorySlug | null 
     s === 'plots' ||
     s === 'plot' ||
     s === 'land' ||
+    s === 'lands' ||
     s === 'open-plot' ||
     s === 'open-plots' ||
-    s === 'residential-land' ||
-    s === 'commercial-land' ||
-    s === 'farm-land'
+    s === 'residential-plot' ||
+    s === 'residential-plots' ||
+    s === 'commercial-plot' ||
+    s === 'farm-land' ||
+    s === 'farm-plot'
   ) {
     return 'plots';
   }
@@ -345,89 +365,125 @@ export function getCategoryMeta(raw?: string | null): CategoryMeta | null {
 
 /**
  * Categorizes a property record into one of the 8 canonical CategorySlugs
- * matching the EXACT filtering logic used by buildPublishedQuery.
+ * by inspecting all metadata signals (type name, category, title, description, purpose).
  */
 export function categorizeProperty(property: {
   property_type_name?: string | null;
   property_type_category?: string | null;
+  listing_category?: string | null;
+  property_sub_type?: string | null;
+  title?: string | null;
+  description?: string | null;
   purpose?: string | null;
+  plot_details?: any;
 }): CategorySlug | null {
   const name = (property.property_type_name || '').trim();
-  const cat = (property.property_type_category || '').trim();
+  const cat = (property.property_type_category || property.listing_category || '').trim();
+  const subType = (property.property_sub_type || '').trim();
+  const title = (property.title || '').trim();
+  const desc = (property.description || '').trim();
   const purp = (property.purpose || '').trim();
 
   const lowerName = name.toLowerCase();
   const lowerCat = cat.toLowerCase();
+  const lowerSubType = subType.toLowerCase();
   const lowerPurp = purp.toLowerCase();
+  const lowerTitle = title.toLowerCase();
+  const lowerDesc = desc.toLowerCase();
 
-  // 1. Co-working / PG
+  const primarySignals = `${lowerName} ${lowerCat} ${lowerSubType}`.trim();
+  const allSignals = `${primarySignals} ${lowerTitle} ${lowerDesc}`.trim();
+
+  // 1. Direct Slug Normalization on explicit type fields
+  const directSlug = normalizeCategorySlug(name) || normalizeCategorySlug(subType);
+  if (directSlug) return directSlug;
+
+  // 2. Co-working / PG
   if (
     lowerPurp === 'pg' ||
     lowerPurp === 'coliving' ||
     lowerPurp === 'co-living' ||
     lowerPurp === 'hostel' ||
-    /co-?working|pg|coliving|hostel|shared\s*office/.test(lowerName)
+    /co-?working|pg\b|coliving|hostel|shared\s*office/.test(primarySignals) ||
+    /co-?working|coliving|shared\s*office/.test(lowerTitle)
   ) {
-    if (!/villa|plot|land|warehouse/.test(lowerName)) {
+    if (!/villa|plot|land|warehouse/.test(primarySignals)) {
       return 'co-working';
     }
   }
 
-  // 2. Plots & Land
+  // 3. Plots & Land
   if (
     lowerCat === 'plot' ||
-    /plot|land/.test(lowerName)
+    property.plot_details != null ||
+    /\b(open\s*plots?|residential\s*plots?|commercial\s*plots?|farm\s*lands?|plots?|lands?|guntas?|sq\.?\s*yds?|acres?)\b/i.test(primarySignals) ||
+    (/\b(open\s*plots?|residential\s*plots?|commercial\s*plots?|farm\s*lands?|plots?|acres?)\b/i.test(lowerTitle) &&
+      !/\b(apartment|flat|flats|villa|villas|house|building|floor)\b/i.test(lowerTitle))
   ) {
-    if (!/apartment|flat|villa|house|office|shop|warehouse/.test(lowerName)) {
-      return 'plots';
-    }
+    return 'plots';
   }
 
-  // 3. Warehouse
-  if (/warehouse|godown|industrial\s*shed|cold\s*storage/.test(lowerName)) {
-    if (!/office|shop|apartment|flat|villa|plot|land/.test(lowerName)) {
-      return 'warehouse';
-    }
-  }
-
-  // 4. Retail Shop
-  if (/shop|retail|showroom|commercial\s*shop/.test(lowerName)) {
-    if (!/office|warehouse|apartment|flat|villa|plot|land/.test(lowerName)) {
-      return 'retail-shop';
-    }
-  }
-
-  // 5. Commercial Office
-  if (/office|commercial\s*space|it\s*park|business\s*center|commercial\s*office/.test(lowerName)) {
-    if (!/shop|retail|showroom|warehouse|apartment|flat|villa|plot|land/.test(lowerName)) {
-      return 'commercial-office';
-    }
-  }
-
-  // 6. Independent House
+  // 4. Villa / Duplex / Bungalow
   if (
-    /independent\s*house|row\s*house|individual\s*house/.test(lowerName) ||
-    (lowerName === 'house' && !/apartment|villa|shop|office/.test(lowerName))
+    /\b(villas?|vilas?|bungalows?|duplex|triplex|luxury\s*villa|gated\s*villa)\b/i.test(primarySignals) ||
+    /\b(villas?|vilas?|bungalows?|duplex\s*villa|luxury\s*villa|gated\s*villa)\b/i.test(lowerTitle)
   ) {
-    if (!/villa|apartment|flat|plot|land|office|shop|warehouse/.test(lowerName)) {
-      return 'independent-house';
-    }
+    return 'villa';
   }
 
-  // 7. Villa
-  if (/villa|bungalow|duplex/.test(lowerName)) {
-    if (!/apartment|flat|independent\s*house|plot|land|office|shop|warehouse/.test(lowerName)) {
-      return 'villa';
-    }
+  // 5. Independent House / Row House / Individual House
+  if (
+    /\b(independent\s*houses?|row\s*houses?|individual\s*houses?|kothi|haveli|houses?|g\+1|g\+2|g\+3)\b/i.test(primarySignals) ||
+    /\b(independent\s*houses?|individual\s*houses?|row\s*houses?)\b/i.test(lowerTitle)
+  ) {
+    return 'independent-house';
   }
 
-  // 8. Apartment
-  if (/apartment|flat|builder\s*floor|studio|penthouse/.test(lowerName)) {
-    if (!/villa|independent\s*house|individual\s*house|plot|land|office|shop|warehouse/.test(lowerName)) {
-      return 'apartment';
-    }
+  // 6. Warehouse / Godown / Industrial
+  if (
+    /\b(warehouses?|godowns?|industrial\s*sheds?|cold\s*storages?)\b/i.test(primarySignals) ||
+    /\b(warehouses?|godowns?|industrial\s*shed)\b/i.test(lowerTitle)
+  ) {
+    return 'warehouse';
   }
 
-  // Fallback using normalizer
-  return normalizeCategorySlug(name) || (lowerCat === 'plot' ? 'plots' : lowerCat === 'commercial' ? 'commercial-office' : null);
+  // 7. Retail Shop / Showroom
+  if (
+    /\b(shops?|retails?|showrooms?|commercial\s*shops?)\b/i.test(primarySignals) ||
+    /\b(retail\s*shops?|showrooms?|commercial\s*shop)\b/i.test(lowerTitle)
+  ) {
+    return 'retail-shop';
+  }
+
+  // 8. Commercial Office
+  if (
+    lowerCat === 'commercial' ||
+    /\b(commercial\s*offices?|offices?|commercial\s*spaces?|it\s*parks?|business\s*centers?)\b/i.test(primarySignals) ||
+    /\b(commercial\s*offices?|office\s*space|it\s*park|business\s*center)\b/i.test(lowerTitle)
+  ) {
+    return 'commercial-office';
+  }
+
+  // 9. Apartment / Flat / Studio / Penthouse
+  if (
+    /\b(apartments?|flats?|builder\s*floors?|studios?|penthouses?|\d\s*bhk)\b/i.test(primarySignals) ||
+    /\b(apartments?|flats?|penthouses?|studios?|\d\s*bhk)\b/i.test(lowerTitle)
+  ) {
+    return 'apartment';
+  }
+
+  // 10. Secondary Title Fallback
+  if (/\b(villas?|vilas?|bungalows?)\b/i.test(lowerTitle)) return 'villa';
+  if (/\b(plots?|lands?)\b/i.test(lowerTitle)) return 'plots';
+  if (/\b(houses?)\b/i.test(lowerTitle)) return 'independent-house';
+  if (/\b(apartments?|flats?)\b/i.test(lowerTitle)) return 'apartment';
+  if (/\b(offices?)\b/i.test(lowerTitle)) return 'commercial-office';
+  if (/\b(shops?)\b/i.test(lowerTitle)) return 'retail-shop';
+
+  // 11. Category Default
+  if (lowerCat === 'residential') return 'apartment';
+  if (lowerCat === 'commercial') return 'commercial-office';
+  if (lowerCat === 'plot') return 'plots';
+
+  return normalizeCategorySlug(name) || normalizeCategorySlug(subType) || null;
 }

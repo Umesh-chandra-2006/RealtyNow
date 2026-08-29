@@ -2,6 +2,7 @@ import { supabase } from './supabase';
 import { checkListingLimit } from './listing-limits';
 import { ensureUserProfile } from './profile-utils';
 import type { Property, PropertyStatus } from './types';
+import { matchesAllAmenities, getAmenityAliases } from './amenities';
 
 export interface PropertyFilters {
   purpose?: string;
@@ -84,54 +85,116 @@ export function sanitizeSearchQuery(raw: string): string {
 
 // ─── Property Term Dictionary ──────────────────────────────────────────────
 // Maps plural / synonym / alternate forms → canonical singular DB term.
-// The DB stores property_type_name values like "Open Plot", "Flat", "Villa",
-// so we normalize user queries to match the singular form stored there.
 const PROPERTY_TERM_MAP: Record<string, string> = {
   // Plots / Land
   plots: 'plot',
+  plot: 'plot',
   'plot land': 'plot',
   'land plot': 'plot',
   'land plots': 'plot',
   'open plots': 'open plot',
+  'open plot': 'open plot',
   'residential plots': 'residential plot',
+  'residential plot': 'residential plot',
   'commercial plots': 'commercial plot',
+  'commercial plot': 'commercial plot',
   'farm plots': 'farm land',
+  'farm plot': 'farm land',
   'farm lands': 'farm land',
+  'farm land': 'farm land',
   lands: 'land',
+  land: 'land',
+
   // Apartments / Flats
   apartments: 'apartment',
+  apartment: 'apartment',
+  apartmnt: 'apartment',
+  apartmnts: 'apartment',
+  appartment: 'apartment',
+  appartments: 'apartment',
   flats: 'flat',
+  flat: 'flat',
   'builder floors': 'builder floor',
+  'builder floor': 'builder floor',
   penthouses: 'penthouse',
+  penthouse: 'penthouse',
   studios: 'studio',
+  studio: 'studio',
+
   // Villas
   villas: 'villa',
+  villa: 'villa',
+  vilas: 'villa',
+  vila: 'villa',
   bungalows: 'bungalow',
+  bungalow: 'bungalow',
   duplexes: 'duplex',
+  duplex: 'duplex',
+  triplex: 'duplex',
+  'luxury villa': 'villa',
+  'luxury villas': 'villa',
+  'gated villa': 'villa',
+  'gated villas': 'villa',
+
   // Houses
   houses: 'house',
+  house: 'house',
   homes: 'home',
+  home: 'home',
   'row houses': 'row house',
+  'row house': 'row house',
+  'independent houses': 'independent house',
+  'independent house': 'independent house',
+  'individual house': 'independent house',
+  'individual houses': 'independent house',
+  kothi: 'independent house',
+  haveli: 'independent house',
+
   // Offices
   offices: 'office',
+  office: 'office',
+  'commercial offices': 'commercial office',
+  'commercial office': 'commercial office',
+  'commercial spaces': 'commercial space',
+  'commercial space': 'commercial space',
+  'it parks': 'it park',
+  'it park': 'it park',
+
   // Shops
   shops: 'shop',
+  shop: 'shop',
   showrooms: 'showroom',
+  showroom: 'showroom',
+  'retail shops': 'retail shop',
+  'retail shop': 'retail shop',
+
   // Warehouses
   warehouses: 'warehouse',
+  warehouse: 'warehouse',
   godowns: 'godown',
+  godown: 'godown',
+
+  // Co-working
+  coworking: 'co-working',
+  'co-working': 'co-working',
+  coliving: 'co-working',
+  'co-living': 'co-working',
+  hostel: 'co-working',
+  pg: 'co-working',
+
   // Projects
   projects: 'project',
+  project: 'project',
 };
 
 // Category-only terms — when the entire query resolves to one of these,
 // it means the user's intent is captured by the category filter alone;
 // we skip the redundant search_text ILIKE to avoid over-filtering.
 const PURE_CATEGORY_TERMS = new Set([
-  'plot', 'plots', 'land', 'open plot', 'open plots', 'residential plot',
+  'plot', 'plots', 'land', 'lands', 'open plot', 'open plots', 'residential plot',
   'residential plots', 'apartment', 'apartments', 'flat', 'flats',
-  'villa', 'villas', 'house', 'houses', 'independent house',
-  'commercial office', 'office', 'retail shop', 'shop', 'warehouse',
+  'villa', 'villas', 'vilas', 'vila', 'house', 'houses', 'independent house',
+  'commercial office', 'office', 'offices', 'retail shop', 'shop', 'shops', 'warehouse',
   'co-working', 'coworking', 'pg',
 ]);
 
@@ -180,7 +243,7 @@ export function normalizeSearchQuery(raw: string): {
     const normalized = PROPERTY_TERM_MAP[lower];
     return {
       normalized,
-      isCategoryOnly: PURE_CATEGORY_TERMS.has(normalized),
+      isCategoryOnly: PURE_CATEGORY_TERMS.has(lower) || PURE_CATEGORY_TERMS.has(normalized),
       isPurposeOnly: false,
     };
   }
@@ -192,7 +255,7 @@ export function normalizeSearchQuery(raw: string): {
 
   return {
     normalized,
-    isCategoryOnly: PURE_CATEGORY_TERMS.has(normalized),
+    isCategoryOnly: PURE_CATEGORY_TERMS.has(lower) || PURE_CATEGORY_TERMS.has(normalized),
     isPurposeOnly: false,
   };
 }
@@ -222,103 +285,200 @@ export function buildPublishedQuery(filters: PropertyFilters = {}) {
     }
   }
 
-  // Canonical Category Filtering & Strict Isolation
+  // Canonical Category Filtering
   const categorySlug = normalizeCategorySlug(filters.category || filters.type);
   if (categorySlug) {
     switch (categorySlug) {
       case 'apartment':
-        q = q
-          .or('property_type_name.ilike.%Apartment%,property_type_name.ilike.%Flat%,property_type_name.ilike.%Builder Floor%,property_type_name.ilike.%Studio%,property_type_name.ilike.%Penthouse%')
-          .not('property_type_name', 'ilike', '%Villa%')
-          .not('property_type_name', 'ilike', '%Independent House%')
-          .not('property_type_name', 'ilike', '%Plot%')
-          .not('property_type_name', 'ilike', '%Land%')
-          .not('property_type_name', 'ilike', '%Office%')
-          .not('property_type_name', 'ilike', '%Shop%')
-          .not('property_type_name', 'ilike', '%Warehouse%');
+        q = q.or(
+          'property_type_name.ilike.%Apartment%,property_type_name.ilike.%Flat%,property_type_name.ilike.%Builder Floor%,property_type_name.ilike.%Studio%,property_type_name.ilike.%Penthouse%,title.ilike.%Apartment%,title.ilike.%Flat%,title.ilike.%Penthouse%'
+        );
         break;
 
       case 'villa':
-        q = q
-          .or('property_type_name.ilike.%Villa%,property_type_name.ilike.%Bungalow%,property_type_name.ilike.%Duplex%')
-          .not('property_type_name', 'ilike', '%Apartment%')
-          .not('property_type_name', 'ilike', '%Flat%')
-          .not('property_type_name', 'ilike', '%Independent House%')
-          .not('property_type_name', 'ilike', '%Plot%')
-          .not('property_type_name', 'ilike', '%Land%')
-          .not('property_type_name', 'ilike', '%Office%')
-          .not('property_type_name', 'ilike', '%Shop%')
-          .not('property_type_name', 'ilike', '%Warehouse%');
+        q = q.or(
+          'property_type_name.ilike.%Villa%,property_type_name.ilike.%Bungalow%,property_type_name.ilike.%Duplex%,title.ilike.%Villa%,title.ilike.%Villas%,title.ilike.%Vilas%,title.ilike.%Duplex%,property_sub_type.ilike.%villa%'
+        );
         break;
 
       case 'independent-house':
-        q = q
-          .or('property_type_name.ilike.%Independent House%,property_type_name.ilike.%Row House%,property_type_name.ilike.%Individual House%')
-          .not('property_type_name', 'ilike', '%Villa%')
-          .not('property_type_name', 'ilike', '%Apartment%')
-          .not('property_type_name', 'ilike', '%Flat%')
-          .not('property_type_name', 'ilike', '%Plot%')
-          .not('property_type_name', 'ilike', '%Office%')
-          .not('property_type_name', 'ilike', '%Shop%')
-          .not('property_type_name', 'ilike', '%Warehouse%');
+        q = q.or(
+          'property_type_name.ilike.%Independent House%,property_type_name.ilike.%Row House%,property_type_name.ilike.%Individual House%,title.ilike.%Independent House%,title.ilike.%Row House%,title.ilike.%Individual House%,title.ilike.%House%'
+        );
         break;
 
       case 'commercial-office':
-        q = q
-          .or('property_type_name.ilike.%Office%,property_type_name.ilike.%Commercial Space%,property_type_name.ilike.%IT Park%,property_type_name.ilike.%Business Center%')
-          .not('property_type_name', 'ilike', '%Shop%')
-          .not('property_type_name', 'ilike', '%Retail%')
-          .not('property_type_name', 'ilike', '%Warehouse%')
-          .not('property_type_name', 'ilike', '%Apartment%')
-          .not('property_type_name', 'ilike', '%Villa%')
-          .not('property_type_name', 'ilike', '%Plot%');
+        q = q.or(
+          'property_type_name.ilike.%Office%,property_type_name.ilike.%Commercial Space%,property_type_name.ilike.%IT Park%,property_type_name.ilike.%Business Center%,title.ilike.%Office%,title.ilike.%IT Park%'
+        );
         break;
 
       case 'retail-shop':
-        q = q
-          .or('property_type_name.ilike.%Shop%,property_type_name.ilike.%Retail%,property_type_name.ilike.%Showroom%')
-          .not('property_type_name', 'ilike', '%Office%')
-          .not('property_type_name', 'ilike', '%Warehouse%')
-          .not('property_type_name', 'ilike', '%Apartment%')
-          .not('property_type_name', 'ilike', '%Villa%')
-          .not('property_type_name', 'ilike', '%Plot%');
+        q = q.or(
+          'property_type_name.ilike.%Shop%,property_type_name.ilike.%Retail%,property_type_name.ilike.%Showroom%,title.ilike.%Shop%,title.ilike.%Showroom%,title.ilike.%Retail%'
+        );
         break;
 
       case 'warehouse':
-        q = q
-          .or('property_type_name.ilike.%Warehouse%,property_type_name.ilike.%Godown%,property_type_name.ilike.%Industrial Shed%,property_type_name.ilike.%Cold Storage%')
-          .not('property_type_name', 'ilike', '%Office%')
-          .not('property_type_name', 'ilike', '%Shop%')
-          .not('property_type_name', 'ilike', '%Apartment%')
-          .not('property_type_name', 'ilike', '%Villa%')
-          .not('property_type_name', 'ilike', '%Plot%');
+        q = q.or(
+          'property_type_name.ilike.%Warehouse%,property_type_name.ilike.%Godown%,property_type_name.ilike.%Industrial Shed%,property_type_name.ilike.%Cold Storage%,title.ilike.%Warehouse%,title.ilike.%Godown%'
+        );
         break;
 
       case 'plots':
-        q = q
-          .or('property_type_category.eq.Plot,property_type_name.ilike.%Plot%,property_type_name.ilike.%Land%')
-          .not('property_type_name', 'ilike', '%Apartment%')
-          .not('property_type_name', 'ilike', '%Villa%')
-          .not('property_type_name', 'ilike', '%House%')
-          .not('property_type_name', 'ilike', '%Office%')
-          .not('property_type_name', 'ilike', '%Shop%')
-          .not('property_type_name', 'ilike', '%Warehouse%');
+        q = q.or(
+          'property_type_category.eq.Plot,property_type_name.ilike.%Plot%,property_type_name.ilike.%Land%,title.ilike.%Plot%,title.ilike.%Plots%,title.ilike.%Land%'
+        );
         break;
 
       case 'co-working':
-        q = q
-          .or('purpose.ilike.pg,purpose.ilike.coliving,purpose.ilike.hostel,property_type_name.ilike.%PG%,property_type_name.ilike.%Co-working%,property_type_name.ilike.%Coworking%,property_type_name.ilike.%Shared Office%')
-          .not('property_type_name', 'ilike', '%Villa%')
-          .not('property_type_name', 'ilike', '%Plot%')
-          .not('property_type_name', 'ilike', '%Warehouse%');
+        q = q.or(
+          'purpose.ilike.pg,purpose.ilike.coliving,purpose.ilike.hostel,property_type_name.ilike.%PG%,property_type_name.ilike.%Co-working%,property_type_name.ilike.%Coworking%,property_type_name.ilike.%Shared Office%,title.ilike.%Co-working%,title.ilike.%PG%'
+        );
         break;
     }
   } else if (filters.category && !categorySlug) {
-    q = q.or(`property_type_category.ilike.%${filters.category}%,property_type_name.ilike.%${filters.category}%`);
+    q = q.or(`property_type_category.ilike.%${filters.category}%,property_type_name.ilike.%${filters.category}%,title.ilike.%${filters.category}%`);
   }
 
-  if (filters.city_id) q = q.eq('city_id', filters.city_id);
-  if (filters.locality_id) q = q.eq('locality_id', filters.locality_id);
+  if (filters.city_id) {
+    const rawCity = String(filters.city_id).trim();
+    const isUuid = /^[0-9a-f-]{36}$/i.test(rawCity);
+    const cleanCityName = rawCity.replace(/^city-/i, '').replace(/[-_]/g, ' ').trim();
+
+    const knownMeta = isUuid
+      ? filters.city_id === 'fa963656-a6dc-4167-ae42-6dab041befe6' || filters.city_id === '04ec1d24-d2e8-4ee7-91aa-90fb4dfd3b9e'
+        ? { name: 'Hyderabad', state: 'Telangana' }
+        : filters.city_id === '19e37a80-ae99-4744-a7f5-afa80a562e17'
+        ? { name: 'Bengaluru', state: 'Karnataka' }
+        : filters.city_id === '55d44733-a456-4658-abad-4703db58746f'
+        ? { name: 'Mumbai', state: 'Maharashtra' }
+        : filters.city_id === '884978e6-fcff-4131-99ac-ebc433e98fe3'
+        ? { name: 'Pune', state: 'Maharashtra' }
+        : filters.city_id === 'a2c0d466-47f9-4295-81e4-12ffd4fc7e20'
+        ? { name: 'Gurugram', state: 'Haryana' }
+        : filters.city_id === '78192cc7-014e-48ea-a019-f2b901598dea'
+        ? { name: 'Noida', state: 'Uttar Pradesh' }
+        : filters.city_id === '4cf29f86-6208-4f75-aed7-3cb5332a2b46'
+        ? { name: 'Chennai', state: 'Tamil Nadu' }
+        : filters.city_id === 'f20db5de-d119-4ca6-9a42-1c8d5807cfa9'
+        ? { name: 'Delhi', state: 'Delhi' }
+        : filters.city_id === 'c9df9489-7115-44d3-bc9d-0f8a7c090727'
+        ? { name: 'Kolkata', state: 'West Bengal' }
+        : filters.city_id === '4098e626-f00c-4fb0-8052-724927539d6d'
+        ? { name: 'Ahmedabad', state: 'Gujarat' }
+        : null
+      : null;
+
+    const cityName = knownMeta?.name || cleanCityName;
+    const stateName = knownMeta?.state || null;
+
+    const parts: string[] = [];
+    if (isUuid) {
+      parts.push(`city_id.eq.${rawCity}`);
+    }
+    if (cityName) {
+      parts.push(`city_name.ilike.%${cityName}%`);
+      parts.push(`city.ilike.%${cityName}%`);
+      parts.push(`address.ilike.%${cityName}%`);
+      parts.push(`search_text.ilike.%${cityName}%`);
+      parts.push(`formatted_address.ilike.%${cityName}%`);
+      parts.push(`draft_data->>city_name.ilike.%${cityName}%`);
+      parts.push(`draft_data->>locality_name.ilike.%${cityName}%`);
+    }
+    if (stateName) {
+      parts.push(`draft_data->>state_name.ilike.%${stateName}%`);
+      parts.push(`state.ilike.%${stateName}%`);
+    }
+    // If locality is also specified, ensure locality matches satisfy the city filter
+    if (filters.locality_id) {
+      const cleanLoc = String(filters.locality_id).replace(/^area-[^-]+-/i, '').replace(/[-_]/g, ' ').trim();
+      if (cleanLoc && !/^[0-9a-f-]{36}$/i.test(cleanLoc)) {
+        parts.push(`locality_name.ilike.%${cleanLoc}%`);
+        parts.push(`locality.ilike.%${cleanLoc}%`);
+        parts.push(`area.ilike.%${cleanLoc}%`);
+        parts.push(`location_name.ilike.%${cleanLoc}%`);
+        parts.push(`district.ilike.%${cleanLoc}%`);
+        parts.push(`title.ilike.%${cleanLoc}%`);
+        parts.push(`address.ilike.%${cleanLoc}%`);
+        parts.push(`search_text.ilike.%${cleanLoc}%`);
+      }
+    }
+
+    if (parts.length > 0) {
+      q = q.or(parts.join(','));
+    }
+  }
+
+  if (filters.locality_id) {
+    const rawLocality = String(filters.locality_id).trim();
+    const isUuid = /^[0-9a-f-]{36}$/i.test(rawLocality);
+    const cleanLocality = rawLocality.replace(/^area-[^-]+-/i, '').replace(/[-_]/g, ' ').trim();
+
+    if (isUuid) {
+      q = q.eq('locality_id', rawLocality);
+    } else if (cleanLocality) {
+      const lowerLoc = cleanLocality.toLowerCase();
+      const orParts = new Set<string>();
+
+      orParts.add(`locality_name.ilike.%${cleanLocality}%`);
+      orParts.add(`locality.ilike.%${cleanLocality}%`);
+      orParts.add(`area.ilike.%${cleanLocality}%`);
+      orParts.add(`location_name.ilike.%${cleanLocality}%`);
+      orParts.add(`district.ilike.%${cleanLocality}%`);
+      orParts.add(`city.ilike.%${cleanLocality}%`);
+      orParts.add(`city_name.ilike.%${cleanLocality}%`);
+      orParts.add(`address.ilike.%${cleanLocality}%`);
+      orParts.add(`formatted_address.ilike.%${cleanLocality}%`);
+      orParts.add(`draft_data->>locality_name.ilike.%${cleanLocality}%`);
+      orParts.add(`draft_data->>city_name.ilike.%${cleanLocality}%`);
+      orParts.add(`draft_data->>address.ilike.%${cleanLocality}%`);
+      orParts.add(`search_text.ilike.%${cleanLocality}%`);
+      orParts.add(`title.ilike.%${cleanLocality}%`);
+
+      // Special alias/spelling variation handlers
+      if (lowerLoc.includes('serlingampall') || lowerLoc.includes('serilingampall') || lowerLoc.includes('lingampall')) {
+        orParts.add('locality_name.ilike.%serlingampall%');
+        orParts.add('locality_name.ilike.%serilingampall%');
+        orParts.add('title.ilike.%serlingampall%');
+        orParts.add('title.ilike.%serilingampall%');
+        orParts.add('search_text.ilike.%serlingampall%');
+        orParts.add('search_text.ilike.%serilingampall%');
+      }
+
+      if (lowerLoc.includes('bodup') || lowerLoc.includes('bodi')) {
+        orParts.add('locality_name.ilike.%boduppal%');
+        orParts.add('title.ilike.%boduppal%');
+        orParts.add('search_text.ilike.%boduppal%');
+      }
+
+      if (lowerLoc.includes('kphb') || lowerLoc.includes('kukat')) {
+        orParts.add('locality_name.ilike.%kphb%');
+        orParts.add('locality_name.ilike.%kukatpally%');
+        orParts.add('search_text.ilike.%kphb%');
+        orParts.add('search_text.ilike.%kukatpally%');
+      }
+
+      if (lowerLoc.includes('shadnag') || lowerLoc.includes('shad nagar')) {
+        orParts.add('locality_name.ilike.%shadnagar%');
+        orParts.add('title.ilike.%shadnagar%');
+        orParts.add('search_text.ilike.%shadnagar%');
+        orParts.add('city.ilike.%shadnagar%');
+        orParts.add('district.ilike.%shadnagar%');
+      }
+
+      // Word tokens > 2 chars
+      const words = cleanLocality.split(/[\s,()]+/).filter((w) => w.length > 2);
+      for (const w of words) {
+        orParts.add(`locality_name.ilike.%${w}%`);
+        orParts.add(`address.ilike.%${w}%`);
+        orParts.add(`search_text.ilike.%${w}%`);
+        orParts.add(`title.ilike.%${w}%`);
+      }
+
+      q = q.or(Array.from(orParts).join(','));
+    }
+  }
   if (filters.property_type_id) q = q.eq('property_type_id', filters.property_type_id);
   if (filters.min_price != null) q = q.gte('price', filters.min_price);
   if (filters.max_price != null) q = q.lte('price', filters.max_price);
@@ -329,50 +489,79 @@ export function buildPublishedQuery(filters: PropertyFilters = {}) {
   if (filters.parking != null) q = q.gte('parking', filters.parking);
   if (filters.furnishing) q = q.eq('furnishing', filters.furnishing);
   if (filters.facing) q = q.eq('facing', filters.facing);
-  if (filters.possession_status) q = q.eq('possession_status', filters.possession_status);
+  if (filters.possession_status) {
+    if (filters.possession_status === 'Under Construction') {
+      q = q.or('possession_status.eq.Under Construction,possession_status.ilike.%Under Construction%,draft_data->>construction_status.ilike.%Under Construction%,draft_data->>age_of_property.ilike.%Under Construction%');
+    } else if (filters.possession_status === 'New Launch') {
+      q = q.or('possession_status.eq.New Launch,possession_status.ilike.%New Launch%,draft_data->>construction_status.ilike.%New Launch%,draft_data->>age_of_property.ilike.%New Launch%');
+    } else if (filters.possession_status === 'Ready to Move') {
+      q = q.or('possession_status.eq.Ready to Move,possession_status.ilike.%Ready to Move%,draft_data->>construction_status.ilike.%Ready to Move%,draft_data->>age_of_property.ilike.%Ready to Move%');
+    } else {
+      q = q.ilike('possession_status', `%${filters.possession_status}%`);
+    }
+  }
   if (filters.verified_status) q = q.eq('verified_status', filters.verified_status);
   if (filters.property_age != null) q = q.lte('age_of_property', filters.property_age);
   if (filters.is_featured) q = q.eq('is_featured', true);
   if (filters.is_luxury) q = q.eq('is_luxury', true);
   
   if (filters.amenities && filters.amenities.length > 0) {
-    q = q.contains('amenities', filters.amenities);
+    const allAliases = Array.from(
+      new Set(filters.amenities.flatMap((a) => getAmenityAliases(a)))
+    );
+    if (allAliases.length > 0) {
+      q = q.overlaps('amenities', allAliases);
+    }
   }
 
   // ── Multi-Token Full-Text & Keyword Search ────────────────────────────────
-  // Normalize the query first to handle plural/synonym forms (e.g. "plots" → "plot")
-  // so that the ILIKE pattern matches the actual singular terms stored in search_text.
-  // When the query is a pure property-category term (e.g. "plots", "apartments") AND
-  // a category filter has already been applied above, we skip the redundant text
-  // search to avoid over-filtering.
   if (filters.q) {
+    const rawLower = filters.q.toLowerCase().trim();
     const { normalized: cleaned, isCategoryOnly, isPurposeOnly } = normalizeSearchQuery(filters.q);
 
-    // If the full query is JUST a category keyword AND the category filter is active,
-    // or if the full query is JUST a transaction purpose keyword (e.g. "sale", "rent"),
-    // skip the text search entirely — the category/purpose block already handles it.
     const categoryAlreadyHandled = !!categorySlug && isCategoryOnly;
     const purposeAlreadyHandled = isPurposeOnly;
 
-    if (cleaned && !categoryAlreadyHandled && !purposeAlreadyHandled) {
+    if (!categoryAlreadyHandled && !purposeAlreadyHandled) {
       const isNumeric = !isNaN(Number(cleaned));
       if (isNumeric) {
         q = q.or(`search_text.ilike.%${cleaned}%,price.eq.${cleaned},rent_amount.eq.${cleaned},price_per_unit.eq.${cleaned}`);
       } else {
-        // Multi-keyword tokenization: split words to support queries like "VIJAYA BHEESHMA" or "2 BHK Kokapet"
-        const tokens = cleaned
-          .split(/\s+/)
-          .filter((w) => w.length > 1 && !['for', 'sale', 'rent', 'buy', 'to', 'in', 'near', 'at', 'with'].includes(w.toLowerCase()));
-        
-        const targetTokens = tokens.length > 0 ? tokens : cleaned.split(/\s+/).filter((w) => w.length > 1);
+        // Build clean search variations for terms (e.g. villa/villas/vilas, plot/plots, flat/flats/apartment)
+        const tokenSet = new Set<string>();
+        const sanitized = `${rawLower} ${cleaned}`.replace(/[,()."'%_]/g, ' ').trim();
 
-        if (targetTokens.length <= 1) {
-          q = q.ilike('search_text', `%${targetTokens[0] || cleaned}%`);
-        } else {
-          // Broad matching: match full phrase or key tokens
-          const phraseMatch = `search_text.ilike.%${cleaned}%`;
+        const words = sanitized
+          .split(/\s+/)
+          .filter((w) => w.length > 1 && !['for', 'sale', 'rent', 'buy', 'to', 'in', 'near', 'at', 'with', 'and'].includes(w));
+
+        for (const w of words) {
+          tokenSet.add(w);
+          if (w === 'villa' || w === 'villas' || w === 'vilas' || w === 'vila') {
+            tokenSet.add('villa');
+            tokenSet.add('villas');
+            tokenSet.add('vilas');
+          } else if (w === 'plot' || w === 'plots' || w === 'land' || w === 'lands') {
+            tokenSet.add('plot');
+            tokenSet.add('plots');
+            tokenSet.add('land');
+          } else if (w === 'apartment' || w === 'apartments' || w === 'flat' || w === 'flats') {
+            tokenSet.add('apartment');
+            tokenSet.add('flat');
+            tokenSet.add('flats');
+          } else if (w === 'house' || w === 'houses') {
+            tokenSet.add('house');
+            tokenSet.add('independent');
+          }
+        }
+
+        const targetTokens = Array.from(tokenSet)
+          .map((t) => t.trim())
+          .filter((t) => t.length > 1 && !t.includes(','));
+
+        if (targetTokens.length > 0) {
           const tokenMatches = targetTokens.map((t) => `search_text.ilike.%${t}%`).join(',');
-          q = q.or(`${phraseMatch},${tokenMatches}`);
+          q = q.or(tokenMatches);
         }
       }
     }
@@ -417,8 +606,16 @@ export async function fetchPublishedProperties(filters: PropertyFilters = {}) {
   const { data, error, count } = await q;
   if (error) throw error;
   
+  let properties = (data ?? []) as Property[];
+  if (filters.amenities && filters.amenities.length > 0) {
+    properties = properties.filter((p) => matchesAllAmenities(p.amenities, filters.amenities));
+  }
+
   // v_properties_search already returns city_name, locality_name, property_type_name, property_type_category
-  return { data: (data ?? []) as Property[], count: count ?? 0 };
+  return {
+    data: properties,
+    count: filters.amenities && filters.amenities.length > 0 ? properties.length : (count ?? 0),
+  };
 }
 
 export async function fetchProperty(id: string) {
@@ -474,8 +671,25 @@ export async function fetchProperty(id: string) {
   } as unknown as Property;
 }
 
-export async function trackPropertyView(propertyId: string, viewerId?: string) {
-  await supabase.from('property_views').insert({ property_id: propertyId, viewer_id: viewerId ?? null });
+export async function trackPropertyView(propertyId: string, viewerId?: string): Promise<number | null> {
+  try {
+    const { data, error } = await supabase.rpc('record_property_view', {
+      p_property_id: propertyId,
+      p_viewer_id: viewerId || null,
+    });
+    if (!error && typeof data === 'number') {
+      return data;
+    }
+  } catch {
+    // Fallback to direct insert if RPC not in schema cache
+  }
+
+  try {
+    await supabase.from('property_views').insert({ property_id: propertyId, viewer_id: viewerId ?? null });
+  } catch (err) {
+    console.debug('Direct property_views insert fallback:', err);
+  }
+  return null;
 }
 
 export async function updatePropertyStatus(id: string, status: PropertyStatus, reason?: string) {

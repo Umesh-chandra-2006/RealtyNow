@@ -23,9 +23,12 @@ interface ScheduleControlProps {
   startAt: string | null;
   endAt: string | null;
   isActive: boolean;
-  onStartChange: (isoString: string | null) => void;
-  onEndChange: (isoString: string | null) => void;
-  onActiveChange: (active: boolean) => void;
+  onStartChange?: (isoString: string | null) => void;
+  onEndChange?: (isoString: string | null) => void;
+  onActiveChange?: (active: boolean) => void;
+  onStartAtChange?: (isoString: string | null) => void;
+  onEndAtChange?: (isoString: string | null) => void;
+  onIsActiveChange?: (active: boolean) => void;
   className?: string;
 }
 
@@ -477,8 +480,14 @@ export function FeaturedScheduleControl({
   onStartChange,
   onEndChange,
   onActiveChange,
+  onStartAtChange,
+  onEndAtChange,
+  onIsActiveChange,
   className,
 }: ScheduleControlProps) {
+  const handleStartChange = onStartChange || onStartAtChange || (() => {});
+  const handleEndChange = onEndChange || onEndAtChange || (() => {});
+  const handleActiveChange = onActiveChange || onIsActiveChange || (() => {});
   const [isStartModalOpen, setIsStartModalOpen] = useState(false);
   const [isEndModalOpen, setIsEndModalOpen] = useState(false);
 
@@ -503,18 +512,18 @@ export function FeaturedScheduleControl({
 
   const handlePublishImmediately = () => {
     const now = new Date();
-    onStartChange(now.toISOString());
-    onActiveChange(true);
+    handleStartChange(now.toISOString());
+    handleActiveChange(true);
   };
 
   const handleNoEndDateToggle = () => {
     if (endAt) {
-      onEndChange(null);
+      handleEndChange(null);
     } else {
       // Default to 7 days from start
       const base = startDateObj || new Date();
       const nextEnd = new Date(base.getTime() + 7 * 24 * 60 * 60 * 1000);
-      onEndChange(nextEnd.toISOString());
+      handleEndChange(nextEnd.toISOString());
     }
   };
 
@@ -625,7 +634,7 @@ export function FeaturedScheduleControl({
             type="button"
             role="switch"
             aria-checked={isActive}
-            onClick={() => onActiveChange(!isActive)}
+            onClick={() => handleActiveChange(!isActive)}
             className={cn(
               'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
               isActive ? 'bg-red-600' : 'bg-slate-300'
@@ -711,7 +720,7 @@ export function FeaturedScheduleControl({
         onClose={() => setIsStartModalOpen(false)}
         title="Schedule Start Date & Time"
         initialValue={startAt}
-        onApply={(iso) => onStartChange(iso)}
+        onApply={(iso) => handleStartChange(iso)}
       />
 
       <DateTimePickerModal
@@ -719,7 +728,7 @@ export function FeaturedScheduleControl({
         onClose={() => setIsEndModalOpen(false)}
         title="Schedule End Date & Time"
         initialValue={endAt}
-        onApply={(iso) => onEndChange(iso)}
+        onApply={(iso) => handleEndChange(iso)}
         minDate={startDateObj}
       />
     </div>

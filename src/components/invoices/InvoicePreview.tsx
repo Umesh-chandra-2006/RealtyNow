@@ -82,7 +82,7 @@ export default function InvoicePreview({ invoice, onPdfGenerated }: InvoicePrevi
       >
         <div className="flex justify-between items-start border-b pb-8 mb-8">
           <div>
-            <Logo size={180} to="#" />
+            <Logo size={180} to="/" />
             <div className="mt-4 text-gray-500 text-sm">
               <p>RealtyNow Private Limited</p>
               <p>123 Real Estate Avenue</p>

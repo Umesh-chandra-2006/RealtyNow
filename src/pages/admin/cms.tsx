@@ -14,6 +14,10 @@ import {
   Edit3,
   Building2,
   MapPin,
+  Trash2,
+  Calendar,
+  Clock,
+  ExternalLink,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useLanguageContext } from '../../lib/i18n/language-context';
@@ -22,6 +26,11 @@ import { getAdminSections } from '../portal/sections';
 import { Button, Input, Textarea, Modal, Badge, Select } from '../../components/ui';
 import { useToast } from '../../components/toast';
 import { cn } from '../../lib/utils';
+
+function toLocalISOString(d = new Date()) {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 export function AdminHomepageCMS() {
   const { t } = useLanguageContext();
@@ -43,31 +52,75 @@ export function AdminHomepageCMS() {
   const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [formState, setFormState] = useState<any>({});
 
-  // 1. Fetch Hero Banners Config
+  // 0. Fetch Properties for Link Selection
+  const { data: propertiesList = [] } = useQuery({
+    queryKey: ['admin-cms-properties-list'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('properties')
+        .select('id, title, price, purpose, images, cover_image_url, rera_number, cities(id, name), localities(id, name)')
+        .or('status.eq.published,is_live.eq.true')
+        .order('title', { ascending: true });
+      return data ?? [];
+    },
+  });
+
+  // 1. Fetch Hero Banners Config directly from hero_campaigns table
   const { data: heroList = [], isLoading: heroLoading } = useQuery({
     queryKey: ['admin-cms-hero-list'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('cms_hero').select('*').order('created_at', { ascending: false });
+      const { data, error } = await supabase
+        .from('hero_campaigns')
+        .select('*, properties(id, title, price, images, cover_image_url, rera_number, cities(name), localities(name))')
+        .order('priority', { ascending: false })
+        .order('order_no', { ascending: true })
+        .order('created_at', { ascending: false });
+
       if (error || !data || data.length === 0) {
-        return [
-          {
-            id: 'hero-1',
-            title: 'Find Your Perfect Place to Call Home',
-            subtitle: 'Search smarter, decide faster, and move ahead with AI insights.',
-            badge_text: 'AI-Powered Real Estate Platform',
-            bg_image_url: 'https://images.pexels.com/photos/323780/pexels-photo-323780.jpeg',
-            bg_video_url: '',
-            primary_btn_text: 'Search Properties',
-            primary_btn_link: '/search',
-            secondary_btn_text: 'AI Advisor',
-            secondary_btn_link: '/ai-advisor',
-            is_visible: true,
-            sort_order: 1,
-            created_at: new Date().toISOString(),
-          },
-        ];
+        return [];
       }
-      return data;
+
+      return data.map((c: any, idx: number) => {
+        const prop = c.properties;
+        const locality = prop?.localities?.name
+          ? `${prop.localities.name}, ${prop?.cities?.name || ''}`
+          : prop?.cities?.name || '';
+        const priceText = prop?.price
+          ? prop.price >= 10000000
+            ? `₹${(prop.price / 10000000).toFixed(2)} Cr`
+            : `₹${(prop.price / 100000).toFixed(2)} L`
+          : c.price_text || '';
+
+        const image = c.banner_image || prop?.cover_image_url || (Array.isArray(prop?.images) ? prop.images[0] : null) || '';
+
+        return {
+          id: c.id,
+          title: c.title || prop?.title || 'Hero Campaign',
+          subtitle: c.subtitle || prop?.title || '',
+          badge_text: c.package_tier || c.campaign_type || 'Hero Banner',
+          bg_image_url: image,
+          image_url: image,
+          mobile_banner: c.mobile_banner || '',
+          primary_btn_text: c.cta_text || 'Explore Project',
+          primary_btn_link: c.cta_url || (c.property_id ? `/property/${c.property_id}` : '/search'),
+          cta_text: c.cta_text || 'Explore Project',
+          cta_link: c.cta_url || (c.property_id ? `/property/${c.property_id}` : '/search'),
+          is_visible: c.status === 'Active',
+          status: c.status,
+          sort_order: c.priority ?? c.order_no ?? idx + 1,
+          priority: c.priority ?? 1,
+          locality,
+          price_text: priceText,
+          rera_no: prop?.rera_number || c.rera_number || '',
+          property_id: c.property_id,
+          start_date: c.start_date,
+          end_date: c.end_date,
+          package_tier: c.package_tier || 'Featured',
+          display_type: c.display_type || 'Hero Banner',
+          created_at: c.created_at,
+          raw_data: c,
+        };
+      });
     },
   });
 
@@ -80,64 +133,7 @@ export function AdminHomepageCMS() {
         .select('*')
         .order('sort_order', { ascending: true });
       if (error || !data || data.length === 0) {
-        return [
-          {
-            id: 'ex-1',
-            title: 'Crystal Garden',
-            subtitle: '3 & 4 BHK Luxury Apartment',
-            locality: 'Attapur, Hyderabad',
-            price_text: 'Starting at ₹1.29 Cr.',
-            badge_text: 'Sponsored Project',
-            rera_no: 'Phase 1 P02500004287',
-            image_url: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80',
-            cta_text: 'Enquire Now',
-            cta_link: '/search',
-            is_visible: true,
-            sort_order: 1,
-          },
-          {
-            id: 'ex-2',
-            title: 'Ananda Vihara',
-            subtitle: '1 BHK Luxury Service Suite',
-            locality: 'Tirupati',
-            price_text: 'Price: ₹69 Lakhs Onw.',
-            badge_text: 'Vacation Home Ownership',
-            rera_no: 'RERA.P10120276492',
-            image_url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80',
-            cta_text: 'Enquire Now',
-            cta_link: '/search',
-            is_visible: true,
-            sort_order: 2,
-          },
-          {
-            id: 'ex-3',
-            title: 'Eternia Benchmark',
-            subtitle: '7.5 Acres | 2, 2.5 & 3 BHK Homes',
-            locality: 'Bachupally, Hyderabad',
-            price_text: '₹1.2 Cr* Onwards',
-            badge_text: 'New Benchmark',
-            rera_no: 'RERA Approved',
-            image_url: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80',
-            cta_text: 'Enquire Now',
-            cta_link: '/search',
-            is_visible: true,
-            sort_order: 3,
-          },
-          {
-            id: 'ex-4',
-            title: 'DLF Camellias Heights',
-            subtitle: '4 & 5 BHK Ultra Luxury Penthouses',
-            locality: 'Gachibowli, Hyderabad',
-            price_text: '₹3.5 Cr* Onwards',
-            badge_text: 'Exclusive Launch',
-            rera_no: 'RERA.P02400009821',
-            image_url: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80',
-            cta_text: 'Enquire Now',
-            cta_link: '/search',
-            is_visible: true,
-            sort_order: 4,
-          },
-        ];
+        return [];
       }
       return data;
     },
@@ -191,12 +187,24 @@ export function AdminHomepageCMS() {
   const { data: categoryList = [], isLoading: categoriesLoading } = useQuery({
     queryKey: ['admin-cms-categories'],
     queryFn: async () => {
+      const { data: props } = await supabase
+        .from('properties')
+        .select('purpose, property_type_id, property_types(name, category)')
+        .or('status.eq.published,is_live.eq.true');
+
+      const all = (props ?? []) as any[];
+      const aptCount = all.filter((p) => p.purpose === 'Sale' && (p.property_types?.name?.includes('Apartment') || p.property_types?.category === 'Residential')).length;
+      const villaCount = all.filter((p) => p.property_types?.name?.includes('Villa') || p.property_types?.category === 'Villa').length;
+      const rentCount = all.filter((p) => p.purpose === 'Rent').length;
+      const commCount = all.filter((p) => p.purpose === 'Commercial' || p.property_types?.category === 'Commercial').length;
+      const plotCount = all.filter((p) => p.property_types?.category === 'Plot' || p.property_types?.name?.includes('Plot') || p.property_types?.name?.includes('Land')).length;
+
       return [
-        { id: 'cat-1', title: 'Buy Apartments', code: 'buy_apartments', is_visible: true, sort_order: 1, count: '1,420+ Listings' },
-        { id: 'cat-2', title: 'Luxury Villas', code: 'luxury_villas', is_visible: true, sort_order: 2, count: '380+ Listings' },
-        { id: 'cat-3', title: 'Rental Homes', code: 'rentals', is_visible: true, sort_order: 3, count: '2,150+ Listings' },
-        { id: 'cat-4', title: 'Commercial Spaces', code: 'commercial', is_visible: true, sort_order: 4, count: '640+ Listings' },
-        { id: 'cat-5', title: 'Residential Plots', code: 'plots', is_visible: true, sort_order: 5, count: '910+ Listings' },
+        { id: 'cat-1', title: 'Buy Apartments', code: 'buy_apartments', is_visible: true, sort_order: 1, count: `${aptCount} Listings` },
+        { id: 'cat-2', title: 'Luxury Villas', code: 'luxury_villas', is_visible: true, sort_order: 2, count: `${villaCount} Listings` },
+        { id: 'cat-3', title: 'Rental Homes', code: 'rentals', is_visible: true, sort_order: 3, count: `${rentCount} Listings` },
+        { id: 'cat-4', title: 'Commercial Spaces', code: 'commercial', is_visible: true, sort_order: 4, count: `${commCount} Listings` },
+        { id: 'cat-5', title: 'Residential Plots', code: 'plots', is_visible: true, sort_order: 5, count: `${plotCount} Listings` },
       ];
     },
   });
@@ -230,34 +238,99 @@ export function AdminHomepageCMS() {
     },
   });
 
+  const getTableName = () => {
+    if (activeTab === 'hero') return 'hero_campaigns';
+    if (activeTab === 'exclusive') return 'cms_exclusive_properties';
+    if (activeTab === 'sections') return 'cms_sections';
+    if (activeTab === 'search') return 'cms_search_config';
+    if (activeTab === 'seo') return 'cms_seo';
+    return 'cms_categories';
+  };
+
   // Real-time Update Mutations
   const toggleStatusMutation = useMutation({
     mutationFn: async ({ table, id, is_visible }: { table: string; id: string; is_visible: boolean }) => {
-      try {
-        await supabase.from(table).update({ is_visible, updated_at: new Date().toISOString() }).eq('id', id);
-      } catch {
-        // Fallback
+      if (table === 'hero_campaigns') {
+        const { error } = await supabase
+          .from('hero_campaigns')
+          .update({ status: is_visible ? 'Active' : 'Inactive', updated_at: new Date().toISOString() })
+          .eq('id', id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from(table)
+          .update({ is_visible, updated_at: new Date().toISOString() })
+          .eq('id', id);
+        if (error) throw error;
       }
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: [`admin-cms-${variables.table}`] });
+      queryClient.invalidateQueries({ queryKey: ['admin-cms-hero-list'] });
+      queryClient.invalidateQueries({ queryKey: ['hero-campaigns'] });
       addToast('success', 'Real-time visibility updated!');
     },
   });
 
   const saveItemMutation = useMutation({
     mutationFn: async ({ table, item }: { table: string; item: any }) => {
-      try {
-        await supabase.from(table).upsert({ ...item, updated_at: new Date().toISOString() });
-      } catch {
-        // Local fallback update
+      if (table === 'hero_campaigns') {
+        const payload = {
+          title: item.title?.trim() || 'Hero Campaign',
+          subtitle: item.subtitle?.trim() || null,
+          banner_image: item.image_url || item.bg_image_url || '',
+          mobile_banner: item.mobile_banner || null,
+          cta_text: item.cta_text || item.primary_btn_text || 'Explore Project',
+          cta_url: item.cta_link || item.primary_btn_link || (item.property_id ? `/property/${item.property_id}` : '/search'),
+          property_id: item.property_id || null,
+          priority: parseInt(item.priority || item.sort_order, 10) || 1,
+          order_no: parseInt(item.sort_order, 10) || 0,
+          package_tier: item.package_tier || item.badge_text || 'Featured',
+          display_type: item.display_type || 'Hero Banner',
+          status: item.is_visible !== false ? 'Active' : 'Inactive',
+          start_date: item.start_date ? new Date(item.start_date).toISOString() : null,
+          end_date: item.end_date ? new Date(item.end_date).toISOString() : null,
+          updated_at: new Date().toISOString(),
+        };
+
+        if (item.id && !String(item.id).startsWith('new_')) {
+          const { error } = await supabase.from('hero_campaigns').update(payload).eq('id', item.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from('hero_campaigns').insert(payload);
+          if (error) throw error;
+        }
+      } else {
+        const { error } = await supabase.from(table).upsert({ ...item, updated_at: new Date().toISOString() });
+        if (error) throw error;
       }
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-cms-hero-list'] });
+      queryClient.invalidateQueries({ queryKey: ['hero-campaigns'] });
       queryClient.invalidateQueries();
       addToast('success', 'Changes saved successfully to database!');
       setEditModalItem(null);
       setIsCreatingNew(false);
+    },
+    onError: (err: any) => {
+      addToast('error', err.message || 'Failed to save changes');
+    },
+  });
+
+  const deleteItemMutation = useMutation({
+    mutationFn: async ({ table, id }: { table: string; id: string }) => {
+      const { error } = await supabase.from(table).delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-cms-hero-list'] });
+      queryClient.invalidateQueries({ queryKey: ['hero-campaigns'] });
+      queryClient.invalidateQueries();
+      addToast('success', 'Record deleted successfully!');
+    },
+    onError: (err: any) => {
+      addToast('error', err.message || 'Failed to delete record');
     },
   });
 
@@ -289,35 +362,53 @@ export function AdminHomepageCMS() {
 
   const handleOpenEdit = (item: any) => {
     setEditModalItem(item);
-    setFormState({ ...item });
+    setFormState({
+      ...item,
+      start_date: item.start_date ? toLocalISOString(new Date(item.start_date)) : '',
+      end_date: item.end_date ? toLocalISOString(new Date(item.end_date)) : '',
+    });
     setIsCreatingNew(false);
   };
 
   const handleOpenCreate = () => {
     setIsCreatingNew(true);
     setEditModalItem({ id: `new_${Date.now()}` });
-    setFormState({
-      title: '',
-      subtitle: '',
-      locality: '',
-      price_text: 'Starting at ₹1.0 Cr.',
-      badge_text: 'Exclusive Project',
-      rera_no: 'RERA Approved',
-      image_url: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80',
-      cta_text: 'Enquire Now',
-      cta_link: '/search',
-      is_visible: true,
-      sort_order: currentTabItems.length + 1,
-    });
-  };
-
-  const getTableName = () => {
-    if (activeTab === 'hero') return 'cms_hero';
-    if (activeTab === 'exclusive') return 'cms_exclusive_properties';
-    if (activeTab === 'sections') return 'cms_sections';
-    if (activeTab === 'search') return 'cms_search_config';
-    if (activeTab === 'seo') return 'cms_seo';
-    return 'cms_categories';
+    if (activeTab === 'hero') {
+      setFormState({
+        title: '',
+        subtitle: '',
+        property_id: '',
+        locality: '',
+        price_text: '',
+        badge_text: 'Featured',
+        package_tier: 'Featured',
+        display_type: 'Hero Banner',
+        image_url: '',
+        bg_image_url: '',
+        mobile_banner: '',
+        cta_text: 'Explore Project',
+        cta_link: '/search',
+        is_visible: true,
+        priority: 5,
+        sort_order: heroList.length + 1,
+        start_date: toLocalISOString(new Date()),
+        end_date: '',
+      });
+    } else {
+      setFormState({
+        title: '',
+        subtitle: '',
+        locality: '',
+        price_text: 'Starting at ₹1.0 Cr.',
+        badge_text: 'Exclusive Project',
+        rera_no: 'RERA Approved',
+        image_url: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80',
+        cta_text: 'Enquire Now',
+        cta_link: '/search',
+        is_visible: true,
+        sort_order: currentTabItems.length + 1,
+      });
+    }
   };
 
   return (
@@ -366,9 +457,9 @@ export function AdminHomepageCMS() {
         {/* CMS Navigation Tabs */}
         <div className="flex items-center gap-2 border-b border-slate-200 pb-3 overflow-x-auto">
           {[
-            { key: 'hero', label: 'Hero Banners & Media', icon: Sparkles },
-            { key: 'exclusive', label: 'RealtyNow Exclusive', icon: Building2 },
-            { key: 'sections', label: 'Master Sections Manager', icon: Layout },
+            { key: 'hero', label: `Hero Banners & Media (${heroList.length})`, icon: Sparkles },
+            { key: 'exclusive', label: `RealtyNow Exclusive (${exclusiveList.length})`, icon: Building2 },
+            { key: 'sections', label: `Master Sections Manager (${cmsSections.length})`, icon: Layout },
             { key: 'search', label: 'AI Search Bar Config', icon: Search },
             { key: 'categories', label: 'Property Categories', icon: Sliders },
             { key: 'seo', label: 'SEO & Metadata', icon: Globe },
@@ -465,11 +556,18 @@ export function AdminHomepageCMS() {
                         </td>
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-3">
-                            {item.image_url && (
-                              <img src={item.image_url} alt="" className="h-10 w-14 object-cover rounded-lg border border-slate-200 shrink-0" />
+                            {(item.image_url || item.bg_image_url) && (
+                              <img src={item.image_url || item.bg_image_url} alt="" className="h-10 w-14 object-cover rounded-lg border border-slate-200 shrink-0" />
                             )}
                             <div>
-                              <div className="font-bold text-slate-900 text-sm">{item.title || item.heading || item.meta_title || 'CMS Item'}</div>
+                              <div className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                                <span>{item.title || item.heading || item.meta_title || 'CMS Item'}</span>
+                                {item.cta_link && (
+                                  <a href={item.cta_link} target="_blank" rel="noreferrer" className="text-slate-400 hover:text-red-600" title="Open Link">
+                                    <ExternalLink className="h-3 w-3" />
+                                  </a>
+                                )}
+                              </div>
                               <div className="text-[11px] font-mono text-slate-400">{item.badge_text || item.section_key || item.code || item.page_key || item.id}</div>
                             </div>
                           </div>
@@ -507,10 +605,21 @@ export function AdminHomepageCMS() {
                           </button>
                         </td>
                         <td className="px-4 py-4 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
+                          <div className="flex items-center justify-end gap-1">
                             <Button size="sm" variant="ghost" onClick={() => handleOpenEdit(item)} icon={<Edit3 className="h-3.5 w-3.5" />}>
                               Edit
                             </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-slate-400 hover:text-red-600"
+                              onClick={() => {
+                                if (confirm('Are you sure you want to delete this CMS record?')) {
+                                  deleteItemMutation.mutate({ table: getTableName(), id: item.id });
+                                }
+                              }}
+                              icon={<Trash2 className="h-3.5 w-3.5" />}
+                            />
                           </div>
                         </td>
                       </tr>
@@ -571,9 +680,22 @@ export function AdminHomepageCMS() {
 
                   <div className="mt-5 border-t border-slate-100 pt-3 flex items-center justify-between text-xs">
                     <span className="font-mono text-[10px] text-slate-400">{item.rera_no || item.section_key || item.page_key || item.id}</span>
-                    <Button size="sm" variant="secondary" onClick={() => handleOpenEdit(item)} icon={<Edit3 className="h-3.5 w-3.5" />}>
-                      Configure
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button size="sm" variant="secondary" onClick={() => handleOpenEdit(item)} icon={<Edit3 className="h-3.5 w-3.5" />}>
+                        Configure
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-slate-400 hover:text-red-600"
+                        onClick={() => {
+                          if (confirm('Are you sure you want to delete this CMS record?')) {
+                            deleteItemMutation.mutate({ table: getTableName(), id: item.id });
+                          }
+                        }}
+                        icon={<Trash2 className="h-3.5 w-3.5" />}
+                      />
+                    </div>
                   </div>
                 </div>
               ))
@@ -585,7 +707,7 @@ export function AdminHomepageCMS() {
         <Modal
           open={!!editModalItem}
           onClose={() => setEditModalItem(null)}
-          title={isCreatingNew ? `Add New ${activeTab.toUpperCase()} Record` : `Edit ${editModalItem?.title || 'CMS Record'}`}
+          title={isCreatingNew ? `Add New ${activeTab === 'hero' ? 'Hero Banner' : activeTab.toUpperCase()} Record` : `Edit ${editModalItem?.title || 'CMS Record'}`}
           size="lg"
           footer={
             <>
@@ -609,6 +731,58 @@ export function AdminHomepageCMS() {
         >
           {formState && (
             <div className="space-y-4">
+              {activeTab === 'hero' && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Link Property (Optional - Select to auto-fill banner data)
+                  </label>
+                  <select
+                    value={formState.property_id || ''}
+                    onChange={(e) => {
+                      const selectedId = e.target.value;
+                      const chosen: any = propertiesList.find((p: any) => p.id === selectedId);
+                      if (chosen) {
+                        const cityName = Array.isArray(chosen.cities) ? chosen.cities[0]?.name : chosen.cities?.name;
+                        const localityName = Array.isArray(chosen.localities) ? chosen.localities[0]?.name : chosen.localities?.name;
+                        const loc = localityName ? `${localityName}, ${cityName || ''}` : cityName || '';
+                        const pText = chosen.price
+                          ? chosen.price >= 10000000
+                            ? `₹${(chosen.price / 10000000).toFixed(2)} Cr`
+                            : `₹${(chosen.price / 100000).toFixed(2)} L`
+                          : '';
+                        const img = chosen.cover_image_url || (Array.isArray(chosen.images) ? chosen.images[0] : null) || '';
+                        setFormState((prev: any) => ({
+                          ...prev,
+                          property_id: chosen.id,
+                          title: chosen.title || prev.title,
+                          subtitle: loc ? `${loc} • ${pText}` : chosen.title,
+                          locality: loc,
+                          price_text: pText,
+                          image_url: img || prev.image_url,
+                          bg_image_url: img || prev.bg_image_url,
+                          cta_text: 'Explore Project',
+                          cta_link: `/property/${chosen.id}`,
+                          rera_no: chosen.rera_number || prev.rera_no,
+                        }));
+                      } else {
+                        setFormState((prev: any) => ({ ...prev, property_id: '' }));
+                      }
+                    }}
+                    className="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 bg-white font-medium focus:outline-none focus:border-red-500"
+                  >
+                    <option value="">-- Custom Banner (No property link) --</option>
+                    {propertiesList.map((p: any) => {
+                      const cName = Array.isArray(p.cities) ? p.cities[0]?.name : p.cities?.name;
+                      return (
+                        <option key={p.id} value={p.id}>
+                          {p.title} ({cName || 'India'})
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Project / Item Title *</label>
                 <Input
@@ -625,6 +799,129 @@ export function AdminHomepageCMS() {
                   onChange={(e) => setFormState({ ...formState, subtitle: e.target.value, search_placeholder: e.target.value, meta_description: e.target.value })}
                 />
               </div>
+
+              {activeTab === 'hero' && (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Package Tier / Badge</label>
+                      <Select
+                        value={formState.package_tier || formState.badge_text || 'Featured'}
+                        onChange={(e) => setFormState({ ...formState, package_tier: e.target.value, badge_text: e.target.value })}
+                      >
+                        <option value="Platinum">⚡ Platinum Tier</option>
+                        <option value="Gold">🌟 Gold Tier</option>
+                        <option value="Silver">✨ Silver Tier</option>
+                        <option value="Featured">Featured</option>
+                        <option value="Paid">Paid Campaign</option>
+                        <option value="Free">Free</option>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Priority (1-10)</label>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={formState.priority || formState.sort_order || 1}
+                        onChange={(e) => setFormState({ ...formState, priority: parseInt(e.target.value, 10), sort_order: parseInt(e.target.value, 10) })}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Desktop Hero Background Image URL *</label>
+                    <Input
+                      value={formState.image_url || formState.bg_image_url || ''}
+                      onChange={(e) => setFormState({ ...formState, image_url: e.target.value, bg_image_url: e.target.value })}
+                      placeholder="https://images.unsplash.com/... or storage URL"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Button Text</label>
+                      <Input
+                        value={formState.cta_text || formState.primary_btn_text || 'Explore Project'}
+                        onChange={(e) => setFormState({ ...formState, cta_text: e.target.value, primary_btn_text: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Button Link</label>
+                      <Input
+                        value={formState.cta_link || formState.primary_btn_link || '/search'}
+                        onChange={(e) => setFormState({ ...formState, cta_link: e.target.value, primary_btn_link: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Schedule Controls */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-100 pt-3">
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-bold text-slate-700">Start Date & Time</label>
+                        <button
+                          type="button"
+                          onClick={() => setFormState((f: any) => ({ ...f, start_date: toLocalISOString(new Date()) }))}
+                          className="inline-flex items-center gap-1 text-[10px] font-bold text-red-600 bg-red-50 hover:bg-red-100 px-2 py-0.5 rounded-md transition"
+                        >
+                          <Clock className="h-3 w-3" /> Set to Now
+                        </button>
+                      </div>
+                      <Input
+                        type="datetime-local"
+                        value={formState.start_date || ''}
+                        onChange={(e) => setFormState((f: any) => ({ ...f, start_date: e.target.value }))}
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-bold text-slate-700">End Date & Time</label>
+                        {formState.end_date && (
+                          <button
+                            type="button"
+                            onClick={() => setFormState((f: any) => ({ ...f, end_date: '' }))}
+                            className="text-[10px] font-bold text-slate-500 hover:text-slate-700"
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
+                      <Input
+                        type="datetime-local"
+                        value={formState.end_date || ''}
+                        onChange={(e) => setFormState((f: any) => ({ ...f, end_date: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Quick Duration Chips */}
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                    <span className="text-[11px] font-bold text-slate-400 mr-1">Quick Duration:</span>
+                    {[
+                      { label: '+7 Days', days: 7 },
+                      { label: '+15 Days', days: 15 },
+                      { label: '+30 Days', days: 30 },
+                      { label: '+90 Days', days: 90 },
+                      { label: '+1 Year', days: 365 },
+                    ].map((preset) => (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => {
+                          const base = formState.start_date ? new Date(formState.start_date) : new Date();
+                          const target = new Date(base.getTime() + preset.days * 86400000);
+                          setFormState((f: any) => ({ ...f, end_date: toLocalISOString(target) }));
+                        }}
+                        className="px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-slate-100 hover:bg-red-50 hover:text-red-700 text-slate-600 transition"
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
 
               {activeTab === 'exclusive' && (
                 <>
@@ -714,25 +1011,6 @@ export function AdminHomepageCMS() {
                   </Select>
                 </div>
               </div>
-
-              {activeTab === 'hero' && (
-                <div className="grid grid-cols-2 gap-4 border-t border-slate-100 pt-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Background Image URL</label>
-                    <Input
-                      value={formState.bg_image_url || ''}
-                      onChange={(e) => setFormState({ ...formState, bg_image_url: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Badge Text</label>
-                    <Input
-                      value={formState.badge_text || ''}
-                      onChange={(e) => setFormState({ ...formState, badge_text: e.target.value })}
-                    />
-                  </div>
-                </div>
-              )}
             </div>
           )}
         </Modal>

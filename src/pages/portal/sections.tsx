@@ -53,7 +53,6 @@ export const getPortalSections = (t: (key: string, fallback?: string) => string)
     items: [
       { to: '/portal', label: t('dashboard:dashboard', 'Dashboard'), icon: LayoutDashboard, end: true },
       { to: '/portal/list-property', label: t('dashboard:listProperty', 'List Property'), icon: PlusCircle, end: true },
-      { to: '/portal/list-property/new', label: 'New Listing (Beta)', icon: Sparkles },
       { to: '/portal/bulk-upload', label: 'Bulk Import', icon: FileText },
       { to: '/portal/my-properties', label: t('dashboard:myProperties', 'My Properties'), icon: Building2 },
     ],
@@ -153,10 +152,10 @@ export const getAdminSections = (t: (key: string, fallback?: string) => string):
         children: [
           { to: '/admin/paid-campaign', label: 'Campaign Dashboard', icon: LayoutDashboard, end: true },
           { to: '/admin/paid-campaign/featured-properties', label: 'Featured Properties', icon: Sparkles },
-          { to: '/admin/paid-campaign/two-column-slider', label: 'Two Column Slider Properties', icon: SlidersHorizontal },
+          { to: '/admin/paid-campaign/two-column-slider', label: 'Curated Luxury Living', icon: SlidersHorizontal },
           { to: '/admin/paid-campaign/explore-builders', label: 'Explore Builders on RealtyNow', icon: Building2 },
           { to: '/admin/paid-campaign/signature-collection', label: 'Signature Collection', icon: Award },
-          { to: '/admin/paid-campaign/three-column-properties', label: 'Three Column Properties', icon: LayoutGrid },
+          { to: '/admin/paid-campaign/three-column-properties', label: 'Prime Investment Opportunities', icon: LayoutGrid },
           { to: '/admin/paid-campaign/realtynow-exclusive', label: 'RealtyNow Exclusive', icon: Zap },
         ],
       },
@@ -236,6 +235,7 @@ export const getAdminSections = (t: (key: string, fallback?: string) => string):
     items: [
       { to: '/admin/customers', label: t('dashboard:customers', 'Customers'), icon: Heart },
       { to: '/admin/agents', label: t('dashboard:agents', 'Agents'), icon: Users },
+      { to: '/admin/subscriptions', label: 'Subscription Plans', icon: Sparkles },
       { to: '/admin/invoices', label: t('dashboard:invoices', 'Invoices'), icon: Wallet },
       { to: '/admin/notifications', label: t('dashboard:notifications', 'Notifications'), icon: Bell },
     ],

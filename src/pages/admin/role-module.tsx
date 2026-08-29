@@ -6,8 +6,8 @@ import {
   ClipboardList, CalendarClock, TrendingUp, FileText, CheckCircle2, XCircle,
   AlertTriangle, Search, SlidersHorizontal, Phone, Mail, MapPin, Eye,
   ArrowUpRight, ShieldCheck, ShieldAlert, Award, Calendar, DollarSign,
-  UserCheck, Tag, Target, Wallet, Clock, RefreshCw, ChevronRight, Plus,
-  FileCheck, Sparkles, MessageSquare, Check, X, ExternalLink
+  UserCheck, Tag, Target, Wallet, Clock, RefreshCw, RotateCcw, ChevronRight, Plus,
+  FileCheck, Sparkles, MessageSquare, Check, X, ExternalLink, Copy
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { DashboardLayout, PageHeader, StatCard } from '../../components/dashboard-layout';
@@ -16,6 +16,7 @@ import { useLanguageContext } from '../../lib/i18n/language-context';
 import { Card, Button, Badge, Modal, Input, Select, Textarea, Skeleton, EmptyState } from '../../components/ui';
 import { DataTable, type Column } from '../../components/data-table';
 import { formatDate, formatPrice, cn } from '../../lib/utils';
+import { getPropertyPricingDisplay } from '../../lib/plot-pricing';
 import { useToast } from '../../components/toast';
 import { UnifiedLeadDetailModal } from '../../components/crm/UnifiedLeadDetailModal';
 import * as api from '../../lib/role-crm-api';
@@ -288,17 +289,22 @@ function RoleLeadsView({ role }: { role: RoleType }) {
             <span className="text-xs text-navy-700 font-medium">
               {l.assigned_agent || (l.assigned_to ? 'Assigned' : 'Unassigned')}
             </span>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="text-[11px] h-7 px-2"
+            <button
+              type="button"
               onClick={() => {
                 setAssignModalLead(l);
                 setSelectedAgentId(l.assigned_to || '');
               }}
+              className={cn(
+                'inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold transition cursor-pointer',
+                l.assigned_to
+                  ? 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  : 'bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-2xs shadow-red-500/20 hover:from-red-500 hover:to-rose-500'
+              )}
             >
-              {l.assigned_to ? 'Reassign' : 'Assign'}
-            </Button>
+              <UserPlus className="h-3 w-3" />
+              <span>{l.assigned_to ? 'Reassign' : 'Assign'}</span>
+            </button>
           </div>
         );
       },
@@ -1148,7 +1154,9 @@ function RoleAssignmentsView({ role, type }: { role: RoleType; type: 'property' 
             {p.property?.price && (
               <>
                 <span>•</span>
-                <span className="font-semibold text-emerald-700">{formatPrice(p.property.price)}</span>
+                <span className="font-bold text-emerald-700">
+                  {getPropertyPricingDisplay(p.property).primaryPrice}
+                </span>
               </>
             )}
           </div>
@@ -1161,19 +1169,23 @@ function RoleAssignmentsView({ role, type }: { role: RoleType; type: 'property' 
       render: (p) => {
         if (!p.agent && !p.agent_id) {
           return (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-              <Clock className="h-3 w-3" /> Unassigned
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200/80">
+              <Clock className="h-3 w-3 text-amber-600" /> Unassigned
             </span>
           );
         }
         const name = p.agent ? `${p.agent.first_name} ${p.agent.last_name || ''}` : 'Assigned Agent';
         return (
-          <div className="space-y-0.5">
-            <div className="flex items-center gap-1.5 font-bold text-navy-900 text-xs">
-              <UserCheck className="h-3.5 w-3.5 text-emerald-600" />
-              <span>{name}</span>
+          <div className="flex items-center gap-2">
+            <div className="h-7 w-7 rounded-lg bg-emerald-100 text-emerald-700 font-bold text-xs flex items-center justify-center shrink-0">
+              {(p.agent?.first_name || 'A').charAt(0).toUpperCase()}
             </div>
-            {p.agent?.phone && <p className="text-[11px] text-navy-500">{p.agent.phone}</p>}
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-1 font-bold text-navy-900 text-xs">
+                <span>{name}</span>
+              </div>
+              {p.agent?.phone && <p className="text-[11px] text-slate-500 font-mono">{p.agent.phone}</p>}
+            </div>
           </div>
         );
       },
@@ -1182,7 +1194,7 @@ function RoleAssignmentsView({ role, type }: { role: RoleType; type: 'property' 
       key: 'assignment_type',
       header: 'Coverage Type',
       render: (p) => (
-        <span className="capitalize text-xs font-medium text-navy-700 bg-slate-100 px-2 py-0.5 rounded-md">
+        <span className="capitalize text-xs font-semibold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200/60">
           {(p.assignment_type || 'exclusive').replace(/_/g, ' ')}
         </span>
       ),
@@ -1191,7 +1203,7 @@ function RoleAssignmentsView({ role, type }: { role: RoleType; type: 'property' 
       key: 'split',
       header: 'Commission Split',
       render: (p) => (
-        <span className="font-semibold text-xs text-emerald-700">
+        <span className="font-bold text-xs text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200/60">
           {p.commission_split_percent || 50}% Agent / {100 - (p.commission_split_percent || 50)}% Platform
         </span>
       ),
@@ -1207,38 +1219,38 @@ function RoleAssignmentsView({ role, type }: { role: RoleType; type: 'property' 
     },
     {
       key: 'actions',
-      header: '',
+      header: 'Action',
       render: (p) => (
         <div className="flex items-center justify-end gap-1.5">
           {p.agent_id ? (
             <>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="text-xs h-7 px-2.5 text-navy-700"
+              <button
+                type="button"
                 onClick={() => openAssignModal(p.property_id, p.agent_id)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition shadow-2xs cursor-pointer"
               >
+                <RotateCcw className="h-3 w-3 text-slate-500" />
                 Reassign
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="text-xs h-7 px-2 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+              </button>
+              <button
+                type="button"
                 disabled={unassignMutation.isPending}
                 onClick={() => unassignMutation.mutate(p.property_id)}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 transition cursor-pointer"
               >
+                <X className="h-3 w-3" />
                 Unassign
-              </Button>
+              </button>
             </>
           ) : (
-            <Button
-              size="sm"
-              variant="outline"
-              className="text-xs h-7 px-3 text-red-600 border-red-200 hover:bg-red-50 font-semibold cursor-pointer"
+            <button
+              type="button"
               onClick={() => openAssignModal(p.property_id)}
+              className="group relative inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 shadow-sm shadow-red-500/25 hover:shadow-md hover:shadow-red-500/35 active:scale-95 transition-all duration-200 cursor-pointer whitespace-nowrap"
             >
-              + Assign Agent
-            </Button>
+              <UserPlus className="h-3.5 w-3.5 transition-transform group-hover:scale-110" />
+              <span>Assign Agent</span>
+            </button>
           )}
         </div>
       ),
@@ -1279,15 +1291,14 @@ function RoleAssignmentsView({ role, type }: { role: RoleType; type: 'property' 
               <option value="unassigned">Unassigned ({stats.unassigned})</option>
             </select>
 
-            <Button
-              size="sm"
-              variant="primary"
-              icon={<Plus className="h-3.5 w-3.5" />}
-              className="cursor-pointer font-semibold shadow-sm"
+            <button
+              type="button"
               onClick={() => openAssignModal()}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 shadow-sm shadow-red-500/25 hover:shadow-md hover:shadow-red-500/35 active:scale-95 transition-all duration-200 cursor-pointer"
             >
-              + Assign Property
-            </Button>
+              <Plus className="h-4 w-4" />
+              <span>Assign Property</span>
+            </button>
           </div>
         </div>
 

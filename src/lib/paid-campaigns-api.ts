@@ -96,7 +96,7 @@ export const CAMPAIGN_SECTIONS_CONFIG: Record<
     hasBuilder: false,
   },
   TWO_COLUMN_SLIDER: {
-    label: 'Two Column Slider Properties',
+    label: 'Curated Luxury Living',
     description: 'Hero-scale 2-column luxury promotional property slider',
     badgeDefault: 'Sponsored',
     ctaDefault: 'View Collection',
@@ -126,7 +126,7 @@ export const CAMPAIGN_SECTIONS_CONFIG: Record<
     hasBuilder: false,
   },
   THREE_COLUMN_PROPERTIES: {
-    label: 'Three Column Properties',
+    label: 'Prime Investment Opportunities',
     description: 'Three-column promotional ad banner tiles with high conversion CTAs',
     badgeDefault: 'Featured Ad',
     ctaDefault: 'Explore Spaces',
@@ -433,6 +433,16 @@ export async function fetchPublicCampaigns(type: CampaignType): Promise<any[]> {
         if (c.status === 'DRAFT') return false;
         if (c.start_at && new Date(c.start_at) > now) return false;
         if (c.end_at && new Date(c.end_at) < now) return false;
+
+        // Exclude dummy or unlinked campaigns
+        if (type === 'EXPLORE_BUILDERS') {
+          return Boolean(c.items?.[0]?.builder?.id);
+        }
+
+        const prop = c.items?.[0]?.property;
+        if (!prop || !prop.id) return false;
+        if (prop.title?.toLowerCase().includes('dummy') || prop.title?.toLowerCase().includes('sample')) return false;
+        if (prop.status === 'draft' || prop.status === 'rejected') return false;
         return true;
       });
 

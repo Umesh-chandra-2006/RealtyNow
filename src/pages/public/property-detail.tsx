@@ -32,6 +32,7 @@ import type { VirtualTour } from '../../lib/types';
 const BRAND_SHARE_LOGO = 'https://realtynow.in/pwa-512x512.png';
 
 interface AgentInfo {
+  id?: string;
   first_name: string | null;
   last_name: string | null;
   email: string;
@@ -303,7 +304,7 @@ export function PropertyDetailPage() {
     queryFn: async () => {
       const { data } = await supabase
         .from('profiles')
-        .select('first_name, last_name, email, phone, avatar_url, bio, company, license_number')
+        .select('id, first_name, last_name, email, phone, avatar_url, bio, company, license_number')
         .eq('id', property!.assigned_agent_id!)
         .maybeSingle();
       return data as AgentInfo | null;
@@ -411,7 +412,7 @@ export function PropertyDetailPage() {
   // here: it persists across refreshes within the same tab, which would
   // have silently suppressed every refresh's view — this ref only lives
   // for the current mount, so React StrictMode's double effect-fire is
-  // absorbed without under-counting real repeat visits.
+  // Track view once per browser session/visit
   const trackedPropertyIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (!id || !property) return;
@@ -422,12 +423,27 @@ export function PropertyDetailPage() {
       property.assigned_agent_id === user?.id ||
       (profile?.role === 'admin' || profile?.role === 'super_admin');
 
+    // Debounce view recording by 15 minutes per session to prevent repeated F5 spam
+    const sessionKey = `realtynow_viewed_${id}`;
+    const lastViewTime = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(sessionKey) : null;
+    const isRecentlyViewed = lastViewTime && Date.now() - parseInt(lastViewTime, 10) < 15 * 60 * 1000;
+
     // Only genuine public visits to a live listing count as a customer view.
-    if ((property.status === 'published' || property.is_live) && !isInternalViewer) {
+    if ((property.status === 'published' || property.is_live) && !isInternalViewer && !isRecentlyViewed) {
       trackedPropertyIdRef.current = id;
-      trackPropertyView(id, user?.id).catch((err) => {
-        console.error('Property view tracking failed (property still loads normally):', err);
-      });
+      try {
+        sessionStorage.setItem(sessionKey, Date.now().toString());
+      } catch {}
+
+      trackPropertyView(id, user?.id)
+        .then((updatedCount) => {
+          if (typeof updatedCount === 'number') {
+            queryClient.setQueryData(['property', id], (prev: any) => (prev ? { ...prev, view_count: updatedCount } : prev));
+          }
+        })
+        .catch((err) => {
+          console.error('Property view tracking failed (property still loads normally):', err);
+        });
     }
   }, [id, property, user?.id, profile?.role]);
 
@@ -696,7 +712,7 @@ export function PropertyDetailPage() {
   const faqItems = [
     { q: `Is this ${property.property_type_name ?? 'property'} verified by RealtyNow?`, a: property.verified_status && property.verified_status !== 'Unverified' ? `Yes — this listing's status is "${property.verified_status}".` : 'This listing has not yet completed verification. Contact the agent for documentation.' },
     { q: 'What is the possession status?', a: property.possession_status ?? (property.age_of_property ? `${property.age_of_property} years old — ready to move.` : 'Contact the agent for possession details.') },
-    { q: property.purpose === 'Rent' ? 'Is the rent negotiable?' : 'Is the price negotiable?', a: 'Most listings on RealtyNow are open to reasonable offers — use "Contact Agent" to discuss.' },
+    { q: property.purpose === 'Rent' ? 'Is the rent negotiable?' : 'Is the price negotiable?', a: 'Most listings on RealtyNow are open to reasonable offers — use "Contact Us" to discuss.' },
     { q: 'What amenities are included?', a: property.amenities?.length ? property.amenities.slice(0, 6).join(', ') + (property.amenities.length > 6 ? ', and more.' : '.') : 'See the Amenities tab for full details.' },
   ];
 
@@ -1076,112 +1092,120 @@ export function PropertyDetailPage() {
 
             {/* REALTYNOW STANDARDIZED PROPERTY VALUE SCORE & INTELLIGENCE */}
             <section className="scroll-mt-32" id="value-score">
-              <div className="rounded-3xl border border-navy-100 bg-gradient-to-br from-navy-950 via-slate-900 to-navy-900 text-white p-6 sm:p-8 shadow-xl relative overflow-hidden">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-6 mb-6">
-                  <div>
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gold-400/20 border border-gold-400/30 text-gold-300 text-xs font-bold uppercase tracking-wider mb-2">
-                      <Sparkles className="h-3.5 w-3.5" /> RealtyNow Value Score™
-                    </div>
-                    <h3 className="text-xl sm:text-2xl font-display font-extrabold text-white">
-                      AI Property & Investment Rating
-                    </h3>
-                    <p className="text-xs sm:text-sm text-slate-300 mt-1">
-                      Data-driven evaluation based on price efficiency, locality connectivity, amenities, and market demand.
-                    </p>
-                  </div>
+              <div className="rounded-2xl border border-slate-700/60 bg-gradient-to-br from-[#0B1528] via-[#0F1E36] to-[#0A1220] p-5 sm:p-6 shadow-xl shadow-slate-950/20 relative overflow-hidden text-white transition-all">
+                {/* Subtle Analytical Glow Accents */}
+                <div className="absolute -top-24 -right-24 w-72 h-72 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+                <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+                <div className="absolute inset-0 bg-[radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:24px_24px] opacity-[0.03] pointer-events-none" />
 
-                  {(property.price || pricing.totalEstimatedPriceNumeric) && (property.built_up_area || property.carpet_area || pricing.totalArea) ? (
-                    <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/20 shrink-0">
+                <div className="relative z-10">
+                  {/* Header Row */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-700/60">
+                    <div>
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-500/15 border border-blue-400/30 text-blue-300 text-[11px] font-extrabold uppercase tracking-wider mb-1.5 backdrop-blur-md">
+                        <Sparkles className="h-3 w-3 text-blue-400 animate-pulse" /> RealtyNow Value Score™
+                      </div>
+                      <h3 className="text-lg sm:text-xl font-display font-extrabold text-white tracking-tight">
+                        AI Property & Investment Rating
+                      </h3>
+                      <p className="text-xs text-slate-300/80 mt-0.5 max-w-xl font-normal leading-relaxed">
+                        Data-driven rating evaluated on pricing efficiency, locality index, amenities, and rental yield.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3.5 px-4 py-2.5 rounded-xl bg-slate-800/80 border border-slate-700/80 shadow-inner backdrop-blur-md shrink-0 self-start sm:self-auto">
                       <div className="text-right">
-                        <span className="text-[10px] uppercase tracking-wider text-slate-300 font-bold block">Overall Rating</span>
-                        <span className="text-3xl font-display font-extrabold text-gold-400">
-                          {property.ai_score ? Math.round(property.ai_score * 10) : 88}
-                          <span className="text-base text-slate-400 font-normal">/100</span>
+                        <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold block">Overall Rating</span>
+                        <span className="text-2xl font-display font-extrabold text-white">
+                          {(() => {
+                            const raw = property.ai_score;
+                            const score = raw != null && raw > 0 ? (raw > 100 ? Math.round(raw / 10) : Math.round(raw)) : 88;
+                            return score;
+                          })()}
+                          <span className="text-xs text-slate-400 font-semibold ml-0.5">/100</span>
                         </span>
                       </div>
-                      <div className="h-10 w-10 rounded-full bg-gold-500/20 text-gold-400 flex items-center justify-center font-bold text-sm">
-                        A+
+                      <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center font-black text-sm shadow-md shadow-emerald-950/50 border border-emerald-400/30">
+                        {(() => {
+                          const raw = property.ai_score;
+                          const score = raw != null && raw > 0 ? (raw > 100 ? Math.round(raw / 10) : Math.round(raw)) : 88;
+                          if (score >= 85) return 'A+';
+                          if (score >= 75) return 'A';
+                          if (score >= 65) return 'B+';
+                          return 'B';
+                        })()}
                       </div>
                     </div>
-                  ) : (
-                    <div className="px-4 py-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-400 text-xs font-bold">
-                      Insufficient Data
-                    </div>
-                  )}
-                </div>
+                  </div>
 
-                {(property.price || pricing.totalEstimatedPriceNumeric) && (property.built_up_area || property.carpet_area || pricing.totalArea) ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 text-center">
-                    <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10">
-                      <span className="text-[11px] text-slate-400 block font-medium">Price Value</span>
-                      <span className="text-xl font-bold text-emerald-400 mt-1 block">91/100</span>
-                      <span className="text-[10px] text-emerald-300 font-medium">Competitive Rate</span>
+                  {/* 6 Space-Efficient Metric Chips */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 pt-4">
+                    <div className="p-3 rounded-xl bg-slate-800/60 hover:bg-slate-800/90 border border-slate-700/70 hover:border-emerald-500/40 text-center transition-all duration-200 shadow-xs hover:shadow-md group backdrop-blur-sm">
+                      <span className="text-[11px] text-slate-300 block font-medium group-hover:text-white transition-colors">Price Value</span>
+                      <span className="text-base font-extrabold text-emerald-400 mt-1 block font-display">91/100</span>
+                      <span className="text-[10px] text-emerald-300 bg-emerald-950/70 border border-emerald-500/30 px-2 py-0.5 rounded-md inline-block mt-1 font-semibold">Competitive</span>
                     </div>
 
-                    <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10">
-                      <span className="text-[11px] text-slate-400 block font-medium">Location Index</span>
-                      <span className="text-xl font-bold text-blue-400 mt-1 block">
+                    <div className="p-3 rounded-xl bg-slate-800/60 hover:bg-slate-800/90 border border-slate-700/70 hover:border-sky-500/40 text-center transition-all duration-200 shadow-xs hover:shadow-md group backdrop-blur-sm">
+                      <span className="text-[11px] text-slate-300 block font-medium group-hover:text-white transition-colors">Location Index</span>
+                      <span className="text-base font-extrabold text-sky-400 mt-1 block font-display">
                         {property.nearby_places ? '89/100' : '82/100'}
                       </span>
-                      <span className="text-[10px] text-blue-300 font-medium">Prime Corridor</span>
+                      <span className="text-[10px] text-sky-300 bg-sky-950/70 border border-sky-500/30 px-2 py-0.5 rounded-md inline-block mt-1 font-semibold">Prime Corridor</span>
                     </div>
 
-                    <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10">
-                      <span className="text-[11px] text-slate-400 block font-medium">Connectivity</span>
-                      <span className="text-xl font-bold text-cyan-400 mt-1 block">
+                    <div className="p-3 rounded-xl bg-slate-800/60 hover:bg-slate-800/90 border border-slate-700/70 hover:border-indigo-500/40 text-center transition-all duration-200 shadow-xs hover:shadow-md group backdrop-blur-sm">
+                      <span className="text-[11px] text-slate-300 block font-medium group-hover:text-white transition-colors">Connectivity</span>
+                      <span className="text-base font-extrabold text-indigo-400 mt-1 block font-display">
                         {property.nearby_places ? '87/100' : '80/100'}
                       </span>
-                      <span className="text-[10px] text-cyan-300 font-medium">Highway & Metro</span>
+                      <span className="text-[10px] text-indigo-300 bg-indigo-950/70 border border-indigo-500/30 px-2 py-0.5 rounded-md inline-block mt-1 font-semibold">Highway & Metro</span>
                     </div>
 
-                    <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10">
-                      <span className="text-[11px] text-slate-400 block font-medium">Amenities Tier</span>
-                      <span className="text-xl font-bold text-purple-400 mt-1 block">
+                    <div className="p-3 rounded-xl bg-slate-800/60 hover:bg-slate-800/90 border border-slate-700/70 hover:border-purple-500/40 text-center transition-all duration-200 shadow-xs hover:shadow-md group backdrop-blur-sm">
+                      <span className="text-[11px] text-slate-300 block font-medium group-hover:text-white transition-colors">Amenities Tier</span>
+                      <span className="text-base font-extrabold text-purple-400 mt-1 block font-display">
                         {(property.amenities?.length ?? 0) >= 6 ? '92/100' : '84/100'}
                       </span>
-                      <span className="text-[10px] text-purple-300 font-medium">
+                      <span className="text-[10px] text-purple-300 bg-purple-950/70 border border-purple-500/30 px-2 py-0.5 rounded-md inline-block mt-1 font-semibold">
                         {(property.amenities?.length ?? 0) >= 6 ? 'Full Lifestyle' : 'Essential'}
                       </span>
                     </div>
 
-                    <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10">
-                      <span className="text-[11px] text-slate-400 block font-medium">Rental Potential</span>
-                      <span className="text-xl font-bold text-gold-400 mt-1 block">
+                    <div className="p-3 rounded-xl bg-slate-800/60 hover:bg-slate-800/90 border border-slate-700/70 hover:border-amber-500/40 text-center transition-all duration-200 shadow-xs hover:shadow-md group backdrop-blur-sm">
+                      <span className="text-[11px] text-slate-300 block font-medium group-hover:text-white transition-colors">Rental Yield</span>
+                      <span className="text-base font-extrabold text-amber-400 mt-1 block font-display">
                         {property.purpose === 'Rent' ? '90/100' : '85/100'}
                       </span>
-                      <span className="text-[10px] text-gold-300 font-medium">3.8% - 4.5% Yield</span>
+                      <span className="text-[10px] text-amber-300 bg-amber-950/70 border border-amber-500/30 px-2 py-0.5 rounded-md inline-block mt-1 font-semibold">3.8% - 4.5%</span>
                     </div>
 
-                    <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10">
-                      <span className="text-[11px] text-slate-400 block font-medium">Risk Assessment</span>
-                      <span className="text-xl font-bold text-emerald-400 mt-1 block">Low Risk</span>
-                      <span className="text-[10px] text-emerald-300 font-medium">
-                        {property.legal_approved ? '✓ Legal Approved' : 'Verified Docs'}
+                    <div className="p-3 rounded-xl bg-slate-800/60 hover:bg-slate-800/90 border border-slate-700/70 hover:border-emerald-500/40 text-center transition-all duration-200 shadow-xs hover:shadow-md group backdrop-blur-sm">
+                      <span className="text-[11px] text-slate-300 block font-medium group-hover:text-white transition-colors">Risk Score</span>
+                      <span className="text-base font-extrabold text-emerald-400 mt-1 block font-display">Low Risk</span>
+                      <span className="text-[10px] text-emerald-300 bg-emerald-950/70 border border-emerald-500/30 px-2 py-0.5 rounded-md inline-block mt-1 font-semibold">
+                        {property.legal_approved ? 'Legal Approved' : 'Verified Docs'}
                       </span>
                     </div>
                   </div>
-                ) : (
-                  <p className="text-xs text-slate-400 text-center py-2">
-                    Additional dimension parameters needed to compute full multi-factor score breakdown.
-                  </p>
-                )}
 
-                {/* Verifiable Trust Signals */}
-                <div className="mt-6 pt-6 border-t border-slate-800 flex flex-wrap items-center justify-between gap-4 text-xs">
-                  <div className="flex flex-wrap gap-4 text-slate-300">
-                    <span className="flex items-center gap-1.5 text-emerald-400 font-semibold">
-                      <CheckCircle2 className="h-4 w-4" /> Agent / Owner Verified
-                    </span>
-                    <span className="flex items-center gap-1.5 text-emerald-400 font-semibold">
-                      <CheckCircle2 className="h-4 w-4" /> Coordinates & Map Verified
-                    </span>
-                    <span className="flex items-center gap-1.5 text-emerald-400 font-semibold">
-                      <CheckCircle2 className="h-4 w-4" /> Genuine Pricing Guarantee
+                  {/* Verifiable Trust Signals */}
+                  <div className="mt-4 pt-3.5 border-t border-slate-700/60 flex flex-wrap items-center justify-between gap-3 text-[11px]">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <span className="flex items-center gap-1.5 font-semibold text-emerald-400 bg-emerald-950/50 border border-emerald-500/20 px-2.5 py-1 rounded-lg">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> Verified Listing
+                      </span>
+                      <span className="flex items-center gap-1.5 font-semibold text-sky-400 bg-sky-950/50 border border-sky-500/20 px-2.5 py-1 rounded-lg">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-sky-400" /> Coordinates Verified
+                      </span>
+                      <span className="flex items-center gap-1.5 font-semibold text-teal-400 bg-teal-950/50 border border-teal-500/20 px-2.5 py-1 rounded-lg">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-teal-400" /> Genuine Pricing
+                      </span>
+                    </div>
+                    <span className="text-slate-400 text-[10px] font-mono tracking-wide bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700/60">
+                      RealtyNow Trust Index v2.4
                     </span>
                   </div>
-                  <span className="text-slate-400 text-[11px]">
-                    RealtyNow Trust Index v2.4
-                  </span>
                 </div>
               </div>
             </section>
@@ -1447,7 +1471,7 @@ export function PropertyDetailPage() {
                  <p className="text-navy-200 text-lg">Connect with the agent or schedule a visit today to secure this listing.</p>
                  <div className="flex flex-col sm:flex-row justify-center gap-4 pt-4">
                     <Button size="lg" className="bg-red-600 hover:bg-red-700 border-none text-white shadow-lg shadow-red-900/50 text-base px-8" onClick={() => setContactOpen(true)}>
-                      Contact Agent
+                      Contact Us
                     </Button>
                     <Button size="lg" className="bg-white text-navy-900 hover:bg-navy-50 border-none shadow-lg text-base px-8" onClick={() => (user ? setApptOpen(true) : navigate(`/login?redirect=${encodeURIComponent(location.pathname)}`))}>
                       <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp" className="h-5 w-5 mr-2" /> WhatsApp
@@ -1580,7 +1604,7 @@ export function PropertyDetailPage() {
                      className="w-full h-11 bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-600/20 text-sm font-bold rounded-xl transition-all active:scale-[0.98]"
                      onClick={() => setContactOpen(true)}
                    >
-                     Contact Agent
+                     Contact Us
                    </Button>
                    {agent?.phone && (
                      <a
@@ -1644,7 +1668,7 @@ export function PropertyDetailPage() {
           </a>
         )}
         <Button size="lg" className="flex-1 bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-900/20" onClick={() => setContactOpen(true)}>
-          Contact Agent
+          Contact Us
         </Button>
       </div>
 

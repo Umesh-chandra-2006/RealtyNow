@@ -453,219 +453,350 @@ export function PortalCompare() {
 
 import { RazorpayCheckout } from '../../components/payments/razorpay-checkout';
 import { PostPropertyLink } from '../../components/post-property-link';
+import {
+  fetchSubscriptionPlans,
+  fetchActiveCustomerSubscription,
+  fetchCustomerSubscriptionHistory,
+  type SubscriptionPlan,
+  type ActiveSubscriptionSummary,
+} from '../../lib/subscriptions';
+import { Zap, Shield, Phone, Calendar, ArrowRight, Check } from 'lucide-react';
 
 export function PortalSubscription() {
   const { t } = useLanguageContext();
   const { user } = useAuth();
   const sections = getPortalSections(t);
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
-  const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
 
-  const { data: plans } = useQuery({
-    queryKey: ['subscription-plans'],
-    queryFn: async () => {
-      const { data } = await supabase.from('packages').select('*').eq('is_active', true).order('tier', { ascending: true });
-      return data ?? [];
-    },
-  });
-
-  const { data: mySub, refetch: refetchMySub } = useQuery({
-    queryKey: ['my-subscription', user?.id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('agent_packages')
-        .select('*, package:packages(*)')
-        .eq('agent_id', user!.id)
-        .eq('status', 'active')
-        .order('start_date', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      return data;
-    },
+  // 1. Fetch Active Subscription
+  const { data: mySub, refetch: refetchMySub, isLoading: loadingMySub } = useQuery({
+    queryKey: ['customer-active-subscription', user?.id],
+    queryFn: () => (user ? fetchActiveCustomerSubscription(user.id) : null),
     enabled: !!user,
   });
+
+  // 2. Fetch Available Plans
+  const { data: plans = [], isLoading: loadingPlans } = useQuery({
+    queryKey: ['customer-subscription-plans'],
+    queryFn: () => fetchSubscriptionPlans(false),
+  });
+
+  // 3. Fetch Subscription History
+  const { data: history = [], refetch: refetchHistory } = useQuery({
+    queryKey: ['customer-subscription-history', user?.id],
+    queryFn: () => (user ? fetchCustomerSubscriptionHistory(user.id) : []),
+    enabled: !!user,
+  });
+
+  const handleSubscriptionSuccess = () => {
+    refetchMySub();
+    refetchHistory();
+  };
 
   return (
     <DashboardLayout sections={sections} title={t('portal.subscription', 'Subscription')}>
       <PageHeader
-        title={t('portal.subscription', 'Subscription')}
-        subtitle={t('portal.subSubtitle', 'Upgrade to unlock unlimited listings and AI features.')}
+        title={t('portal.subscription', 'Subscription & Listing Plans')}
+        subtitle="Choose a package tailored to your property listing volume, search visibility, and exposure goals."
       />
+
+      {/* ─── 1. MY ACTIVE SUBSCRIPTION CARD ─── */}
       {mySub && (
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-          <Card className="mb-8 border-success-200 bg-gradient-to-r from-success-50/80 to-emerald-50/40 p-6 shadow-sm backdrop-blur">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-navy-600">{t('portal.currentPlan', 'Current plan')}</p>
-              <p className="font-display text-xl font-bold text-navy-900">
-                {(mySub as any)?.package?.name ??
-                  t('portal.active', 'Active')}
-              </p>
-              <p className="text-xs text-navy-500">
-                {t('portal.started', 'Started')} {formatDate((mySub as any)?.start_date)}
-              </p>
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="mb-10"
+        >
+          <div className="rounded-3xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50/90 via-teal-50/50 to-white p-6 sm:p-8 shadow-sm relative overflow-hidden">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+              <div>
+                <div className="flex items-center gap-2.5 mb-2">
+                  <span className="px-3 py-1 rounded-full bg-emerald-600 text-white text-xs font-extrabold tracking-wider uppercase shadow-xs">
+                    ACTIVE SUBSCRIPTION
+                  </span>
+                  {mySub.remaining_days <= 5 && (
+                    <span className="px-2.5 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold">
+                      Expiring in {mySub.remaining_days} days
+                    </span>
+                  )}
+                </div>
+
+                <h2 className="text-2xl sm:text-3xl font-display font-extrabold text-navy-900">
+                  {mySub.plan_name}
+                </h2>
+                <p className="text-xs sm:text-sm text-navy-600 mt-1 flex flex-wrap items-center gap-3">
+                  <span>
+                    Valid until: <strong>{formatDate(mySub.expiry_date)}</strong>
+                  </span>
+                  <span className="text-navy-300">•</span>
+                  <span>
+                    Remaining: <strong>{mySub.remaining_days} Days</strong>
+                  </span>
+                </p>
+              </div>
+
+              {/* Usage Stats Box */}
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="px-4 py-3 bg-white/90 rounded-2xl border border-emerald-200 shadow-xs">
+                  <span className="text-[10px] uppercase font-bold text-navy-400 block">Listings Used</span>
+                  <span className="text-xl font-extrabold text-navy-900">
+                    {mySub.listings_used} <span className="text-xs text-navy-400 font-semibold">/ {mySub.listing_limit} max</span>
+                  </span>
+                  <div className="w-24 h-1.5 bg-navy-100 rounded-full mt-1.5 overflow-hidden">
+                    <div
+                      className="h-full bg-emerald-500 rounded-full"
+                      style={{
+                        width: `${Math.min(100, (mySub.listings_used / Math.max(1, mySub.listing_limit)) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="px-4 py-3 bg-white/90 rounded-2xl border border-emerald-200 shadow-xs">
+                  <span className="text-[10px] uppercase font-bold text-navy-400 block">Search Visibility</span>
+                  <span className="text-sm font-extrabold text-emerald-700 block mt-0.5">
+                    {mySub.visibility_level} Tier
+                  </span>
+                  <span className="text-[10px] text-navy-500 font-medium">Rank Boost Active</span>
+                </div>
+              </div>
             </div>
-            <Badge variant="success" className="px-3 py-1 text-sm shadow-sm">{t('portal.active', 'Active')}</Badge>
+
+            {/* Active Perks List */}
+            <div className="mt-5 pt-5 border-t border-emerald-200/60 flex flex-wrap items-center gap-3 text-xs">
+              <span className="font-bold text-navy-700">Active Perks:</span>
+              <span className="px-2.5 py-1 rounded-xl bg-white border border-emerald-200 text-navy-800 font-semibold">
+                ✓ {mySub.listing_limit} Property Capacity
+              </span>
+              {mySub.premium_placement && (
+                <span className="px-2.5 py-1 rounded-xl bg-amber-100 border border-amber-200 text-amber-900 font-semibold">
+                  ★ Featured Placement
+                </span>
+              )}
+              {mySub.account_manager && (
+                <span className="px-2.5 py-1 rounded-xl bg-white border border-emerald-200 text-navy-800 font-semibold">
+                  ✓ Relationship Manager
+                </span>
+              )}
+              {mySub.phone_privacy && (
+                <span className="px-2.5 py-1 rounded-xl bg-white border border-emerald-200 text-navy-800 font-semibold">
+                  ✓ Phone Privacy Shield
+                </span>
+              )}
+            </div>
           </div>
-        </Card>
         </motion.div>
       )}
 
-      {/* NEW PREMIUM HERO BANNER */}
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }} 
-        animate={{ opacity: 1, y: 0 }} 
+      {/* ─── 2. HERO HIGHLIGHT ─── */}
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="mb-12 relative overflow-hidden rounded-[2rem] bg-navy-950 text-white shadow-2xl"
+        className="mb-10 relative overflow-hidden rounded-[2rem] bg-navy-950 text-white shadow-xl"
       >
-        <div className="absolute inset-0 z-0">
-          <img 
-            src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&q=80&w=2000" 
-            alt="Luxury Real Estate" 
-            className="w-full h-full object-cover opacity-20"
+        <div className="absolute inset-0 z-0 opacity-20">
+          <img
+            src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&q=80&w=2000"
+            alt="Real Estate"
+            className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-navy-950 via-navy-900/90 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-t from-navy-950 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-navy-950 via-navy-950/90 to-transparent" />
         </div>
-        
-        <div className="relative z-10 px-8 py-16 sm:px-12 sm:py-20 flex flex-col md:flex-row items-center justify-between gap-10">
+
+        <div className="relative z-10 px-6 sm:px-10 py-10 sm:py-14 flex flex-col md:flex-row items-center justify-between gap-8">
           <div className="max-w-xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 mb-6">
-              <Crown className="h-4 w-4 text-yellow-400" />
-              <span className="text-xs font-bold tracking-wider text-white uppercase">Premium Plans</span>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 mb-4">
+              <Sparkles className="h-4 w-4 text-amber-400" />
+              <span className="text-xs font-extrabold text-white uppercase tracking-wider">
+                RealtyNow Listing Packages
+              </span>
             </div>
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-display font-bold leading-tight mb-4">
-              Scale your real estate business with <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-400 to-indigo-400">RealtyNow</span>
+            <h2 className="text-2xl sm:text-4xl font-display font-extrabold text-white leading-tight mb-3">
+              Reach more serious buyers & maximize listing inquiries.
             </h2>
-            <p className="text-navy-200 text-lg sm:text-xl mb-8 max-w-lg">
-              Get more leads, priority listings, and advanced AI tools to close deals faster. Choose the plan that fits your ambition.
+            <p className="text-navy-200 text-sm sm:text-base leading-relaxed">
+              Flexible property listing plans with enhanced visibility, direct buyer connection, and verified lead management.
             </p>
-            <div className="flex flex-wrap gap-4">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5 text-success-400" />
-                <span className="text-sm font-medium">Verified Leads</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5 text-success-400" />
-                <span className="text-sm font-medium">Priority Support</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5 text-success-400" />
-                <span className="text-sm font-medium">AI Insights</span>
-              </div>
-            </div>
           </div>
-          <div className="hidden lg:flex relative">
-            <div className="absolute inset-0 bg-primary-500/20 blur-3xl rounded-full" />
-            <Building className="h-48 w-48 text-white/90 drop-shadow-2xl relative z-10" strokeWidth={1} />
-            <Sparkles className="absolute -top-4 -right-4 h-12 w-12 text-yellow-400 animate-pulse z-20" />
+
+          <div className="hidden lg:flex items-center justify-center h-32 w-32 rounded-3xl bg-red-600/20 border border-red-500/30 text-red-400">
+            <Building2 className="h-16 w-16 text-white" />
           </div>
         </div>
       </motion.div>
 
-      <div className="flex justify-center mb-10">
-        <div className="bg-navy-50/80 p-1.5 rounded-xl inline-flex shadow-inner border border-navy-100">
-          <button
-            onClick={() => setBillingCycle('monthly')}
-            className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all duration-300 ${
-              billingCycle === 'monthly' ? 'bg-white text-navy-900 shadow-md ring-1 ring-black/5' : 'text-navy-500 hover:text-navy-900 hover:bg-navy-100/50'
-            }`}
-          >
-            Monthly billing
-          </button>
-          <button
-            onClick={() => setBillingCycle('yearly')}
-            className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all duration-300 ${
-              billingCycle === 'yearly' ? 'bg-white text-navy-900 shadow-md ring-1 ring-black/5' : 'text-navy-500 hover:text-navy-900 hover:bg-navy-100/50'
-            }`}
-          >
-            Yearly billing <span className="ml-1 text-xs text-success-600 bg-success-100 px-1.5 py-0.5 rounded-md">Save 20%</span>
-          </button>
+      {/* ─── 3. AVAILABLE PLANS COMPARISON GRID ─── */}
+      <div className="mb-14">
+        <div className="text-center mb-8">
+          <h2 className="text-2xl sm:text-3xl font-display font-extrabold text-navy-900">
+            Choose Your Listing Plan
+          </h2>
+          <p className="text-sm text-navy-500 mt-1">
+            Pick from RealtyNow Starter, Growth, or Premium packages. Upgrade anytime.
+          </p>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-3 max-w-6xl mx-auto">
+          {plans.map((plan, i) => {
+            const isCurrent = mySub?.plan_id === plan.id;
+            const isGrowth = plan.slug === 'growth';
+            const isPremium = plan.slug === 'premium';
+
+            return (
+              <motion.div
+                key={plan.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: i * 0.1 }}
+                className={`relative flex flex-col p-6 sm:p-8 rounded-3xl transition-all duration-300 bg-white shadow-md hover:shadow-xl ${
+                  plan.is_popular
+                    ? 'border-2 border-red-500 ring-4 ring-red-500/10'
+                    : 'border border-navy-100'
+                }`}
+              >
+                {plan.is_popular && (
+                  <div className="absolute -top-3.5 left-0 right-0 flex justify-center">
+                    <span className="bg-gradient-to-r from-red-600 to-rose-600 text-white text-[10px] font-extrabold uppercase tracking-wider py-1 px-4 rounded-full shadow-md flex items-center gap-1">
+                      <Star className="w-3 h-3 fill-current" /> MOST POPULAR
+                    </span>
+                  </div>
+                )}
+
+                {/* Plan Header */}
+                <div className="mb-5">
+                  <div className="flex items-center gap-2 mb-2">
+                    {isPremium ? (
+                      <Crown className="h-5 w-5 text-amber-500" />
+                    ) : isGrowth ? (
+                      <Zap className="h-5 w-5 text-blue-500" />
+                    ) : (
+                      <Sparkles className="h-5 w-5 text-slate-500" />
+                    )}
+                    <h3 className="font-display text-xl font-extrabold text-navy-900">{plan.name}</h3>
+                  </div>
+
+                  <p className="text-xs text-navy-500 leading-relaxed min-h-[36px]">
+                    {plan.description}
+                  </p>
+
+                  <div className="mt-4 pt-4 border-t border-navy-50 flex items-baseline">
+                    <span className="text-4xl font-display font-extrabold text-navy-900">
+                      {plan.price === 0 ? 'Free' : `₹${Number(plan.price).toLocaleString('en-IN')}`}
+                    </span>
+                    {plan.price > 0 && <span className="text-xs text-navy-500 font-semibold ml-1">+ 18% GST</span>}
+                  </div>
+
+                  <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-navy-50 text-navy-700 text-xs font-bold">
+                    <Calendar className="h-3.5 w-3.5 text-navy-400" />
+                    {plan.validity_days} Days Listing Validity
+                  </div>
+                </div>
+
+                {/* Feature Metric Highlights */}
+                <div className="p-3 rounded-2xl bg-navy-50/70 border border-navy-100/70 mb-6 grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-navy-400 block">Listings Allowed</span>
+                    <span className="font-extrabold text-navy-900">{plan.listing_limit} Properties</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-navy-400 block">Search Visibility</span>
+                    <span className="font-extrabold text-navy-900">{plan.visibility_level}</span>
+                  </div>
+                </div>
+
+                {/* Feature Bullets List */}
+                <ul className="space-y-3 flex-1 mb-8">
+                  {plan.features_list.map((feature, idx) => (
+                    <li key={idx} className="flex items-start gap-2.5 text-xs font-medium text-navy-700">
+                      <CheckCircle2
+                        className={`h-4 w-4 shrink-0 mt-0.5 ${
+                          plan.is_popular ? 'text-red-500' : 'text-emerald-500'
+                        }`}
+                      />
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                {/* CTA Action Button */}
+                <div className="mt-auto pt-4 border-t border-navy-50">
+                  {isCurrent ? (
+                    <button
+                      disabled
+                      className="w-full py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-extrabold text-xs cursor-default flex items-center justify-center gap-2"
+                    >
+                      <Check className="h-4 w-4" /> Current Active Plan
+                    </button>
+                  ) : (
+                    <RazorpayCheckout
+                      planId={plan.id}
+                      planName={plan.name}
+                      amount={plan.price}
+                      validityDays={plan.validity_days}
+                      buttonText={plan.price === 0 ? 'Select Starter Plan' : `Choose ${plan.name}`}
+                      className={`w-full py-3 rounded-xl font-extrabold text-xs shadow-md transition-all ${
+                        plan.is_popular
+                          ? 'bg-gradient-to-r from-red-600 to-rose-600 text-white hover:from-red-700 hover:to-rose-700'
+                          : 'bg-navy-900 text-white hover:bg-navy-800'
+                      }`}
+                      onSuccess={handleSubscriptionSuccess}
+                    />
+                  )}
+                </div>
+              </motion.div>
+            );
+          })}
         </div>
       </div>
 
-      <div className="grid gap-8 md:grid-cols-3 max-w-6xl mx-auto pb-12">
-        {plans?.map((plan, i) => (
-          <motion.div
-            key={plan.id}
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: i * 0.1 }}
-            whileHover={{ y: -8, scale: 1.02 }}
-            className={`relative flex flex-col p-8 rounded-3xl transition-all duration-300 bg-white shadow-lg hover:shadow-2xl ${
-              i === 1 ? 'border-2 border-primary-500 shadow-primary-500/10' : 'border border-gray-100'
-            }`}
-          >
-            {i === 1 && (
-              <div className="absolute -top-4 left-0 right-0 flex justify-center">
-                <div className="bg-gradient-to-r from-primary-500 to-indigo-500 text-white text-xs font-bold uppercase tracking-wider py-1.5 px-4 rounded-full shadow-md flex items-center gap-1.5">
-                  <Star className="w-3.5 h-3.5 fill-current" /> {t('portal.mostPopular', 'Most popular')}
-                </div>
-              </div>
-            )}
-            
-            <div className="mb-6">
-              <h3 className="font-display text-2xl font-bold text-navy-900">{plan.name}</h3>
-              <div className="mt-4 flex items-baseline text-navy-900">
-                <span className="text-5xl font-extrabold tracking-tight">
-                  {plan.price_monthly === 0 ? t('common.free', 'Free') : `₹${billingCycle === 'yearly' ? plan.price_yearly : plan.price_monthly}`}
-                </span>
-                <span className="ml-1 text-lg font-medium text-navy-500">
-                  /{billingCycle === 'yearly' ? 'yr' : 'mo'}
-                </span>
-              </div>
-            </div>
-
-            <ul className="mb-8 space-y-4 flex-1">
-              {(plan.features_json as string[] | null)?.map((f) => (
-                <li key={f} className="flex items-start gap-3">
-                  <CheckCircle2 className={`h-5 w-5 shrink-0 ${i === 1 ? 'text-primary-500' : 'text-success-500'}`} />
-                  <span className="text-sm font-medium text-navy-700">{f}</span>
-                </li>
-              ))}
-            </ul>
-
-            <div className="mt-auto pt-6 border-t border-gray-100 flex flex-col gap-3">
-              <Button
-                variant="secondary"
-                className="w-full bg-white text-navy-900 border-navy-200 hover:bg-navy-50 hover:text-navy-900 shadow-sm"
-                onClick={() => setSelectedPlan(plan)}
-              >
-                View Details
-              </Button>
-              {plan.price_monthly === 0 || (mySub as any)?.package_id === plan.id ? (
-                <button 
-                  className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all shadow-sm ${
-                    i === 1 ? 'bg-primary-50 text-primary-700 cursor-default' : 'bg-gray-50 text-gray-500 cursor-default'
-                  }`} 
-                  disabled
-                >
-                  {t('portal.current', 'Current Plan')}
-                </button>
-              ) : (
-                <RazorpayCheckout
-                  packageId={plan.id}
-                  billingCycle={billingCycle}
-                  buttonText={t('portal.upgrade', 'Upgrade Now')}
-                  className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all shadow-sm hover:shadow-md ${
-                    i === 1 
-                      ? 'bg-gradient-to-r from-primary-600 to-indigo-600 text-white hover:from-primary-700 hover:to-indigo-700' 
-                      : 'bg-navy-900 text-white hover:bg-navy-800'
-                  }`}
-                  onSuccess={() => refetchMySub()}
-                />
-              )}
-            </div>
-          </motion.div>
-        ))}
-      </div>
-
-      <PlanDetailsModal
-        plan={selectedPlan}
-        isOpen={!!selectedPlan}
-        onClose={() => setSelectedPlan(null)}
-        billingCycle={billingCycle}
-      />
+      {/* ─── 4. SUBSCRIPTION HISTORY SECTION ─── */}
+      {history.length > 0 && (
+        <div className="bg-white rounded-3xl border border-navy-100 p-6 sm:p-8 shadow-sm">
+          <h3 className="font-display text-xl font-extrabold text-navy-900 mb-4">
+            Subscription History & Invoices
+          </h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-navy-50 text-navy-600 uppercase font-bold border-b border-navy-100">
+                <tr>
+                  <th className="px-4 py-3">Plan Name</th>
+                  <th className="px-4 py-3">Amount Paid</th>
+                  <th className="px-4 py-3">Start Date</th>
+                  <th className="px-4 py-3">Expiry Date</th>
+                  <th className="px-4 py-3">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-navy-50 font-medium text-navy-700">
+                {history.map((record) => (
+                  <tr key={record.id} className="hover:bg-navy-50/40 transition-colors">
+                    <td className="px-4 py-3.5 font-bold text-navy-900">
+                      {record.plan?.name || 'RealtyNow Subscription'}
+                    </td>
+                    <td className="px-4 py-3.5">
+                      {Number(record.amount_paid) === 0 ? 'Free' : `₹${Number(record.amount_paid).toLocaleString('en-IN')}`}
+                    </td>
+                    <td className="px-4 py-3.5 text-navy-600">{formatDate(record.start_date)}</td>
+                    <td className="px-4 py-3.5 text-navy-600">{formatDate(record.expiry_date)}</td>
+                    <td className="px-4 py-3.5">
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
+                          record.status === 'ACTIVE'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : 'bg-slate-100 text-slate-600'
+                        }`}
+                      >
+                        {record.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

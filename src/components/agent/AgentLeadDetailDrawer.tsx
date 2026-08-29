@@ -24,7 +24,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { useToast } from '../toast';
 import { Button, Input, Textarea, Badge } from '../ui';
-import { formatDate, formatPrice, generatePropertyUrl, buildWhatsAppUrl } from '../../lib/utils';
+import { formatDate, formatPrice, generatePropertyUrl, buildWhatsAppUrl, isUuid } from '../../lib/utils';
 import { useRealtimeCount } from '../../lib/realtime';
 import { DEFAULT_PROPERTY_IMAGE, handleImageError } from '../../lib/property-images';
 
@@ -70,88 +70,136 @@ export function AgentLeadDetailDrawer({
 
   const [noteText, setNoteText] = useState('');
   const [showFollowUpForm, setShowFollowUpForm] = useState(false);
-  const [followUpDate, setFollowUpDate] = useState('');
+  const [followUpDate, setFollowUpDate] = useState(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().slice(0, 10);
+  });
   const [followUpTime, setFollowUpTime] = useState('10:00');
   const [followUpType, setFollowUpType] = useState('call');
   const [followUpNote, setFollowUpNote] = useState('');
 
-  const leadId = initialLead?.id;
-  const realtimeTick = useRealtimeCount('lead_activities', { column: 'lead_id', value: leadId ?? '' });
+  const rawLeadId = String(initialLead?.id || '');
+  const isAppointment = rawLeadId.startsWith('apt-') || initialLead?._table === 'appointments' || initialLead?.type === 'appointment';
+  const cleanId = isAppointment ? rawLeadId.replace(/^apt-/, '') : rawLeadId;
+  const isValidUuid = isUuid(cleanId);
 
-  // Query live lead data to stay synchronized
+  const realtimeTick = useRealtimeCount('lead_activities', { column: 'lead_id', value: isValidUuid ? cleanId : '' });
+
+  // Query live lead data to stay synchronized safely
   const { data: leadData } = useQuery({
-    queryKey: ['agent-lead-detail', leadId],
+    queryKey: ['agent-lead-detail', cleanId],
     queryFn: async () => {
-      if (!leadId) return null;
-      const { data, error } = await supabase
-        .from('enquiries')
-        .select('*, property:properties(id, title, price, purpose, images, locality_name, city_name, bedrooms, built_up_area, property_types(name))')
-        .eq('id', leadId)
-        .maybeSingle();
-      if (error) throw error;
-      if (!data) return null;
-      return {
-        ...data,
-        property: Array.isArray(data.property) ? data.property[0] : data.property,
-      };
+      if (!isValidUuid) return initialLead;
+      if (isAppointment) {
+        const { data, error } = await supabase
+          .from('appointments')
+          .select('*, property:properties(id, title, price, purpose, images, locality_name, city_name, bedrooms, built_up_area, property_types(name))')
+          .eq('id', cleanId)
+          .maybeSingle();
+        if (error || !data) return initialLead;
+        return {
+          ...data,
+          name: data.notes ? `Site Visit: ${data.notes.slice(0, 30)}` : 'Site Visit Request',
+          property: Array.isArray(data.property) ? data.property[0] : data.property,
+          lead_status:
+            data.status === 'confirmed' ? 'site_visit' :
+            data.status === 'completed' ? 'won' :
+            data.status === 'cancelled' ? 'lost' : 'new',
+        };
+      } else {
+        const { data, error } = await supabase
+          .from('enquiries')
+          .select('*, property:properties(id, title, price, purpose, images, locality_name, city_name, bedrooms, built_up_area, property_types(name))')
+          .eq('id', cleanId)
+          .maybeSingle();
+        if (error) throw error;
+        if (!data) return initialLead;
+        return {
+          ...data,
+          property: Array.isArray(data.property) ? data.property[0] : data.property,
+        };
+      }
     },
     initialData: initialLead,
-    enabled: !!leadId && isOpen,
+    enabled: !!cleanId && isOpen,
   });
 
   const lead = leadData || initialLead;
 
   // Query chronological activities
   const { data: activities = [], isLoading: activitiesLoading } = useQuery({
-    queryKey: ['agent-lead-activities', leadId, realtimeTick],
+    queryKey: ['agent-lead-activities', cleanId, realtimeTick],
     queryFn: async () => {
-      if (!leadId) return [];
-      const { data, error } = await supabase
-        .from('lead_activities')
-        .select('*')
-        .eq('lead_id', leadId)
-        .order('created_at', { ascending: false });
-      if (error) {
-        console.warn('Failed to fetch lead activities:', error);
+      if (!isValidUuid) return [];
+      try {
+        const { data, error } = await supabase
+          .from('lead_activities')
+          .select('*')
+          .eq('lead_id', cleanId)
+          .order('created_at', { ascending: false });
+        if (error) {
+          console.warn('Failed to fetch lead activities:', error);
+          return [];
+        }
+        return (data ?? []) as LeadActivity[];
+      } catch {
         return [];
       }
-      return (data ?? []) as LeadActivity[];
     },
-    enabled: !!leadId && isOpen,
+    enabled: !!cleanId && isOpen && isValidUuid,
   });
 
   // Mutation: Update Lead Status
   const statusMutation = useMutation({
     mutationFn: async (newStatus: string) => {
       const oldStatus = lead.lead_status || lead.status;
-      const { error } = await supabase
-        .from('enquiries')
-        .update({
-          lead_status: newStatus,
-          status: newStatus === 'won' || newStatus === 'lost' ? 'closed' : newStatus === 'new' ? 'new' : 'contacted',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', leadId);
+      if (!isValidUuid) return;
 
-      if (error) throw error;
+      if (isAppointment) {
+        const aptStatus =
+          newStatus === 'won' ? 'completed' :
+          newStatus === 'site_visit' ? 'confirmed' :
+          newStatus === 'lost' ? 'cancelled' : 'requested';
+        const { error } = await supabase
+          .from('appointments')
+          .update({ status: aptStatus, updated_at: new Date().toISOString() })
+          .eq('id', cleanId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('enquiries')
+          .update({
+            lead_status: newStatus,
+            status: newStatus === 'won' || newStatus === 'lost' ? 'closed' : newStatus === 'new' ? 'new' : 'contacted',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', cleanId);
 
-      // Log activity
-      await supabase.from('lead_activities').insert({
-        lead_id: leadId,
-        actor_id: user?.id ?? null,
-        activity_type: newStatus === 'won' ? 'won' : newStatus === 'lost' ? 'lost' : 'status_changed',
-        title: `Status changed to ${newStatus.replace('_', ' ').toUpperCase()}`,
-        old_value: oldStatus,
-        new_value: newStatus,
-        is_system: false,
-        created_at: new Date().toISOString(),
-      });
+        if (error) throw error;
+
+        // Log activity
+        try {
+          await supabase.from('lead_activities').insert({
+            lead_id: cleanId,
+            actor_id: user?.id ?? null,
+            activity_type: newStatus === 'won' ? 'won' : newStatus === 'lost' ? 'lost' : 'status_changed',
+            title: `Status changed to ${newStatus.replace('_', ' ').toUpperCase()}`,
+            old_value: oldStatus,
+            new_value: newStatus,
+            is_system: false,
+            created_at: new Date().toISOString(),
+          });
+        } catch {
+          // non-blocking
+        }
+      }
     },
     onSuccess: () => {
       addToast('success', 'Lead status updated');
       queryClient.invalidateQueries({ queryKey: ['agent-leads'] });
-      queryClient.invalidateQueries({ queryKey: ['agent-lead-detail', leadId] });
-      queryClient.invalidateQueries({ queryKey: ['agent-lead-activities', leadId] });
+      queryClient.invalidateQueries({ queryKey: ['agent-lead-detail', cleanId] });
+      queryClient.invalidateQueries({ queryKey: ['agent-lead-activities', cleanId] });
       onLeadUpdated?.();
     },
     onError: (err: any) => {
@@ -162,22 +210,28 @@ export function AgentLeadDetailDrawer({
   // Mutation: Add Note
   const addNoteMutation = useMutation({
     mutationFn: async (note: string) => {
-      if (!note.trim()) return;
-      const { error } = await supabase.from('lead_activities').insert({
-        lead_id: leadId,
-        actor_id: user?.id ?? null,
-        activity_type: 'note_added',
-        title: 'Note Added',
-        description: note.trim(),
-        is_system: false,
-        created_at: new Date().toISOString(),
-      });
-      if (error) throw error;
+      if (!note.trim() || !isValidUuid) return;
+      if (isAppointment) {
+        const currentNotes = lead.notes || lead.message || '';
+        const updatedNotes = currentNotes ? `${currentNotes}\n[${new Date().toLocaleDateString()}] ${note.trim()}` : note.trim();
+        await supabase.from('appointments').update({ notes: updatedNotes, updated_at: new Date().toISOString() }).eq('id', cleanId);
+      } else {
+        const { error } = await supabase.from('lead_activities').insert({
+          lead_id: cleanId,
+          actor_id: user?.id ?? null,
+          activity_type: 'note_added',
+          title: 'Note Added',
+          description: note.trim(),
+          is_system: false,
+          created_at: new Date().toISOString(),
+        });
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       setNoteText('');
       addToast('success', 'Note saved');
-      queryClient.invalidateQueries({ queryKey: ['agent-lead-activities', leadId] });
+      queryClient.invalidateQueries({ queryKey: ['agent-lead-activities', cleanId] });
       queryClient.invalidateQueries({ queryKey: ['agent-leads'] });
     },
     onError: (err: any) => {
@@ -189,51 +243,63 @@ export function AgentLeadDetailDrawer({
   const scheduleFollowUpMutation = useMutation({
     mutationFn: async () => {
       if (!followUpDate) throw new Error('Please select a date');
+      if (!isValidUuid) return;
       const scheduledDateTime = new Date(`${followUpDate}T${followUpTime || '10:00'}:00`).toISOString();
 
-      // 1. Update enquiry follow_up_at
-      await supabase
-        .from('enquiries')
-        .update({
-          follow_up_at: scheduledDateTime,
-          lead_status: lead.lead_status === 'new' ? 'follow_up' : lead.lead_status,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', leadId);
+      if (isAppointment) {
+        await supabase
+          .from('appointments')
+          .update({ scheduled_at: scheduledDateTime, updated_at: new Date().toISOString() })
+          .eq('id', cleanId);
+      } else {
+        // 1. Update enquiry follow_up_at
+        await supabase
+          .from('enquiries')
+          .update({
+            follow_up_at: scheduledDateTime,
+            lead_status: lead.lead_status === 'new' ? 'follow_up' : lead.lead_status,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', cleanId);
 
-      // 2. Insert into follow_up_scheduler if table exists
-      try {
-        await supabase.from('follow_up_scheduler').insert({
-          lead_id: leadId,
-          scheduled_by: user?.id,
-          assigned_to: user?.id,
-          scheduled_at: scheduledDateTime,
-          type: followUpType,
-          title: `Follow up via ${followUpType}`,
-          notes: followUpNote.trim() || null,
-        });
-      } catch {
-        // Non-blocking
+        // 2. Insert into follow_up_scheduler if table exists
+        try {
+          await supabase.from('follow_up_scheduler').insert({
+            lead_id: cleanId,
+            scheduled_by: user?.id,
+            assigned_to: user?.id,
+            scheduled_at: scheduledDateTime,
+            type: followUpType,
+            title: `Follow up via ${followUpType}`,
+            notes: followUpNote.trim() || null,
+          });
+        } catch {
+          // Non-blocking
+        }
+
+        // 3. Insert activity
+        try {
+          await supabase.from('lead_activities').insert({
+            lead_id: cleanId,
+            actor_id: user?.id ?? null,
+            activity_type: 'follow_up_scheduled',
+            title: `Follow-up Scheduled (${followUpType.toUpperCase()})`,
+            description: `${formatDate(scheduledDateTime)}${followUpNote ? ` — "${followUpNote.trim()}"` : ''}`,
+            is_system: false,
+            created_at: new Date().toISOString(),
+          });
+        } catch {
+          // non-blocking
+        }
       }
-
-      // 3. Insert activity
-      await supabase.from('lead_activities').insert({
-        lead_id: leadId,
-        actor_id: user?.id ?? null,
-        activity_type: 'follow_up_scheduled',
-        title: `Follow-up Scheduled (${followUpType.toUpperCase()})`,
-        description: `${formatDate(scheduledDateTime)}${followUpNote ? ` — "${followUpNote.trim()}"` : ''}`,
-        is_system: false,
-        created_at: new Date().toISOString(),
-      });
     },
     onSuccess: () => {
-      addToast('success', 'Follow-up scheduled successfully');
+      addToast('success', 'Follow-up scheduled');
       setShowFollowUpForm(false);
       setFollowUpNote('');
       queryClient.invalidateQueries({ queryKey: ['agent-leads'] });
-      queryClient.invalidateQueries({ queryKey: ['agent-lead-detail', leadId] });
-      queryClient.invalidateQueries({ queryKey: ['agent-lead-activities', leadId] });
+      queryClient.invalidateQueries({ queryKey: ['agent-lead-detail', cleanId] });
+      queryClient.invalidateQueries({ queryKey: ['agent-lead-activities', cleanId] });
       onLeadUpdated?.();
     },
     onError: (err: any) => {
@@ -245,9 +311,10 @@ export function AgentLeadDetailDrawer({
   const handleCallCustomer = async () => {
     if (!lead?.phone) return;
     window.location.href = `tel:${lead.phone}`;
+    if (!isValidUuid) return;
     try {
       await supabase.from('lead_activities').insert({
-        lead_id: leadId,
+        lead_id: cleanId,
         actor_id: user?.id ?? null,
         activity_type: 'call_made',
         title: 'Call Initiated',
@@ -255,7 +322,7 @@ export function AgentLeadDetailDrawer({
         is_system: false,
         created_at: new Date().toISOString(),
       });
-      queryClient.invalidateQueries({ queryKey: ['agent-lead-activities', leadId] });
+      queryClient.invalidateQueries({ queryKey: ['agent-lead-activities', cleanId] });
     } catch {
       // Non-blocking
     }
@@ -271,9 +338,10 @@ export function AgentLeadDetailDrawer({
     );
     window.open(waUrl, '_blank', 'noopener,noreferrer');
 
+    if (!isValidUuid) return;
     try {
       await supabase.from('lead_activities').insert({
-        lead_id: leadId,
+        lead_id: cleanId,
         actor_id: user?.id ?? null,
         activity_type: 'whatsapp_sent',
         title: 'WhatsApp Initiated',
@@ -281,7 +349,7 @@ export function AgentLeadDetailDrawer({
         is_system: false,
         created_at: new Date().toISOString(),
       });
-      queryClient.invalidateQueries({ queryKey: ['agent-lead-activities', leadId] });
+      queryClient.invalidateQueries({ queryKey: ['agent-lead-activities', cleanId] });
     } catch {
       // Non-blocking
     }

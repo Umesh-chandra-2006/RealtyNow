@@ -16,6 +16,8 @@ import {
   mapPropertyTypeToCategory,
 } from './search-engine';
 import { buildPublishedQuery, type PropertyFilters } from './properties';
+import { categorizeProperty, normalizeCategorySlug, type CategorySlug } from './categories';
+import { matchesAllAmenities, matchesAmenity } from './amenities';
 
 export interface GlobalSearchOptions extends PropertyFilters {
   /** Raw natural language query or keyword */
@@ -41,6 +43,8 @@ export interface ScoredProperty extends Property {
 export interface GlobalSearchResult {
   properties: ScoredProperty[];
   totalCount: number;
+  baseTotalCount: number;
+  categoryCounts: Record<CategorySlug, number>;
   parsedIntent: ParsedSearchIntent;
   page: number;
   pageSize: number;
@@ -181,13 +185,18 @@ export function calculateRelevanceScore(
     }
   }
 
-  // 9. Premium Quality Signals (+20 / +10)
+  // 9. Premium Quality & Subscription Visibility Signals
+  if (property.visibility_level === 'Premium' || property.premium_placement) score += 25;
+  else if (property.visibility_level === 'Enhanced') score += 15;
+
   if (property.is_featured) score += 15;
   if (property.is_verified || property.verified_status === 'verified') score += 10;
   if (property.is_luxury) score += 10;
 
   return score;
 }
+
+// ─── Global Property Search Execution ─────────────────────────
 
 // ─── Global Property Search Execution ─────────────────────────
 
@@ -205,69 +214,123 @@ export async function executeGlobalPropertySearch(
   // 1. Parse natural language query
   const parsedIntent = parsePropertySearchQuery(q);
 
-  // 2. Synthesize filters from both parsed intent and explicit filters
-  const synthesizedFilters: PropertyFilters = {
+  // 2. Identify the active canonical category slug if explicitly filtered or parsed
+  const rawTargetCategory = explicitFilters.category || (parsedIntent.propertyType ? String(parsedIntent.propertyType) : undefined) || explicitFilters.type;
+  const activeCategorySlug = normalizeCategorySlug(rawTargetCategory);
+
+  // 3. Synthesize base query filters (strictly omitting category/type so DB returns all context candidates)
+  const baseQueryFilters: PropertyFilters = {
     ...explicitFilters,
+    category: undefined,
+    type: undefined,
+    property_type_id: undefined,
     purpose: explicitFilters.purpose || parsedIntent.purpose || undefined,
-    category: explicitFilters.category || (parsedIntent.propertyType ? String(parsedIntent.propertyType) : undefined),
     bedrooms: explicitFilters.bedrooms ?? (parsedIntent.bedrooms ?? undefined),
     min_price: explicitFilters.min_price ?? (parsedIntent.minPrice ?? undefined),
     max_price: explicitFilters.max_price ?? (parsedIntent.maxPrice ?? undefined),
-    // Pass full text search query to match against all properties and text fields
+    min_area: explicitFilters.min_area ?? undefined,
+    max_area: explicitFilters.max_area ?? undefined,
     q: q.trim() || undefined,
+    limit: 5000,
+    offset: 0,
   };
 
-  // If sorting is relevance, we fetch a larger window and rank on client/service
-  const isRelevanceSort = sortBy === 'relevance';
-  const fetchLimit = isRelevanceSort ? 200 : pageSize;
-  const fetchOffset = isRelevanceSort ? 0 : (page - 1) * pageSize;
-
-  const queryFilters: PropertyFilters = {
-    ...synthesizedFilters,
-    limit: fetchLimit,
-    offset: fetchOffset,
-  };
-
-  // Map sort_by for database ordering when not relevance
-  if (!isRelevanceSort) {
-    if (sortBy === 'newest') queryFilters.sort_by = 'newest';
-    else if (sortBy === 'price_asc') queryFilters.sort_by = 'price_asc';
-    else if (sortBy === 'price_desc') queryFilters.sort_by = 'price_desc';
-    else if (sortBy === 'most_viewed') queryFilters.sort_by = 'most_viewed';
-    else if (sortBy === 'featured') queryFilters.sort_by = 'featured';
-  }
-
-  // 3. Execute DB query via buildPublishedQuery
-  const dbQuery = buildPublishedQuery(queryFilters);
-  const { data, error, count } = await dbQuery;
+  // 4. Execute DB query via buildPublishedQuery
+  const dbQuery = buildPublishedQuery(baseQueryFilters);
+  const { data, error } = await dbQuery;
 
   if (error) {
     console.error('executeGlobalPropertySearch database error:', error);
     throw error;
   }
 
-  let properties: ScoredProperty[] = (data ?? []) as ScoredProperty[];
-  const totalCount = count ?? properties.length;
+  let allCandidates: ScoredProperty[] = (data ?? []) as ScoredProperty[];
 
-  // 4. If relevance sort, score every item and sort descending
+  // Strictly filter candidates by requested amenities using smart alias matching
+  if (explicitFilters.amenities && explicitFilters.amenities.length > 0) {
+    allCandidates = allCandidates.filter((prop) =>
+      matchesAllAmenities(prop.amenities, explicitFilters.amenities)
+    );
+  }
+
+  // Normalize possession_status and attributes from draft_data if missing on root row
+  for (const prop of allCandidates) {
+    if (!prop.possession_status) {
+      const draft = (prop as any).draft_data || {};
+      const status = draft.possession_status || draft.construction_status || draft.age_of_property;
+      if (status && typeof status === 'string') {
+        const s = status.toLowerCase();
+        if (s.includes('under') || s.includes('construction') || s.includes('uc')) prop.possession_status = 'Under Construction';
+        else if (s.includes('new') || s.includes('launch')) prop.possession_status = 'New Launch';
+        else if (s.includes('ready')) prop.possession_status = 'Ready to Move';
+      }
+    }
+  }
+
+  const baseTotalCount = allCandidates.length;
+
+  // 5. Calculate synchronized Category Breakdown strictly using canonical categorizeProperty
+  const categoryCounts: Record<CategorySlug, number> = {
+    apartment: 0,
+    'independent-house': 0,
+    villa: 0,
+    plots: 0,
+    'commercial-office': 0,
+    'retail-shop': 0,
+    warehouse: 0,
+    'co-working': 0,
+  };
+
+  for (const prop of allCandidates) {
+    const slug = categorizeProperty(prop);
+    if (slug && categoryCounts[slug] !== undefined) {
+      categoryCounts[slug] += 1;
+    }
+  }
+
+  // 6. Filter by active category slug using the EXACT same categorization function
+  let matchingProperties: ScoredProperty[] = allCandidates;
+  if (activeCategorySlug) {
+    matchingProperties = allCandidates.filter((p) => categorizeProperty(p) === activeCategorySlug);
+  }
+
+  const totalCount = activeCategorySlug ? categoryCounts[activeCategorySlug] || matchingProperties.length : baseTotalCount;
+
+  // 7. Sort matching properties
+  const isRelevanceSort = sortBy === 'relevance';
   if (isRelevanceSort) {
-    properties = properties.map((prop) => ({
+    matchingProperties = matchingProperties.map((prop) => ({
       ...prop,
       _relevanceScore: calculateRelevanceScore(prop, q, parsedIntent),
     }));
-
-    properties.sort((a, b) => (b._relevanceScore ?? 0) - (a._relevanceScore ?? 0));
-
-    // Slice for the requested page
-    const startIdx = (page - 1) * pageSize;
-    properties = properties.slice(startIdx, startIdx + pageSize);
+    matchingProperties.sort((a, b) => (b._relevanceScore ?? 0) - (a._relevanceScore ?? 0));
+  } else if (sortBy === 'price_asc') {
+    matchingProperties.sort((a, b) => (Number(a.price || a.rent_amount || 0)) - (Number(b.price || b.rent_amount || 0)));
+  } else if (sortBy === 'price_desc') {
+    matchingProperties.sort((a, b) => (Number(b.price || b.rent_amount || 0)) - (Number(a.price || a.rent_amount || 0)));
+  } else if (sortBy === 'most_viewed') {
+    matchingProperties.sort((a, b) => (b.view_count || 0) - (a.view_count || 0));
+  } else if (sortBy === 'featured') {
+    matchingProperties.sort((a, b) => (b.is_featured ? 1 : 0) - (a.is_featured ? 1 : 0));
+  } else {
+    // Default newest
+    matchingProperties.sort((a, b) => {
+      const timeB = new Date(b.published_at || b.created_at || 0).getTime();
+      const timeA = new Date(a.published_at || a.created_at || 0).getTime();
+      return timeB - timeA;
+    });
   }
 
+  // 8. Paginate
+  const startIdx = (page - 1) * pageSize;
+  const paginatedProperties = matchingProperties.slice(startIdx, startIdx + pageSize);
   const totalPages = Math.ceil(totalCount / pageSize) || 1;
 
   return {
-    properties,
+    properties: paginatedProperties,
     totalCount,
+    baseTotalCount,
+    categoryCounts,
     parsedIntent,
     page,
     pageSize,

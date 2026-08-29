@@ -6,7 +6,7 @@ import { useLanguageContext } from '../../lib/i18n/language-context';
 import { DashboardLayout, PageHeader } from '../../components/dashboard-layout';
 import { getPartnerSections } from '../portal/sections';
 import { Card, Badge, Skeleton } from '../../components/ui';
-import { formatDate } from '../../lib/utils';
+import { formatDate, isUuid } from '../../lib/utils';
 import { ReferralStatusBadge } from './referrals';
 
 const TYPE_ICON = { customer: User, property: Home, service: Briefcase } as const;
@@ -29,37 +29,41 @@ export function PartnerReferralDetail() {
   const { data: referral, isLoading } = useQuery({
     queryKey: ['partner-referral', id],
     queryFn: async () => {
+      if (!isUuid(id)) return null;
       const { data } = await supabase.from('referrals').select('*').eq('id', id).maybeSingle();
       return data;
     },
-    enabled: !!id,
+    enabled: !!id && isUuid(id),
   });
 
   const { data: activities } = useQuery({
     queryKey: ['partner-referral-activities', id],
     queryFn: async () => {
+      if (!isUuid(id)) return [];
       const { data } = await supabase.from('referral_activities').select('*').eq('referral_id', id).order('created_at', { ascending: true });
       return data ?? [];
     },
-    enabled: !!id,
+    enabled: !!id && isUuid(id),
   });
 
   const { data: commission } = useQuery({
     queryKey: ['partner-referral-commission', id],
     queryFn: async () => {
+      if (!isUuid(id)) return null;
       const { data } = await supabase.from('partner_commissions').select('*').eq('referral_id', id).maybeSingle();
       return data;
     },
-    enabled: !!id,
+    enabled: !!id && isUuid(id),
   });
 
   const { data: agent } = useQuery({
     queryKey: ['partner-referral-agent', referral?.assigned_agent_id],
     queryFn: async () => {
+      if (!isUuid(referral?.assigned_agent_id)) return null;
       const { data } = await supabase.from('profiles').select('first_name,last_name').eq('id', referral!.assigned_agent_id).maybeSingle();
       return data;
     },
-    enabled: !!referral?.assigned_agent_id,
+    enabled: !!referral?.assigned_agent_id && isUuid(referral?.assigned_agent_id),
   });
 
   if (isLoading) {

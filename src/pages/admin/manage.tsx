@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { UserPlus, Trash2, Ban, CheckCircle2, Edit3, Plus, FileText, Upload, ExternalLink, XCircle, Clock } from 'lucide-react';
+import { UserPlus, Trash2, Ban, CheckCircle2, Edit3, Plus, FileText, Upload, ExternalLink, XCircle, Clock, Building2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { useLanguageContext } from '../../lib/i18n/language-context';
@@ -1657,8 +1657,15 @@ export function AdminMasterData() {
       await supabase.from('amenities').insert({ name: newName });
       queryClient.invalidateQueries({ queryKey: ['admin-amenities'] });
     } else if (tab === 'builders') {
-      await supabase.from('builders').insert({ name: newName, established_year: extra ? Number(extra) : null });
+      await supabase.from('builders').insert({
+        name: newName,
+        established_year: extra ? Number(extra) : null,
+        logo_url: extra2?.trim() || null,
+        status: 'approved',
+        public_visible: true,
+      });
       queryClient.invalidateQueries({ queryKey: ['admin-builders'] });
+      queryClient.invalidateQueries({ queryKey: ['home-top-builders-dynamic'] });
     } else if (tab === 'statuses') {
       setCustomStatuses((prev) => [...prev, { id: `st-${Date.now()}`, name: newName, category: extra || 'General Stage' }]);
     } else if (tab === 'furnishing') {
@@ -1827,12 +1834,20 @@ export function AdminMasterData() {
           )}
 
           {tab === 'builders' && (
-            <Input
-              placeholder="Est. Year (e.g. 1995)"
-              value={extra}
-              onChange={(e) => setExtra(e.target.value)}
-              className="sm:max-w-[160px] rounded-xl text-xs bg-white"
-            />
+            <>
+              <Input
+                placeholder="Est. Year (e.g. 1995)"
+                value={extra}
+                onChange={(e) => setExtra(e.target.value)}
+                className="sm:max-w-[140px] rounded-xl text-xs bg-white"
+              />
+              <Input
+                placeholder="Logo URL (e.g. /builders/prestige.svg)"
+                value={extra2}
+                onChange={(e) => setExtra2(e.target.value)}
+                className="sm:max-w-[240px] rounded-xl text-xs bg-white"
+              />
+            </>
           )}
 
           <Button
@@ -1851,24 +1866,50 @@ export function AdminMasterData() {
             return (
               <div key={String(item.id)} className="flex items-center justify-between py-3 px-2 hover:bg-slate-50/80 rounded-xl transition-colors">
                 <div>
-                  <p className="text-xs font-bold text-black">{String(item.name)}</p>
-                  {tab === 'cities' && item.state ? (
-                    <p className="text-[11px] font-semibold text-slate-400">{String(item.state)}, India</p>
-                  ) : null}
-                  {tab === 'localities' ? (
-                    <p className="text-[11px] font-semibold text-slate-400">
-                      {cityName ? `City: ${cityName}` : ''} {item.pincode ? `• PIN: ${item.pincode}` : ''}
-                    </p>
-                  ) : null}
-                  {tab === 'types' && item.category ? (
-                    <p className="text-[11px] font-semibold text-red-600">{String(item.category)}</p>
-                  ) : null}
-                  {tab === 'builders' && item.established_year ? (
-                    <p className="text-[11px] font-semibold text-slate-400">Est. {String(item.established_year)}</p>
-                  ) : null}
-                  {(tab === 'statuses' || tab === 'furnishing' || tab === 'lead_sources') && item.category ? (
-                    <p className="text-[11px] font-semibold text-slate-400">{String(item.category)}</p>
-                  ) : null}
+                  {tab === 'builders' ? (
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-14 rounded-xl bg-slate-50 border border-slate-200 p-1 flex items-center justify-center shrink-0">
+                        {item.logo_url ? (
+                          <img src={String(item.logo_url)} alt="" className="max-h-full max-w-full object-contain" />
+                        ) : (
+                          <Building2 className="h-5 w-5 text-slate-400" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-900">{String(item.name)}</p>
+                        <p className="text-[11px] font-semibold text-slate-400 flex items-center gap-2">
+                          {item.established_year ? `Est. ${item.established_year}` : 'Verified Developer'}
+                          <span>•</span>
+                          <a
+                            href={`/builders/${item.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-red-600 hover:underline font-bold"
+                          >
+                            View Landing Page ↗
+                          </a>
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-xs font-bold text-black">{String(item.name)}</p>
+                      {tab === 'cities' && item.state ? (
+                        <p className="text-[11px] font-semibold text-slate-400">{String(item.state)}, India</p>
+                      ) : null}
+                      {tab === 'localities' ? (
+                        <p className="text-[11px] font-semibold text-slate-400">
+                          {cityName ? `City: ${cityName}` : ''} {item.pincode ? `• PIN: ${item.pincode}` : ''}
+                        </p>
+                      ) : null}
+                      {tab === 'types' && item.category ? (
+                        <p className="text-[11px] font-semibold text-red-600">{String(item.category)}</p>
+                      ) : null}
+                      {(tab === 'statuses' || tab === 'furnishing' || tab === 'lead_sources') && item.category ? (
+                        <p className="text-[11px] font-semibold text-slate-400">{String(item.category)}</p>
+                      ) : null}
+                    </>
+                  )}
                 </div>
                 <Button
                   size="sm"

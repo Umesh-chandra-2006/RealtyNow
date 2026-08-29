@@ -53,6 +53,7 @@ import { LocationSelector } from './location-selector';
 import { cn } from '../lib/utils';
 import { PostPropertyLink } from './post-property-link';
 import { HeaderSearchModal } from './header-search-modal';
+import { isRakshaBandhanActive } from '../lib/campaigns/festive-campaigns';
 
 // Official X (formerly Twitter) SVG Icon
 const XTwitterIcon = ({ className = 'h-3.5 w-3.5' }: { className?: string }) => (
@@ -540,9 +541,9 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
         )}
       >
         <div className="container-wide">
-          <div className="flex h-[56px] items-center justify-between gap-3">
+          <div className="flex h-[62px] items-center justify-between gap-3">
             {/* Logo */}
-            <Logo to="/" size={140} className="shrink-0 transition-transform duration-200 hover:scale-105" />
+            <Logo to="/" size={175} maxHeight={48} className="shrink-0 transition-transform duration-200 hover:scale-105" />
 
             {/* Desktop / tablet nav — centered, compact on lg, spacious on xl */}
             <nav
@@ -732,7 +733,7 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
                       transition={{ duration: 0.18, ease: 'easeOut' }}
                       className="absolute left-1/2 top-full z-50 -translate-x-1/2 pt-2"
                     >
-                      <div className="grid w-[min(420px,90vw)] grid-cols-2 gap-1 rounded-2xl border border-white/60 bg-white/80 p-3 shadow-2xl backdrop-blur-xl">
+                      <div className="grid w-[min(420px,90vw)] grid-cols-2 gap-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl">
                         {servicesMenu.map((svc) => {
                           const SvcIcon = svc.icon;
                           const external = /^https?:\/\//.test(svc.to);
@@ -822,6 +823,19 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
                   </span>
                 </button>
               </PostPropertyLink>
+
+              {/* Raksha Bandhan subtle festive indicator */}
+              {isRakshaBandhanActive() && (
+                <div
+                  className="hidden md:flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200/90 px-2 py-0.5 text-xs text-red-600 shadow-2xs cursor-default select-none"
+                  title="Raksha Bandhan Special • August 28, 2026"
+                >
+                  <span className="text-sm leading-none">🪢</span>
+                  <span className="hidden xl:inline text-[10px] uppercase font-extrabold tracking-wider bg-gradient-to-r from-red-600 to-amber-600 bg-clip-text text-transparent">
+                    Rakhi Special
+                  </span>
+                </div>
+              )}
 
               {/* Login / Profile */}
               <div className="relative" ref={userMenuRef}>

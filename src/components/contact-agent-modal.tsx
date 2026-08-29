@@ -230,7 +230,7 @@ export const ContactAgentModal: React.FC<ContactAgentModalProps> = ({
   const agentAvatar = agent?.avatar_url || agent?.profile_image_url;
 
   return (
-    <Modal open={isOpen} onClose={onClose} title="Contact Agent" size="md">
+    <Modal open={isOpen} onClose={onClose} title="Contact Us" size="md">
       {submitted ? (
         <div className="py-6 text-center space-y-4">
           <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-sm">

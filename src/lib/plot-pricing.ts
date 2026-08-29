@@ -60,6 +60,99 @@ export function getPriceUnitLabel(areaUnitOrCode: string | null | undefined): st
   return norm ? CODE_TO_SINGULAR[norm] : (areaUnitOrCode || 'Unit');
 }
 
+// ─── Land Measurement & Unit Conversion Constants ─────────────────────────
+export const SQFT_PER_ACRE = 43560;
+export const SQYD_PER_ACRE = 4840;
+export const GUNTAS_PER_ACRE = 40;
+export const SQFT_PER_GUNTA = 1089;
+export const SQYD_PER_GUNTA = 121;
+export const SQFT_PER_SQYD = 9;
+
+export interface LandAreaEquivalents {
+  acres: number;
+  sqft: number;
+  sqyd: number;
+  guntas: number;
+  acresFormatted: string;
+  sqftFormatted: string;
+  sqydFormatted: string;
+  guntasFormatted: string;
+}
+
+/**
+ * Converts any area value from a given unit to base Sq. Ft.
+ */
+export function toBaseSqFt(value: number, fromUnit: AreaUnitCode | string): number {
+  if (!value || isNaN(value) || value <= 0) return 0;
+  const norm = normalizeAreaUnit(fromUnit) || 'sqft';
+  switch (norm) {
+    case 'acre':
+      return value * SQFT_PER_ACRE;
+    case 'gunta':
+      return value * SQFT_PER_GUNTA;
+    case 'sqyd':
+      return value * SQFT_PER_SQYD;
+    case 'sqft':
+    default:
+      return value;
+  }
+}
+
+/**
+ * Converts a base Sq. Ft area to the target unit (e.g. 'acre', 'gunta', 'sqyd', 'sqft').
+ */
+export function fromBaseSqFt(sqft: number, targetUnit: AreaUnitCode | string): number {
+  if (!sqft || isNaN(sqft) || sqft <= 0) return 0;
+  const norm = normalizeAreaUnit(targetUnit) || 'sqft';
+  switch (norm) {
+    case 'acre':
+      return sqft / SQFT_PER_ACRE;
+    case 'gunta':
+      return sqft / SQFT_PER_GUNTA;
+    case 'sqyd':
+      return sqft / SQFT_PER_SQYD;
+    case 'sqft':
+    default:
+      return sqft;
+  }
+}
+
+/**
+ * Calculates all 4 standardized unit equivalents (Acres, Sq. Ft, Sq. Yd, Guntas) from a base Sq. Ft value.
+ */
+export function calculateLandEquivalents(baseSqFt: number): LandAreaEquivalents {
+  if (!baseSqFt || isNaN(baseSqFt) || baseSqFt <= 0) {
+    return {
+      acres: 0,
+      sqft: 0,
+      sqyd: 0,
+      guntas: 0,
+      acresFormatted: '0',
+      sqftFormatted: '0',
+      sqydFormatted: '0',
+      guntasFormatted: '0',
+    };
+  }
+
+  const acres = baseSqFt / SQFT_PER_ACRE;
+  const sqft = baseSqFt;
+  const sqyd = baseSqFt / SQFT_PER_SQYD;
+  const guntas = baseSqFt / SQFT_PER_GUNTA;
+
+  const nf = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 3 });
+
+  return {
+    acres: Math.round(acres * 1000) / 1000,
+    sqft: Math.round(sqft * 100) / 100,
+    sqyd: Math.round(sqyd * 100) / 100,
+    guntas: Math.round(guntas * 100) / 100,
+    acresFormatted: nf.format(Math.round(acres * 1000) / 1000),
+    sqftFormatted: nf.format(Math.round(sqft * 100) / 100),
+    sqydFormatted: nf.format(Math.round(sqyd * 100) / 100),
+    guntasFormatted: nf.format(Math.round(guntas * 100) / 100),
+  };
+}
+
 /** Formats a per-unit price exact with Indian numbering (e.g. 2500 -> '₹2,500 / Sq. Ft') */
 export function formatLandPrice(
   pricePerUnit: number | null | undefined,
@@ -89,6 +182,8 @@ const LAND_KEYWORDS = [
   'gated community plot',
   'hmda layout plot',
   'dtcp layout plot',
+  'fcda layout plot',
+  'fcda layout',
   'residential land',
   'commercial land',
   'industrial land',

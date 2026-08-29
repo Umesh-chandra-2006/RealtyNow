@@ -75,12 +75,12 @@ export const PROPERTY_CAMPAIGN_SECTIONS: {
   },
   {
     type: 'TWO_COLUMN_SLIDER',
-    label: 'Two Column Slider Properties',
-    badge: 'Two Column',
+    label: 'Curated Luxury Living',
+    badge: 'Luxury Living',
     icon: SlidersHorizontal,
     color: 'text-blue-600 bg-blue-50 border-blue-200',
     previewUrl: '/#two-column-slider',
-    description: 'Hero-scale luxury 2-column promotional property slider',
+    description: 'Hero-scale luxury promotional property showcase',
   },
   {
     type: 'SIGNATURE_COLLECTION',
@@ -93,8 +93,8 @@ export const PROPERTY_CAMPAIGN_SECTIONS: {
   },
   {
     type: 'THREE_COLUMN_PROPERTIES',
-    label: 'Three Column Properties',
-    badge: '3 Column',
+    label: 'Prime Investment Opportunities',
+    badge: 'Prime Deals',
     icon: LayoutGrid,
     color: 'text-purple-600 bg-purple-50 border-purple-200',
     previewUrl: '/#three-column-properties',

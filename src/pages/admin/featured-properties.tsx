@@ -1020,8 +1020,8 @@ export function AdminFeaturedPropertiesPage() {
                 startAt={addStartDate}
                 endAt={addEndDate}
                 isActive={addIsActive}
-                onStartChange={setAddStartDate}
-                onEndChange={setAddEndDate}
+                onStartChange={(val) => setAddStartDate(val || '')}
+                onEndChange={(val) => setAddEndDate(val || '')}
                 onActiveChange={setAddIsActive}
               />
 

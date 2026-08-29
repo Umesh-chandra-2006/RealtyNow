@@ -116,7 +116,7 @@ export function NotificationBell() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.96 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 top-12 z-50 w-80 sm:w-96 overflow-hidden rounded-xl border border-navy-100 bg-white shadow-cardHover"
+            className="absolute right-0 top-12 z-[9999] w-80 sm:w-96 overflow-hidden rounded-xl border border-navy-100 bg-white shadow-2xl"
           >
             <div className="flex items-center justify-between border-b border-navy-100 px-4 py-3">
               <p className="font-display text-sm font-semibold text-navy-900">Notifications</p>

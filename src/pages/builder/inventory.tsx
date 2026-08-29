@@ -188,7 +188,14 @@ export function BuilderInventory() {
       <PageHeader
         title="Inventory"
         subtitle="A portfolio-wide view of every unit across your projects."
-        actions={[{ label: 'Add Unit', icon: <Plus className="h-4 w-4" />, primary: true, to: '/builder/units' }]}
+        action={
+          <Link
+            to="/builder/units"
+            className="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold bg-navy-900 text-white hover:bg-navy-800 transition-colors"
+          >
+            <Plus className="h-4 w-4" /> Add Unit
+          </Link>
+        }
       />
 
       {/* Contextual Workflow Progression */}

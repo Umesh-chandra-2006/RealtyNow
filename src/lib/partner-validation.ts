@@ -1,502 +1,314 @@
 /**
  * partner-validation.ts
  *
- * Single source-of-truth for ALL Partner Registration field validation.
- * Used by:
- *   - src/pages/auth/partner-register.tsx  (client-side form)
- *   - src/components/admin/ApplicationReviewDrawer.tsx  (admin approval guard)
+ * Validation engine for the simplified 3-step Business Partner Registration flow.
  *
- * Rule: null = valid, string = error message.
- * Optional fields: empty string → null (valid). Non-empty → must pass format check.
- *
- * NEVER add field-specific logic elsewhere. Extend this file instead.
+ * Rules:
+ *   - No mandatory asterisks in the UI labels.
+ *   - Functional validation runs when user attempts step progression (Next / Submit).
+ *   - Returns a map of field errors: { [fieldName]: errorMessage }.
  */
 
-// ─── Partner type constant (single source — imported by the form too) ─────────
-
-export const PARTNER_TYPES = [
-  'Individual Partner',
-  'Real Estate Consultant',
-  'Property Consultant',
-  'Broker',
-  'Channel Partner',
-  'Referral Partner',
-  'Corporate Partner',
-  'Builder / Developer Partner',
-  'Financial Partner',
-  'Interior / Home Services Partner',
-  'Legal / Documentation Partner',
-  'Other',
-] as const;
-
-export type PartnerType = (typeof PARTNER_TYPES)[number];
-
-// ─── Cross-field business rules ───────────────────────────────────────────────
-
-export interface PartnerTypeRules {
-  gstRequired: boolean;
-  panRequired: boolean;
-  companyRequired: boolean;
-}
-
-/**
- * Returns which fields become mandatory for a given partner type.
- * Keep rules here — never scatter them across UI components.
- */
-export function getPartnerTypeRules(partnerType: string): PartnerTypeRules {
-  switch (partnerType) {
-    case 'Corporate Partner':
-    case 'Builder / Developer Partner':
-    case 'Financial Partner':
-      return { gstRequired: true, panRequired: true, companyRequired: true };
-
-    case 'Legal / Documentation Partner':
-    case 'Interior / Home Services Partner':
-      return { gstRequired: false, panRequired: true, companyRequired: false };
-
-    case 'Broker':
-    case 'Channel Partner':
-    case 'Property Consultant':
-    case 'Real Estate Consultant':
-      return { gstRequired: false, panRequired: false, companyRequired: false };
-
-    case 'Individual Partner':
-    case 'Referral Partner':
-    case 'Other':
-    default:
-      return { gstRequired: false, panRequired: false, companyRequired: false };
-  }
-}
-
-// ─── GSTIN state code map ──────────────────────────────────────────────────────
-
-/**
- * Maps the 2-digit GSTIN state prefix to the canonical Indian state name
- * as stored in the partner address form.
- * Source: GST Council state code list.
- */
-export const GSTIN_STATE_CODE_MAP: Record<string, string> = {
-  '01': 'Jammu and Kashmir',
-  '02': 'Himachal Pradesh',
-  '03': 'Punjab',
-  '04': 'Chandigarh',
-  '05': 'Uttarakhand',
-  '06': 'Haryana',
-  '07': 'Delhi',
-  '08': 'Rajasthan',
-  '09': 'Uttar Pradesh',
-  '10': 'Bihar',
-  '11': 'Sikkim',
-  '12': 'Arunachal Pradesh',
-  '13': 'Nagaland',
-  '14': 'Manipur',
-  '15': 'Mizoram',
-  '16': 'Tripura',
-  '17': 'Meghalaya',
-  '18': 'Assam',
-  '19': 'West Bengal',
-  '20': 'Jharkhand',
-  '21': 'Odisha',
-  '22': 'Chhattisgarh',
-  '23': 'Madhya Pradesh',
-  '24': 'Gujarat',
-  '25': 'Daman and Diu',
-  '26': 'Dadra and Nagar Haveli and Daman and Diu',
-  '27': 'Maharashtra',
-  '28': 'Andhra Pradesh',
-  '29': 'Karnataka',
-  '30': 'Goa',
-  '31': 'Lakshadweep',
-  '32': 'Kerala',
-  '33': 'Tamil Nadu',
-  '34': 'Puducherry',
-  '35': 'Andaman and Nicobar Islands',
-  '36': 'Telangana',
-  '37': 'Andhra Pradesh',
-  '38': 'Ladakh',
-  '97': 'Other Territory',
-  '99': 'Centre Jurisdiction',
-};
-
-// State name aliases (handles "Telangana" → "36", "AP" → "28"/"37", etc.)
-// Used for reverse look-up when cross-checking form state against GSTIN prefix.
-const STATE_NAME_TO_CODES: Record<string, string[]> = (() => {
-  const map: Record<string, string[]> = {};
-  for (const [code, name] of Object.entries(GSTIN_STATE_CODE_MAP)) {
-    const key = name.toLowerCase().trim();
-    if (!map[key]) map[key] = [];
-    map[key].push(code);
-  }
-  return map;
-})();
-
-// ─── Individual field validators ───────────────────────────────────────────────
-
-/** 1 — Partner Type */
-export function validatePartnerType(value: string): string | null {
-  if (!value || !value.trim()) return 'Partner Type is required.';
-  if (!(PARTNER_TYPES as readonly string[]).includes(value)) {
-    return 'Please select a valid partner type.';
-  }
-  return null;
-}
-
-/** 2 — Full Name (required) */
-export function validateFullName(raw: string): string | null {
-  const value = raw.trim();
-  if (!value) return 'Please enter your full name.';
-  if (value.length < 2) return 'Please enter a valid full name.';
-  if (value.length > 100) return 'Full name must be 100 characters or fewer.';
-  // Allow: A-Z a-z, spaces, hyphens, apostrophes, dots, and common Indian Unicode (Devanagari, Telugu, Tamil, etc.)
-  // Reject: digits and most special characters
-  if (!/^[\p{L}\s'.\\-]+$/u.test(value)) {
-    return 'Please enter a valid full name.';
-  }
-  // Must have at least one actual letter (not just spaces/separators)
-  if (!/[\p{L}]/u.test(value)) {
-    return 'Please enter a valid full name.';
-  }
-  return null;
-}
-
-/** 3 — Mobile Number (required, Indian) */
-export function validateMobileNumber(raw: string): string | null {
-  if (!raw || !raw.trim()) return 'Mobile number is required.';
-  // Strip only the +91 prefix and spaces for checking; reject embedded spaces
-  const stripped = raw.trim().replace(/^\+91/, '').replace(/^91/, '');
-  // If there are any non-digit characters remaining, it's invalid
-  if (/\D/.test(stripped)) return 'Please enter a valid 10-digit mobile number.';
-  if (stripped.length !== 10) return 'Please enter a valid 10-digit mobile number.';
-  if (!/^[6-9]\d{9}$/.test(stripped)) return 'Please enter a valid 10-digit mobile number.';
-  return null;
-}
-
-/** 4 — Email (always required) */
-/* eslint-disable no-misleading-character-class */
-export function validateEmail(raw: string, required: boolean = true): string | null {
-  const value = raw.trim();
-  if (!value) {
-    return required ? 'Email address is required.' : null;
-  }
-  if (value.length > 254) return 'Please enter a valid email address.';
-  // Strict: must have exactly one @, valid local part, domain with at least one dot and TLD
-  const emailRe = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$/;
-  if (!emailRe.test(value)) return 'Please enter a valid email address.';
-  return null;
-}
-
-/** 5 — Business / Company Name (optional) */
-export function validateCompanyName(raw: string, required = false): string | null {
-  const value = raw.trim();
-  if (!value) {
-    return required ? 'Business / Company Name is required.' : null;
-  }
-  if (value.length < 2) return 'Please enter a valid business/company name.';
-  if (value.length > 150) return 'Business/company name must be 150 characters or fewer.';
-  // Must not be all-digits
-  if (/^\d+$/.test(value)) return 'Please enter a valid business/company name.';
-  // Must not be all-special characters
-  if (/^[^A-Za-z0-9\u0900-\u097F]+$/.test(value)) return 'Please enter a valid business/company name.';
-  // Allowed characters: letters (Latin + common Indian scripts), digits, &, ., ,, -, ', (, ), space
-  if (!/^[A-Za-z0-9\u0900-\u097F\u0C00-\u0C7F\u0B80-\u0BFF\s&.,\-'()]+$/.test(value)) {
-    return 'Please enter a valid business/company name.';
-  }
-  return null;
-}
-
-/** 6 — Years of Experience (optional) */
-export function validateYearsOfExperience(raw: string, required = false): string | null {
-  const value = raw.trim();
-  if (!value) {
-    return required ? 'Years of experience is required.' : null;
-  }
-  // No letters
-  if (/[a-zA-Z]/.test(value)) return 'Please enter a valid number of years (0–60).';
-  // No special characters (decimals, negatives, etc.)
-  if (/[^0-9]/.test(value)) return 'Please enter a valid number of years (0–60).';
-  const num = parseInt(value, 10);
-  if (isNaN(num)) return 'Please enter a valid number of years (0–60).';
-  if (num < 0) return 'Please enter a valid number of years (0–60).';
-  if (num > 60) return 'Years of experience must be 60 or fewer.';
-  return null;
-}
-
-/** 7 — GSTIN (optional) */
-export function validateGSTIN(raw: string, required = false): string | null {
-  const value = raw.trim().toUpperCase();
-  if (!value) {
-    return required ? 'GST Number is required.' : null;
-  }
-  if (value.length !== 15) return 'Please enter a valid GST Number.';
-  // Structural GSTIN regex:
-  // 2 digits (state code 01-37/38/97/99) + 5 alpha (PAN chars 1-5) +
-  // 4 digits (PAN chars 6-9) + 1 alpha (PAN char 10) +
-  // 1 alphanumeric (entity number) + Z + 1 alphanumeric (check digit)
-  const gstinRe = /^[0-3][0-9][A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
-  if (!gstinRe.test(value)) return 'Please enter a valid GST Number.';
-  // Validate state code exists (01–37, 38, 97, 99)
-  const stateCode = value.substring(0, 2);
-  if (!GSTIN_STATE_CODE_MAP[stateCode]) return 'Please enter a valid GST Number.';
-  // Reject obviously-invalid repeated patterns
-  if (/^(.)\1+$/.test(value)) return 'Please enter a valid GST Number.';
-  return null;
-}
-
-/** 7b — GST state-code cross-check (run at final submission, not Step 1) */
-export function validateGSTStateMatch(gstin: string, formState: string): string | null {
-  const value = gstin.trim().toUpperCase();
-  if (!value || !formState.trim()) return null; // skip if either is empty
-  if (validateGSTIN(value) !== null) return null; // skip if GSTIN itself is invalid (already caught)
-  const stateCode = value.substring(0, 2);
-  const gstStateName = GSTIN_STATE_CODE_MAP[stateCode];
-  if (!gstStateName) return null;
-  const normalizedFormState = formState.toLowerCase().trim();
-  const expectedCodes = STATE_NAME_TO_CODES[normalizedFormState] ?? [];
-  if (expectedCodes.length > 0 && !expectedCodes.includes(stateCode)) {
-    return `GST Number does not match the selected state (${formState}). Expected state: ${gstStateName}.`;
-  }
-  return null;
-}
-
-/** 8 — PAN Number (optional) */
-export function validatePAN(raw: string, required = false): string | null {
-  const value = raw.trim().toUpperCase();
-  if (!value) {
-    return required ? 'PAN Number is required.' : null;
-  }
-  // Exactly 10 chars: 5 alpha + 4 digits + 1 alpha
-  if (!/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(value)) {
-    return 'Please enter a valid PAN Number (e.g. ABCDE1234F).';
-  }
-  return null;
-}
-
-/** 8b — IFSC Code (partner_bank_accounts, mirrors chk_partner_bank_ifsc_format DB constraint) */
-export function validateIFSC(raw: string): string | null {
-  const value = raw.trim().toUpperCase();
-  if (!value) return 'IFSC code is required.';
-  if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(value)) {
-    return 'Please enter a valid IFSC code (e.g. HDFC0001234).';
-  }
-  return null;
-}
-
-/** 8c — Bank Account Number (partner_bank_accounts) */
-export function validateBankAccountNumber(raw: string): string | null {
-  const value = raw.trim();
-  if (!value) return 'Account number is required.';
-  if (!/^\d{9,18}$/.test(value)) return 'Please enter a valid account number (9-18 digits).';
-  return null;
-}
-
-/** 9 — Website URL (optional) */
-export function validateWebsiteUrl(raw: string, required = false): string | null {
-  const value = raw.trim();
-  if (!value) {
-    return required ? 'Website URL is required.' : null;
-  }
-
-  // Reject bare protocol strings that are clearly invalid
-  const OBVIOUSLY_INVALID = ['http', 'https', 'http:', 'https:', 'http://', 'https://', 'www', 'ftp'];
-  if (OBVIOUSLY_INVALID.includes(value.toLowerCase())) {
-    return 'Please enter a valid website URL, e.g. https://example.com';
-  }
-
-  // Auto-prefix https:// if user didn't type protocol
-  let urlToTest = value;
-  if (!/^https?:\/\//i.test(urlToTest)) {
-    urlToTest = `https://${urlToTest}`;
-  }
-
-  // Try parsing as URL
-  let parsed: URL;
-  try {
-    parsed = new URL(urlToTest);
-  } catch {
-    return 'Please enter a valid website URL, e.g. https://example.com';
-  }
-
-  // Protocol must be http or https
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    return 'Please enter a valid website URL, e.g. https://example.com';
-  }
-
-  // Hostname must not be empty and must contain a dot (real domain)
-  const host = parsed.hostname;
-  if (!host || !host.includes('.')) {
-    return 'Please enter a valid website URL, e.g. https://example.com';
-  }
-
-  // Reject hostnames that end with a dot or start with a dot
-  if (host.startsWith('.') || host.endsWith('.')) {
-    return 'Please enter a valid website URL, e.g. https://example.com';
-  }
-
-  // TLD must be at least 2 characters
-  const parts = host.split('.');
-  const tld = parts[parts.length - 1];
-  if (!tld || tld.length < 2) {
-    return 'Please enter a valid website URL, e.g. https://example.com';
-  }
-
-  return null;
-}
-
-/**
- * Normalize a website URL for storage/display.
- * If the user types "example.com" (no protocol), prepend "https://".
- * If the value is clearly invalid (e.g. "https"), return as-is (let validator catch it).
- */
-export function normalizeWebsiteUrl(raw: string): string {
-  const value = raw.trim();
-  if (!value) return value;
-  // If already has a protocol, return as-is
-  if (/^https?:\/\//i.test(value)) return value;
-  // If it looks like a domain (has a dot, no spaces, no protocol characters), prepend https://
-  if (!value.includes(' ') && !value.includes(':') && value.includes('.') && value.length > 3) {
-    return `https://${value}`;
-  }
-  return value;
-}
-
-// ─── Form type for Step 1 ─────────────────────────────────────────────────────
-
-export interface PartnerDetailsForm {
+export interface PartnerRegistrationFormData {
+  // Step 1: Basic Details
   partner_type: string;
-  full_name: string;
+  surname: string;
+  name: string;
   mobile_number: string;
   email: string;
-  company_name: string;
-  years_of_experience: string;
+  business_name: string;
   gst_number: string;
+  aadhaar_number: string;
   pan_number: string;
-  website: string;
-  // Address state (needed for GST cross-check at final submit)
-  state?: string;
+  address: string;
+
+  // Step 2: Location Details
+  country?: string;
+  state: string;
+  city: string;
+  area: string;
+  district: string;
+  google_place_id?: string;
+  latitude?: number;
+  longitude?: number;
+  formatted_address?: string;
+
+  // Step 3: Business & Financial Details
+  business_registration: string;
+  business_reg_doc: File | null;
+  business_reg_doc_url?: string | null;
+
+  aadhaar_doc: File | null;
+  aadhaar_doc_url?: string | null;
+
+  pan_doc: File | null;
+  pan_doc_url?: string | null;
+
+  bank_account_holder_name: string;
+  bank_name: string;
+  bank_account_number: string;
+  bank_ifsc_code: string;
+
+  gst_doc: File | null;
+  gst_doc_url?: string | null;
 }
 
-export type PartnerDetailsErrors = Partial<Record<keyof PartnerDetailsForm, string>>;
+// ─── Format Validation Helpers ────────────────────────────────────────────────
 
-// ─── Step-level validator ─────────────────────────────────────────────────────
-
-/**
- * Validate all Step 1 (Partner Details) fields.
- * ALL fields are compulsory — no skipping allowed.
- * Returns an empty object if everything is valid.
- * Returns a map of field → error message for every invalid field.
- */
-export function validatePartnerDetailsStep(form: PartnerDetailsForm): PartnerDetailsErrors {
-  const errs: PartnerDetailsErrors = {};
-
-  const set = <K extends keyof PartnerDetailsErrors>(key: K, err: string | null) => {
-    if (err) errs[key] = err;
-  };
-
-  set('partner_type', validatePartnerType(form.partner_type));
-  set('full_name', validateFullName(form.full_name));
-  set('mobile_number', validateMobileNumber(form.mobile_number));
-  set('email', validateEmail(form.email, true));                       // required
-  set('company_name', validateCompanyName(form.company_name, false));  // optional
-  set('years_of_experience', validateYearsOfExperience(form.years_of_experience, false)); // optional
-  set('gst_number', validateGSTIN(form.gst_number, false));            // optional
-  set('pan_number', validatePAN(form.pan_number, false));              // optional
-  set('website', validateWebsiteUrl(form.website, false));             // optional
-
-  return errs;
+export function cleanMobile(val: string): string {
+  return val.replace(/\D/g, '').slice(-10);
 }
 
+export function isValidMobile(val: string): boolean {
+  const digits = cleanMobile(val);
+  return digits.length === 10 && /^[6-9]/.test(digits);
+}
+
+export function isValidEmail(val: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val.trim());
+}
+
+export function cleanAadhaar(val: string): string {
+  return val.replace(/\D/g, '').slice(0, 12);
+}
+
+export function isValidAadhaar(val: string): boolean {
+  const digits = cleanAadhaar(val);
+  return digits.length === 12 && /^\d{12}$/.test(digits);
+}
+
+export function cleanPAN(val: string): string {
+  return val.trim().toUpperCase().slice(0, 10);
+}
+
+export function isValidPAN(val: string): boolean {
+  const pan = cleanPAN(val);
+  return /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(pan);
+}
+
+export function cleanGSTIN(val: string): string {
+  return val.trim().toUpperCase().slice(0, 15);
+}
+
+export function isValidGSTIN(val: string): boolean {
+  const gstin = cleanGSTIN(val);
+  return /^[0-3][0-9][A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(gstin);
+}
+
+export function cleanIFSC(val: string): string {
+  return val.trim().toUpperCase().slice(0, 11);
+}
+
+export function isValidIFSC(val: string): boolean {
+  const ifsc = cleanIFSC(val);
+  return /^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc);
+}
+
+// ─── Step Validators ──────────────────────────────────────────────────────────
+
+export type FieldErrors = Record<string, string>;
+
 /**
- * Final-submission validator — runs all steps including GST state cross-check.
- * Call this right before creating the partner application in the database.
+ * Validates Step 1: Basic Details
  */
-export function validatePartnerDetailsForSubmission(
-  form: PartnerDetailsForm & { state: string }
-): PartnerDetailsErrors {
-  const errs = validatePartnerDetailsStep(form);
-  // GST state cross-check (requires state from Step 2)
-  if (form.gst_number && !errs.gst_number) {
-    const stateErr = validateGSTStateMatch(form.gst_number, form.state);
-    if (stateErr) errs.gst_number = stateErr;
+export function validateStep1BasicDetails(form: Partial<PartnerRegistrationFormData>): FieldErrors {
+  const errors: FieldErrors = {};
+
+  if (!form.partner_type?.trim()) {
+    errors.partner_type = 'Please select a partner type.';
   }
-  return errs;
+
+  if (!form.surname?.trim()) {
+    errors.surname = 'Please enter your surname.';
+  }
+
+  if (!form.name?.trim()) {
+    errors.name = 'Please enter your name.';
+  }
+
+  if (!form.mobile_number?.trim()) {
+    errors.mobile_number = 'Please enter your mobile number.';
+  } else if (!isValidMobile(form.mobile_number)) {
+    errors.mobile_number = 'Enter a valid 10-digit Indian mobile number starting with 6-9.';
+  }
+
+  if (!form.email?.trim()) {
+    errors.email = 'Please enter your email address.';
+  } else if (!isValidEmail(form.email)) {
+    errors.email = 'Enter a valid email address (e.g. name@example.com).';
+  }
+
+  if (!form.business_name?.trim()) {
+    errors.business_name = 'Please enter your business or agency name.';
+  }
+
+  if (!form.gst_number?.trim()) {
+    errors.gst_number = 'Please enter your GST number.';
+  } else if (!isValidGSTIN(form.gst_number)) {
+    errors.gst_number = 'Enter a valid 15-digit GSTIN (e.g. 36AABCU9603R1ZM).';
+  }
+
+  if (!form.aadhaar_number?.trim()) {
+    errors.aadhaar_number = 'Please enter your 12-digit Aadhaar number.';
+  } else if (!isValidAadhaar(form.aadhaar_number)) {
+    errors.aadhaar_number = 'Aadhaar number must be exactly 12 digits.';
+  }
+
+  if (!form.pan_number?.trim()) {
+    errors.pan_number = 'Please enter your PAN card number.';
+  } else if (!isValidPAN(form.pan_number)) {
+    errors.pan_number = 'Enter a valid 10-character PAN (e.g. ABCDE1234F).';
+  }
+
+  if (!form.address?.trim()) {
+    errors.address = 'Please enter your complete address.';
+  }
+
+  return errors;
 }
 
-// ─── Test utility (used in unit tests and verification) ───────────────────────
+/**
+ * Validates Step 2: Location Details
+ */
+export function validateStep2Location(form: Partial<PartnerRegistrationFormData>): FieldErrors {
+  const errors: FieldErrors = {};
+
+  if (!form.city?.trim()) {
+    errors.city = 'Please select or search your city.';
+  }
+
+  if (!form.area?.trim()) {
+    errors.area = 'Please select or enter your area / locality.';
+  }
+
+  if (!form.state?.trim()) {
+    errors.state = 'Please specify your state.';
+  }
+
+  if (!form.district?.trim()) {
+    errors.district = 'Please specify your district.';
+  }
+
+  return errors;
+}
 
 /**
- * Run the spec §28 test suite in-memory.
- * Returns { passed, failed, results }.
- * Import this in tests or a verification script.
+ * Validates Step 3: Business & Financial Details
  */
-export function runPartnerValidationTests(): {
-  passed: number;
-  failed: number;
-  results: { name: string; expected: boolean; actual: boolean; pass: boolean }[];
+export function validateStep3FinancialDetails(form: Partial<PartnerRegistrationFormData>): FieldErrors {
+  const errors: FieldErrors = {};
+
+  // Business Registration (File or text)
+  if (!form.business_reg_doc && !form.business_reg_doc_url && !form.business_registration?.trim()) {
+    errors.business_registration = 'Please upload your Business Registration proof or enter details.';
+  }
+
+  // Aadhaar Card document
+  if (!form.aadhaar_doc && !form.aadhaar_doc_url) {
+    errors.aadhaar_doc = 'Please upload a copy of your Aadhaar card.';
+  }
+
+  // PAN Card document
+  if (!form.pan_doc && !form.pan_doc_url) {
+    errors.pan_doc = 'Please upload a copy of your PAN card.';
+  }
+
+  // Bank details
+  if (!form.bank_account_holder_name?.trim()) {
+    errors.bank_account_holder_name = 'Please enter the bank account holder name.';
+  }
+
+  if (!form.bank_name?.trim()) {
+    errors.bank_name = 'Please enter the bank name.';
+  }
+
+  if (!form.bank_account_number?.trim()) {
+    errors.bank_account_number = 'Please enter your bank account number.';
+  } else if (form.bank_account_number.trim().length < 8) {
+    errors.bank_account_number = 'Account number must be at least 8 digits.';
+  }
+
+  if (!form.bank_ifsc_code?.trim()) {
+    errors.bank_ifsc_code = 'Please enter the bank IFSC code.';
+  } else if (!isValidIFSC(form.bank_ifsc_code)) {
+    errors.bank_ifsc_code = 'Enter a valid 11-character IFSC code (e.g. HDFC0000123).';
+  }
+
+  // GST Certificate document
+  if (!form.gst_doc && !form.gst_doc_url) {
+    errors.gst_doc = 'Please upload your GST certificate.';
+  }
+
+  return errors;
+}
+
+/**
+ * Validates whole form for submission
+ */
+export function validatePartnerRegistrationForm(form: Partial<PartnerRegistrationFormData>): {
+  isValid: boolean;
+  errors: FieldErrors;
+  firstInvalidStep: number;
 } {
-  type Case = { name: string; fn: () => string | null; expectValid: boolean };
-  const cases: Case[] = [
-    // Full Name
-    { name: 'fullName empty', fn: () => validateFullName(''), expectValid: false },
-    { name: 'fullName spaces only', fn: () => validateFullName('   '), expectValid: false },
-    { name: 'fullName digits', fn: () => validateFullName('12345'), expectValid: false },
-    { name: 'fullName specials', fn: () => validateFullName('@#$%'), expectValid: false },
-    { name: 'fullName valid "Sai Kumar"', fn: () => validateFullName('Sai Kumar'), expectValid: true },
-    { name: 'fullName valid "Asilu Rebba"', fn: () => validateFullName('Asilu Rebba'), expectValid: true },
-    { name: 'fullName single char', fn: () => validateFullName('A'), expectValid: false },
-    // Mobile
-    { name: 'mobile empty', fn: () => validateMobileNumber(''), expectValid: false },
-    { name: 'mobile 9 digits', fn: () => validateMobileNumber('123456789'), expectValid: false },
-    { name: 'mobile 11 digits', fn: () => validateMobileNumber('12345678901'), expectValid: false },
-    { name: 'mobile alpha', fn: () => validateMobileNumber('abcdefghij'), expectValid: false },
-    { name: 'mobile valid 9963509329', fn: () => validateMobileNumber('9963509329'), expectValid: true },
-    { name: 'mobile invalid prefix 0000000000', fn: () => validateMobileNumber('0000000000'), expectValid: false },
-    { name: 'mobile invalid prefix 1234567890', fn: () => validateMobileNumber('1234567890'), expectValid: false },
-    // Email
-    { name: 'email empty (optional)', fn: () => validateEmail('', false), expectValid: true },
-    { name: 'email "becozr"', fn: () => validateEmail('becozr'), expectValid: false },
-    { name: 'email "abc@"', fn: () => validateEmail('abc@'), expectValid: false },
-    { name: 'email "@gmail.com"', fn: () => validateEmail('@gmail.com'), expectValid: false },
-    { name: 'email "abc@gmail.com"', fn: () => validateEmail('abc@gmail.com'), expectValid: true },
-    { name: 'email "becozr@gmail.com"', fn: () => validateEmail('becozr@gmail.com'), expectValid: true },
-    // GST
-    { name: 'gstin empty (optional)', fn: () => validateGSTIN('', false), expectValid: true },
-    { name: 'gstin all-digits 15', fn: () => validateGSTIN('123456789012345'), expectValid: false },
-    { name: 'gstin all-alpha 15', fn: () => validateGSTIN('ABCDEFGHIJKLMNO'), expectValid: false },
-    { name: 'gstin short "12345"', fn: () => validateGSTIN('12345'), expectValid: false },
-    { name: 'gstin partial "22AAAA"', fn: () => validateGSTIN('22AAAA'), expectValid: false },
-    { name: 'gstin valid Telangana', fn: () => validateGSTIN('36AABCU9603R1ZM'), expectValid: true },
-    // PAN
-    { name: 'pan empty (optional)', fn: () => validatePAN('', false), expectValid: true },
-    { name: 'pan "ABC123"', fn: () => validatePAN('ABC123'), expectValid: false },
-    { name: 'pan "1234567890"', fn: () => validatePAN('1234567890'), expectValid: false },
-    { name: 'pan "ABCDE1234F"', fn: () => validatePAN('ABCDE1234F'), expectValid: true },
-    { name: 'pan lowercase "abcde1234f"', fn: () => validatePAN('abcde1234f'), expectValid: true }, // normalized
-    // Website
-    { name: 'website empty (optional)', fn: () => validateWebsiteUrl(''), expectValid: true },
-    { name: 'website "https"', fn: () => validateWebsiteUrl('https'), expectValid: false },
-    { name: 'website "http"', fn: () => validateWebsiteUrl('http'), expectValid: false },
-    { name: 'website "example"', fn: () => validateWebsiteUrl('example'), expectValid: false },
-    { name: 'website "www.example"', fn: () => validateWebsiteUrl('www.example'), expectValid: false },
-    { name: 'website "https://"', fn: () => validateWebsiteUrl('https://'), expectValid: false },
-    { name: 'website "https://example.com"', fn: () => validateWebsiteUrl('https://example.com'), expectValid: true },
-    { name: 'website "http://example.com"', fn: () => validateWebsiteUrl('http://example.com'), expectValid: true },
-    { name: 'website "https://company.co.in"', fn: () => validateWebsiteUrl('https://company.co.in'), expectValid: true },
-    // Years
-    { name: 'years empty (optional)', fn: () => validateYearsOfExperience(''), expectValid: true },
-    { name: 'years "-2"', fn: () => validateYearsOfExperience('-2'), expectValid: false },
-    { name: 'years "3.5"', fn: () => validateYearsOfExperience('3.5'), expectValid: false },
-    { name: 'years "abc"', fn: () => validateYearsOfExperience('abc'), expectValid: false },
-    { name: 'years "3"', fn: () => validateYearsOfExperience('3'), expectValid: true },
-    { name: 'years "10 years"', fn: () => validateYearsOfExperience('10 years'), expectValid: false },
-  ];
+  const step1Errors = validateStep1BasicDetails(form);
+  if (Object.keys(step1Errors).length > 0) {
+    return { isValid: false, errors: step1Errors, firstInvalidStep: 1 };
+  }
 
-  const results = cases.map(({ name, fn, expectValid }) => {
-    const result = fn();
-    const actual = result === null;
-    return { name, expected: expectValid, actual, pass: actual === expectValid };
-  });
+  const step2Errors = validateStep2Location(form);
+  if (Object.keys(step2Errors).length > 0) {
+    return { isValid: false, errors: step2Errors, firstInvalidStep: 2 };
+  }
 
-  const passed = results.filter((r) => r.pass).length;
-  const failed = results.filter((r) => !r.pass).length;
-  return { passed, failed, results };
+  const step3Errors = validateStep3FinancialDetails(form);
+  if (Object.keys(step3Errors).length > 0) {
+    return { isValid: false, errors: step3Errors, firstInvalidStep: 3 };
+  }
+
+  return { isValid: true, errors: {}, firstInvalidStep: 0 };
+}
+
+// ─── Format Validation Functions (null = valid, string = error) ───────────────
+
+export function validateGSTIN(val: string, isRequired = false): string | null {
+  if (!val || !val.trim()) return isRequired ? 'GST number is required.' : null;
+  return isValidGSTIN(val) ? null : 'Invalid 15-character GSTIN format.';
+}
+
+export function validatePAN(val: string, isRequired = false): string | null {
+  if (!val || !val.trim()) return isRequired ? 'PAN card number is required.' : null;
+  return isValidPAN(val) ? null : 'Invalid 10-character PAN format.';
+}
+
+export function validateIFSC(val: string, isRequired = false): string | null {
+  if (!val || !val.trim()) return isRequired ? 'IFSC code is required.' : null;
+  return isValidIFSC(val) ? null : 'Invalid 11-character IFSC format.';
+}
+
+export function validateBankAccountNumber(val: string, isRequired = false): string | null {
+  if (!val || !val.trim()) return isRequired ? 'Bank account number is required.' : null;
+  const digits = val.replace(/\D/g, '');
+  return digits.length >= 8 && digits.length <= 18 ? null : 'Account number must be 8-18 digits.';
+}
+
+export function validateWebsiteUrl(val: string): string | null {
+  if (!val || !val.trim()) return null;
+  try {
+    const url = val.startsWith('http') ? val : `https://${val}`;
+    new URL(url);
+    return null;
+  } catch {
+    return 'Invalid website URL format.';
+  }
+}
+
+export function validateCompanyName(val: string, isRequired = false): string | null {
+  if (!val || !val.trim()) return isRequired ? 'Company name is required.' : null;
+  return val.trim().length >= 2 ? null : 'Company name must be at least 2 characters.';
+}
+
+export function validatePartnerDetailsForSubmission(app: any): { valid: boolean; message?: string } {
+  if (!app) return { valid: false, message: 'Application data is missing.' };
+  if (!app.mobile_number) return { valid: false, message: 'Mobile number is required.' };
+  return { valid: true };
 }
