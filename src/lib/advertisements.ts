@@ -53,7 +53,10 @@ export async function fetchActiveAdvertisements(
  * Increment the impression counter for an advertisement.
  */
 export async function trackAdImpression(adId: string) {
-  const { error } = await supabase.rpc('increment_ad_impression', { p_ad_id: adId });
+  // Routed through track-analytics so anonymous events are throttled per-IP.
+  const { error } = await supabase.functions.invoke('track-analytics', {
+    body: { action: 'impression', ad_id: adId },
+  });
   if (error) {
     console.error('Error tracking ad impression:', error);
   }
@@ -63,7 +66,10 @@ export async function trackAdImpression(adId: string) {
  * Increment the click counter for an advertisement.
  */
 export async function trackAdClick(adId: string) {
-  const { error } = await supabase.rpc('increment_ad_click', { p_ad_id: adId });
+  // Routed through track-analytics so anonymous events are throttled per-IP.
+  const { error } = await supabase.functions.invoke('track-analytics', {
+    body: { action: 'click', ad_id: adId },
+  });
   if (error) {
     console.error('Error tracking ad click:', error);
   }

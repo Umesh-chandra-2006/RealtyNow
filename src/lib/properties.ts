@@ -679,15 +679,16 @@ export async function fetchProperty(id: string) {
 
 export async function trackPropertyView(propertyId: string, viewerId?: string): Promise<number | null> {
   try {
-    const { data, error } = await supabase.rpc('record_property_view', {
-      p_property_id: propertyId,
-      p_viewer_id: viewerId || null,
+    // Routed through the track-analytics edge function so anonymous events are
+    // throttled per-IP (the RPC alone cannot see client IP).
+    const { data, error } = await supabase.functions.invoke('track-analytics', {
+      body: { action: 'view', property_id: propertyId, viewer_id: viewerId || null },
     });
-    if (!error && typeof data === 'number') {
-      return data;
+    if (!error && typeof data?.count === 'number') {
+      return data.count;
     }
   } catch {
-    // Fallback to direct insert if RPC not in schema cache
+    // Fallback to direct insert if the function is unavailable.
   }
 
   try {
