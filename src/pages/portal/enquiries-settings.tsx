@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
-import { MessageSquare, User, Phone, Save, CheckCircle2, Upload, Calendar, Clock, Bell } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { MessageSquare, User, Phone, Save, CheckCircle2, Upload, Calendar, Clock, Bell, AlertTriangle, LogOut } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
@@ -173,8 +173,9 @@ export { PortalHelp } from './portal-help';
 
 export function PortalSettings() {
   const { t } = useLanguageContext();
-  const { user, profile, refreshProfile } = useAuth();
+  const { user, profile, refreshProfile, signOut } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const toast = useToast();
   const [form, setForm] = useState({
     first_name: profile?.first_name ?? '',
@@ -188,6 +189,7 @@ export function PortalSettings() {
   const [uploading, setUploading] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -210,6 +212,39 @@ export function PortalSettings() {
       toast.addToast('info', 'Notifications enabled for this tab. Background push is not configured yet.');
     } else {
       toast.addToast('success', 'Push notifications enabled');
+    }
+  };
+
+  const requestAccountDeletion = async () => {
+    if (!user) return;
+    const first = window.confirm(
+      'Delete your RealtyNow account and personal data? This action is permanent and cannot be undone.',
+    );
+    if (!first) return;
+    const second = window.confirm(
+      'Are you absolutely sure? All your profile data, enquiries, listings and notifications will be erased. This cannot be reversed.',
+    );
+    if (!second) return;
+
+    setDeleting(true);
+    try {
+      const { data, error } = await supabase.rpc('fn_request_account_erasure');
+      if (error) {
+        toast.addToast('error', error.message);
+        return;
+      }
+      const mode = (data as { mode?: string } | null)?.mode;
+      toast.addToast(
+        'success',
+        mode === 'anonymized'
+          ? 'Account deactivated and personal data erased. Financial records are retained for statutory compliance.'
+          : 'Your account and personal data have been permanently deleted.',
+      );
+      await signOut();
+      queryClient.clear();
+      navigate('/');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -363,6 +398,25 @@ export function PortalSettings() {
             </div>
           </div>
         </Card>
+      </div>
+
+      <div className="mt-6 rounded-2xl border border-error-200 bg-error-50/50 p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h3 className="flex items-center gap-2 font-display font-semibold text-error-700">
+              <AlertTriangle className="h-5 w-5" /> {t('portal.dangerZone', 'Danger zone')}
+            </h3>
+            <p className="mt-1 max-w-xl text-sm text-navy-600">
+              {t(
+                'portal.deleteAccountDesc',
+                'Permanently delete your account and personal data. This includes your profile, enquiries, listings and notifications, and cannot be undone. Financial/tax records may be retained solely for statutory compliance.',
+              )}
+            </p>
+          </div>
+          <Button variant="danger" onClick={requestAccountDeletion} loading={deleting} icon={<LogOut className="h-4 w-4" />}>
+            {t('portal.deleteAccount', 'Delete my account')}
+          </Button>
+        </div>
       </div>
     </DashboardLayout>
   );

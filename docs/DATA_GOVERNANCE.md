@@ -73,19 +73,36 @@ Hardcoded admin phone numbers are removed from client code (`src/lib/admin-auth.
 - `profiles.id` is `REFERENCES auth.users(id) ON DELETE CASCADE`, and related rows
   (`properties`, `enquiries`, `notification`, `txn_*`, `push_tokens`) use cascade
   where appropriate. **Deleting the `auth.users` row is the erasure primitive.**
-- An admin/service-role deletion of `auth.users` should cascade to the principal's
-  personal data. Verify each child FK is `ON DELETE CASCADE` (or handled explicitly)
-  before relying on this in production.
-- Exceptions that may be *retained* after erasure: financial/tax records required by
-  law (anonymised where possible), and audit/fraud-prevention logs.
+- An admin/service-role deletion of `auth.users` cascades to the principal's personal
+  data via `ON DELETE CASCADE`.
+- Exceptions that are *retained* after erasure: financial/tax records (`public.payments`
+  has `ON DELETE RESTRICT` on `user_id`) required by law, and audit/fraud logs.
 
-**TODO (implement before public launch):**
-- [ ] Add a self-service "Request account deletion" / "Request data copy (portability)"
-      flow in the portal (admin-verified), or at minimum a documented manual DPIA path.
-- [ ] Add an RPC `fn_delete_my_account()` that, for the calling `auth.uid()`, hard-
-      deletes personal rows and the `auth.users` row within the same transaction.
+### Implemented (migration `0146` + portal UI)
+
+Self-service erasure is wired end-to-end:
+
+- **RPC `fn_request_account_erasure()`** (`SECURITY DEFINER`, migration `0146`) is the
+  single erasure primitive. Identity is bound to `auth.uid()` (no parameters), so a
+  caller can only erase their own account. Two DPDP-correct modes:
+  - **`purged`** — no `public.payments` rows exist → hard-delete `auth.users`, which
+    cascades `profiles` and all `ON DELETE CASCADE` personal rows (notifications, push
+    tokens, enquiries, subscriptions, wallets); `SET NULL` FKs (approved_by,
+    listed_by_user_id) are nulled.
+  - **`anonymized`** — `public.payments` rows exist (statutory financial retention) →
+    scrub all personal-identifying `profiles` fields (email→placeholder, name/phone/
+    avatar/bio/company/license→null), set `status='deactivated'`, and set
+    `auth.users.banned_until = now()` so the account can no longer authenticate. No
+    in-app PII remains.
+- **Client flow**: "Danger zone → Delete my account" on `/portal/settings`
+  (`PortalSettings` in `src/pages/portal/enquiries-settings.tsx`) double-confirms, calls
+  the RPC, toasts the outcome (mode-aware), then signs out.
+- `grant` is restricted to `authenticated`; function is `revoke all ... from public`.
+
+**Remaining before launch:**
 - [ ] Retention/pruning job for `notification_delivery_log` and search logs.
 - [ ] Controller contact + DPDP grievance-officer email published (privacy-policy page).
+- [ ] Optional portability ("Download a copy of your data") export endpoint.
 
 ## 6. Cross-border & processors
 
@@ -106,5 +123,5 @@ Hardcoded admin phone numbers are removed from client code (`src/lib/admin-auth.
 - [ ] Legal review of this doc + user-facing policy pages.
 - [ ] Confirm exact DPDP notice (language, purpose, grievance officer) stages.
 - [ ] Confirm GDPR EU/EEA applicability decision.
-- [ ] Complete erasure + portability flows (Section 5 TODOs).
+- [ ] Verify erasure (Section 5) in a staging env; complete remaining portability/retention items.
 - [ ] Confirm retention/pruning jobs scheduled.
