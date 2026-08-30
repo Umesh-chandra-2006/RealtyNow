@@ -4,12 +4,9 @@
 
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2.57.4';
+import { getCorsHeaders } from '../_shared/cors.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
-};
+let corsHeaders: Record<string, string> = {};
 
 const SITE_URL = Deno.env.get('PUBLIC_SITE_URL') || 'https://realtynow.in';
 const BRAND_LOGO = 'https://realtynow.in/pwa-512x512.png';
@@ -54,6 +51,7 @@ function extractPropertyId(url: URL): string | null {
 }
 
 Deno.serve(async (req) => {
+  corsHeaders = getCorsHeaders(req);
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
