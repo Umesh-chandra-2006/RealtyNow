@@ -14,6 +14,11 @@ import type { CategorySlug } from './categories';
 import { buildPublishedQuery, type PropertyFilters } from './properties';
 import { matchesAllAmenities } from './amenities';
 
+// Hard cap on how many candidate rows any client-driven search/count path may
+// pull into the browser at once. Prevents a single query from dragging 5000+
+// rows across the wire; counts/pages computed from the capped sample.
+export const SEARCH_HARD_CAP = 500;
+
 // ─── Types ────────────────────────────────────────────────────
 
 export interface ParsedSearchIntent {
@@ -363,7 +368,7 @@ export async function fetchLocationCategoryDiscovery(
       q = q.ilike('search_document', `%${token}%`);
     }
 
-    const { data, error } = await q.limit(1000);
+    const { data, error } = await q.limit(SEARCH_HARD_CAP);
     if (error) throw error;
 
     const rows = (data ?? []) as {
@@ -443,7 +448,7 @@ export async function fetchSearchCategoryCounts(
     category: undefined,
     type: undefined,
     property_type_id: undefined,
-    limit: 5000,
+    limit: SEARCH_HARD_CAP,
     offset: 0,
   };
 

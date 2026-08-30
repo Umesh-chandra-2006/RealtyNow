@@ -14,6 +14,7 @@ import {
   parsePropertySearchQuery,
   type ParsedSearchIntent,
   mapPropertyTypeToCategory,
+  SEARCH_HARD_CAP,
 } from './search-engine';
 import { buildPublishedQuery, type PropertyFilters } from './properties';
 import { categorizeProperty, normalizeCategorySlug, type CategorySlug } from './categories';
@@ -231,7 +232,7 @@ export async function executeGlobalPropertySearch(
     min_area: explicitFilters.min_area ?? undefined,
     max_area: explicitFilters.max_area ?? undefined,
     q: q.trim() || undefined,
-    limit: 5000,
+    limit: SEARCH_HARD_CAP,
     offset: 0,
   };
 

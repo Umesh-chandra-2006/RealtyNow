@@ -210,7 +210,7 @@ Deno.serve(async (req: Request) => {
     const isOwnerOrAgent = callerId === property.owner_id || callerId === property.assigned_agent_id;
     if (!isOwnerOrAgent) {
       const { data: profile } = await supabase.from('profiles').select('role').eq('id', callerId).maybeSingle();
-      if (!profile || profile.role !== 'admin') return json({ error: 'Unauthorized' }, 403);
+      if (!profile || (profile.role !== 'admin' && profile.role !== 'super_admin')) return json({ error: 'Unauthorized' }, 403);
     }
 
     let builderName: string | null = null;

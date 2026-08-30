@@ -41,8 +41,8 @@ Deno.serve(async (req: Request) => {
     });
 
     const { data: adminProfile } = await supabase.from('profiles').select('role, email').eq('id', adminId).single();
-    if (!adminProfile || adminProfile.role !== 'admin') {
-      return json({ error: 'Unauthorized: admin role required' }, 403);
+if (!adminProfile || (adminProfile.role !== 'admin' && adminProfile.role !== 'super_admin')) {
+return json({ error: 'Unauthorized: admin role required' }, 403);
     }
 
     const body = await req.json().catch(() => ({}));

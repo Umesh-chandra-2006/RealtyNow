@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.21.0";
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { checkRateLimit } from '../_shared/rate-limit.ts';
 
 let corsHeaders: Record<string, string> = {};
 
@@ -39,6 +40,21 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
+
+    // Defensive throttle: the shared secret gates WHO may call, but add a
+    // windowed cap so a misconfigured/leaked schedule cannot trigger runaway
+    // batch runs. 6/hr is far above the cron cadence yet bounds hammering.
+    const rate = await checkRateLimit(supabaseClient, req, {
+      endpoint: 'process-renewals:cron',
+      maxRequests: 6,
+      windowSeconds: 3600,
+    });
+    if (!rate.allowed) {
+      return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 429,
+      });
+    }
 
     // 1. Fetch active packages
     const { data: packages, error: pkgsError } = await supabaseClient

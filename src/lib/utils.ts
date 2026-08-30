@@ -1,4 +1,5 @@
 import { type ClassValue, clsx } from 'clsx';
+import { normalizeIndianMobile } from './phone';
 
 export function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
@@ -240,27 +241,16 @@ export function generatePropertyUrl(p?: { id?: string | null; title?: string | n
 /**
  * Normalizes phone numbers into E.164 standard (+91XXXXXXXXXX for India by default).
  * Accepts raw strings like "98765 43210", "+91 98765-43210", "09876543210".
+ *
+ * Delegates validation to the canonical src/lib/phone.ts (normalizeIndianMobile)
+ * so contact-modal links / WhatsApp URLs can never diverge from Auth's "91..."
+ * normalization. Invalid non-Indian inputs now return '' instead of a made-up
+ * number.
  */
 export function normalizePhoneNumber(phone?: string | null, defaultCountryCode = '+91'): string {
-  if (!phone) return '';
-  const digitsOnly = phone.replace(/\D/g, '');
-  if (!digitsOnly) return '';
-
-  if (phone.trim().startsWith('+')) {
-    return `+${digitsOnly}`;
-  }
-
-  if (digitsOnly.length === 10) {
-    return `${defaultCountryCode}${digitsOnly}`;
-  }
-  if (digitsOnly.length === 11 && digitsOnly.startsWith('0')) {
-    return `${defaultCountryCode}${digitsOnly.slice(1)}`;
-  }
-  if (digitsOnly.length === 12 && digitsOnly.startsWith('91')) {
-    return `+${digitsOnly}`;
-  }
-
-  return `+${digitsOnly}`;
+  const normalized = normalizeIndianMobile(phone ?? '');
+  if (!normalized) return '';
+  return `${defaultCountryCode}${normalized}`;
 }
 
 /**
