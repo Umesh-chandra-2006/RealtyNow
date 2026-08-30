@@ -5,18 +5,23 @@ import { checkRateLimit } from '../_shared/rate-limit.ts';
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 
-// Public buckets used by both the authenticated profile-photo path and the
-// pre-auth pending-application path. They are PUBLIC READ, so an attacker must
-// never be able to place arbitrary content here — hence magic-byte validation
-// below guarantees only genuine JPEG/PNG/WEBP images are ever stored.
+// Public buckets used by the authenticated profile-photo path. They are PUBLIC
+// READ, so an attacker must never be able to place arbitrary content here —
+// hence magic-byte validation below guarantees only genuine JPEG/PNG/WEBP
+// images are ever stored.
 const BUCKET_FOR_ROLE: Record<string, string> = {
   agent: 'profile-images',
   builder: 'builder-media',
 };
 
-// Pre-auth (pending application) uploads keep the caller-supplied role solely
-// to pick a validated bucket + sub-folder; it is still bounded to these two.
-const PENDING_ROLES = ['agent', 'builder'];
+// Pre-auth (pending application) uploads run before the caller has an account,
+// so there is no verified identity to trust. Their destination must therefore
+// be a SINGLE server-fixed, role-neutral pending location — the caller-supplied
+// `role` is NOT used to select a bucket or namespace (that would let an
+// unauthenticated caller dump files into whichever public bucket they name).
+// Role → bucket binding happens later, server-side, from the OTP-verified phone
+// during application processing.
+const PENDING_BUCKET = 'profile-images';
 
 // AUDIT FIX (High #12): verify the file is a real image by magic bytes rather
 // than trusting the browser-declared content type. A script dressed as an
@@ -91,7 +96,6 @@ serve(async (req) => {
 
     const formData = await req.formData();
     const file = formData.get('file');
-    const requestedRole = String(formData.get('role') || '');
 
     if (!(file instanceof File)) throw new Error('file is required');
     if (file.size > MAX_SIZE) throw new Error('File size exceeds 5MB limit');
@@ -140,23 +144,23 @@ serve(async (req) => {
       });
     }
 
-    // Pre-auth pending-application path. The caller's role is validated against
-    // the allow-list and only picks the bucket/folder; the file is always a
-    // magic-byte-verified image, so no arbitrary content is served.
-    if (!PENDING_ROLES.includes(requestedRole)) {
-      throw new Error('role must be "agent" or "builder"');
-    }
-    const bucket = BUCKET_FOR_ROLE[requestedRole];
-    const path = `pending/${requestedRole}-${Date.now()}-${crypto.randomUUID()}.${ext}`;
-    const { error: uploadError } = await supabase.storage.from(bucket).upload(path, bytes, {
+    // Pre-auth pending-application path. There is no verified identity to trust
+    // here, so the caller-supplied `role` is NEVER used to pick the bucket or a
+    // role-specific namespace. Every pre-auth upload lands in the single
+    // server-fixed, role-neutral PENDING_BUCKET's pending/ folder; the real
+    // role is bound later from the OTP-verified phone during processing. The
+    // file is always a magic-byte-verified image.
+    const pendingBucket = PENDING_BUCKET;
+    const path = `pending/${crypto.randomUUID()}-${Date.now()}.${ext}`;
+    const { error: uploadError } = await supabase.storage.from(pendingBucket).upload(path, bytes, {
       contentType: detected,
       cacheControl: '3600',
       upsert: false,
     });
     if (uploadError) throw new Error('Upload failed. Please try again.');
 
-    const { data: publicUrlData } = supabase.storage.from(bucket).getPublicUrl(path);
-    return new Response(JSON.stringify({ url: publicUrlData.publicUrl, path, bucket }), {
+    const { data: publicUrlData } = supabase.storage.from(pendingBucket).getPublicUrl(path);
+    return new Response(JSON.stringify({ url: publicUrlData.publicUrl, path, bucket: pendingBucket }), {
       headers: { ...cors, 'Content-Type': 'application/json' },
     });
   } catch (err: any) {
