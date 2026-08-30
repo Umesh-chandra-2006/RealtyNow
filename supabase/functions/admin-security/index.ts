@@ -315,7 +315,7 @@ Deno.serve(async (req: Request) => {
         password: crypto.randomUUID() + crypto.randomUUID(),
         user_metadata: { role: 'admin', first_name: firstName, last_name: lastName },
       });
-      if (createErr || !created?.user) return fail(createErr?.message ?? 'Could not create account', 500);
+      if (createErr || !created?.user) { console.error('[admin-security] createUser error:', createErr); return fail('Could not create account', 500); }
       await supabase
         .from('profiles')
         .update({ role: 'admin', first_name: firstName, last_name: lastName, status: 'active' })
@@ -328,7 +328,7 @@ Deno.serve(async (req: Request) => {
     const { error: upsertErr } = await supabase
       .from('admins')
       .upsert({ id: profile.id, mobile, role, status: 'active' });
-    if (upsertErr) return fail(upsertErr.message, 500);
+    if (upsertErr) { console.error('[admin-security] admin upsert error:', upsertErr); return fail('Could not save admin', 500); }
 
     return json({ success: true, adminId: profile.id });
   }

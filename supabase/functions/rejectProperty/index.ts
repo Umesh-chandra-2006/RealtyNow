@@ -60,7 +60,7 @@ Deno.serve(async (req: Request) => {
       p_admin_id: adminId,
       p_reason: reason,
     });
-    if (rpcErr) return json({ error: rpcErr.message }, 500);
+    if (rpcErr) { console.error('[rejectProperty] reject RPC error:', rpcErr); return json({ error: 'Rejection failed' }, 500); }
 
     const { data: latestVerification } = await supabase
       .from('ai_verifications')
@@ -84,7 +84,7 @@ Deno.serve(async (req: Request) => {
       })
       .select()
       .single();
-    if (overrideErr) return json({ error: overrideErr.message }, 500);
+    if (overrideErr) { console.error('[rejectProperty] override error:', overrideErr); return json({ error: 'Rejection failed' }, 500); }
 
     await supabase.from('verification_logs').insert({
       property_id: propertyId,

@@ -277,7 +277,7 @@ Deno.serve(async (req: Request) => {
         seo_generated_at: new Date().toISOString(),
       })
       .eq('id', propertyId);
-    if (updateErr) return json({ error: updateErr.message }, 500);
+    if (updateErr) { console.error('[generatePropertySeo] update error:', updateErr); return json({ error: 'SEO generation failed' }, 500); }
 
     return json({ success: true, seo_title: seo.seo_title, seo_slug: seo.seo_slug, canonical_url: canonicalUrl });
   } catch (err) {

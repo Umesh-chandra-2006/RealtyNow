@@ -57,7 +57,7 @@ Deno.serve(async (req: Request) => {
       p_property_id: propertyId,
       p_admin_id: adminId,
     });
-    if (rpcErr) return json({ error: rpcErr.message }, 500);
+    if (rpcErr) { console.error('[approveProperty] approve RPC error:', rpcErr); return json({ error: 'Approval failed' }, 500); }
 
     // Find the latest verification row (if any) to link the override for audit purposes.
     const { data: latestVerification } = await supabase
@@ -82,7 +82,7 @@ Deno.serve(async (req: Request) => {
       })
       .select()
       .single();
-    if (overrideErr) return json({ error: overrideErr.message }, 500);
+    if (overrideErr) { console.error('[approveProperty] override error:', overrideErr); return json({ error: 'Approval failed' }, 500); }
 
     await supabase.from('verification_logs').insert({
       property_id: propertyId,

@@ -403,7 +403,7 @@ Deno.serve(async (req: Request) => {
       })
       .select()
       .single();
-    if (insertErr) return json({ error: insertErr.message }, 500);
+    if (insertErr) { console.error('[verifyProperty] insert verification error:', insertErr); return json({ error: 'Verification failed' }, 500); }
 
     await supabase.from('verification_logs').insert({
       property_id: propertyId,

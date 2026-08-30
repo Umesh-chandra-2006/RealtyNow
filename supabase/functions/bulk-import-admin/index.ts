@@ -185,7 +185,7 @@ Deno.serve(async (req: Request) => {
       })
       .select()
       .single();
-    if (jobErr || !jobRow) return fail(jobErr?.message ?? 'Could not create import job', 500);
+    if (jobErr || !jobRow) { console.error('[bulk-import-admin] create job error:', jobErr); return fail('Could not create import job', 500); }
     const jobId = jobRow.id as string;
 
     // properties.owner_id is NOT NULL REFERENCES auth.users(id) — the admin's own

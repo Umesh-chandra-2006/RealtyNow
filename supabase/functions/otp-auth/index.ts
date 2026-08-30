@@ -397,7 +397,7 @@ serve(async (req) => {
               .insert({ mobile, requested_role: professionalIntent, status: "pending" })
               .select("id")
               .single();
-            if (insertErr) return error(insertErr.message, 500);
+            if (insertErr) { console.error('[otp-auth] insert OTP error:', insertErr); return error('Could not complete request', 500); }
             requestId = inserted?.id;
           }
 
@@ -503,7 +503,8 @@ serve(async (req) => {
               return error("Could not sign in with this mobile number. Please try again in a moment.", 400);
             }
           } else {
-            return error(createErr.message ?? "Could not create account", 500);
+            console.error('[otp-auth] createUser failed:', createErr);
+            return error("Could not create account", 500);
           }
         } else if (created?.user) {
           userId = created.user.id;
@@ -548,7 +549,7 @@ serve(async (req) => {
       email_confirm: true,
       password: signInPassword,
     });
-    if (pwErr) return error(pwErr.message, 500);
+    if (pwErr) { console.error('[otp-auth] set password error:', pwErr); return error('Could not set password', 500); }
 
     const plainClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const { data: signInData, error: signInErr } = await plainClient.auth.signInWithPassword({
@@ -556,7 +557,8 @@ serve(async (req) => {
       password: signInPassword,
     });
     if (signInErr || !signInData?.session) {
-      return error(signInErr?.message ?? "Could not sign in", 500);
+      console.error('[otp-auth] sign-in error:', signInErr);
+      return error("Could not sign in", 500);
     }
 
     return json({
@@ -609,7 +611,7 @@ serve(async (req) => {
       .from("agent_requests")
       .update({ full_name: fullName, requested_role: requestedRole })
       .eq("id", requestId);
-    if (updateErr) return error(updateErr.message, 500);
+    if (updateErr) { console.error('[otp-auth] update error:', updateErr); return error('Could not update request', 500); }
 
     return json({ success: true });
   }
@@ -644,7 +646,7 @@ serve(async (req) => {
         notes: (body.notes as string | undefined) ?? null,
       })
       .eq("id", requestId);
-    if (updateErr) return error(updateErr.message, 500);
+    if (updateErr) { console.error('[otp-auth] update error:', updateErr); return error('Could not update request', 500); }
 
     return json({ success: true });
   }
@@ -713,7 +715,8 @@ serve(async (req) => {
       user_metadata: { role, first_name: firstName, last_name: lastName },
     });
     if (createErr || !created?.user) {
-      return error(createErr?.message ?? "Could not create account", 500);
+      console.error('[otp-auth] createUser error:', createErr);
+      return error("Could not create account", 500);
     }
 
     // handle_new_user() already inserted a default profile row; update it

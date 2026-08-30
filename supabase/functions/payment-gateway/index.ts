@@ -116,7 +116,7 @@ serve(async (req) => {
       p_discount_amount: discountAmt,
       p_coupon_id:     appliedCampaignId,
     });
-    if (payErr) return error(payErr.message, 500);
+    if (payErr) { console.error('[payment-gateway] payments insert error:', payErr); return error('Could not record payment', 500); }
 
     // Create Razorpay order
     let razorpayOrderId = `order_mock_${Date.now()}`; // Fallback for dev
@@ -217,7 +217,7 @@ serve(async (req) => {
       p_gateway_order_id:   razorpay_order_id,
       p_gateway_signature:  razorpay_signature
     });
-    if (confirmErr) return error(confirmErr.message, 500);
+    if (confirmErr) { console.error('[payment-gateway] payment confirm error:', confirmErr); return error('Could not confirm payment', 500); }
 
     // Log audit
     await supabase.rpc("fn_log_audit", {
@@ -322,7 +322,8 @@ serve(async (req) => {
         p_metadata: { error: activateErr.message },
         p_severity: "warning",
       });
-      return error(activateErr.message, 500);
+      console.error('[payment-gateway] subscription activation error:', activateErr);
+      return error('Could not activate subscription', 500);
     }
 
     return json({ success: true, subscription_id: subscriptionId, plan_id, amount: expectedAmount });
