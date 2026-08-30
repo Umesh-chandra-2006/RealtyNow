@@ -4,10 +4,9 @@
 # horizontally behind the Service and the HorizontalPodAutoscaler. Supabase
 # (DB + edge functions) + Razorpay are external SaaS; no cluster state lives here.
 #
-# The .env files are NOT baked into the image: browser credentials (VITE_*)
-# are injected at request time via front-end env only if you use runtime config;
-# otherwise the image is fully static and needs nothing at runtime. For any
-# server-side needs, configure via secrets/env, never in the committed image.
+# Runtime is locked to a NON-ROOT user (uid 101) on port 8080 with a read-only
+# root filesystem and all capabilities dropped — matching the hardened Dockerfile.
+# A writable emptyDir is mounted at /tmp where nginx writes its pid/temp files.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -32,7 +31,11 @@ spec:
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
-              containerPort: 80
+              containerPort: 8080
+          # Writable scratch for nginx pid/temp (root fs is read-only, non-root).
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           # Mirror the Dockerfile HEALTHCHECK so k8s probes match the container.
           readinessProbe:
             httpGet:
@@ -58,9 +61,15 @@ spec:
               cpu: 250m
               memory: 256Mi
           securityContext:
+            # Must match the non-root nginx image (uid/guid 101, port 8080).
+            runAsNonRoot: true
+            runAsUser: 101
+            runAsGroup: 101
             readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false
-            runAsNonRoot: true
             capabilities:
               drop:
                 - ALL
+      volumes:
+        - name: tmp
+          emptyDir: {}

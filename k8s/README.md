@@ -8,8 +8,8 @@ stateless, so it scales horizontally via the HorizontalPodAutoscaler.
 | File | Purpose |
 |---|---|
 | `namespace.yaml` | `realtynow` namespace |
-| `deployment.yaml` | nginx SPA Deployment (2 replicas, probes, resources, hardened securityContext) |
-| `service.yaml` | ClusterIP Service → port 80 |
+| `deployment.yaml` | nginx SPA Deployment (2 replicas, probes, hardened non-root securityContext, `/tmp` emptyDir) |
+| `service.yaml` | ClusterIP Service → port 80 → container port 8080 |
 | `hpa.yaml` | HorizontalPodAutoscaler (2–8 replicas, CPU/memory) |
 | `kustomization.yaml` | Kustomize base (apply the whole tier with one command) |
 
@@ -38,3 +38,12 @@ terminates HTTPS in front of the `realtynow` ClusterIP Service.
   load-test results before go-live (see `docs/LAUNCH_GATE.md`).
 - The SPA holds no local state — a failed pod is replaced instantly with no
   data-loss risk.
+
+## Runtime model (non-root, locked down)
+
+- The image runs nginx as **uid 101 (non-root)** on **port 8080** with a read-only
+  root filesystem and all capabilities dropped — the `securityContext` in
+  `deployment.yaml` matches the hardened `Dockerfile` exactly.
+- A writable `emptyDir` is mounted at `/tmp`, where the nginx config writes its
+  pid + temp/buffer files (it can no longer write `/var/cache`).
+- Probes hit `/` on port 8080, mirroring the Dockerfile `HEALTHCHECK`.

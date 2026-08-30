@@ -3,9 +3,9 @@
 #   docker compose up --build -d     # build & run at http://localhost:8080
 #   docker compose down              # stop
 #
-# The SPA is fully static — the nginx container is the only service. It is
-# configured (Dockerfile HEALTHCHECK + nginx.conf) to sit behind a load
-# balancer / autoscaler for production.
+# The SPA is fully static — the nginx container is the only service. It runs as a
+# NON-ROOT user on port 8080 and is configured (Dockerfile HEALTHCHECK + nginx.conf)
+# to sit behind a load balancer / autoscaler for production.
 
 services:
   web:
@@ -15,10 +15,10 @@ services:
     image: realtynow-web:latest
     container_name: realtynow-web
     ports:
-      - "8080:80"
+      - "8080:8080"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/"]
       interval: 30s
       timeout: 5s
       retries: 3

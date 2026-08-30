@@ -52,3 +52,25 @@ backup drill, on-call staffing) — those are operationally required but outside
 codebase.
 
 Signature / owner: ____________________
+
+## 5. Post-report correction (container path) — 30 Aug 2026
+
+Follow-up review found the container **securityContext did not match the base image**:
+`k8s/deployment.yaml` demanded `runAsNonRoot: true` + `readOnlyRootFilesystem: true` +
+`capabilities.drop: [ALL]`, but the stock `nginx:1.27-alpine` image runs the master as
+**root** on **port 80** and writes to `/var/cache` — the pod would crash-loop and never
+pass probes. Fixed (hardening, not relaxation):
+
+- `nginx.conf` → full main config: `listen 8080` (unprivileged), `pid`/temp paths under
+  `/tmp`, log to stderr, immutable-cache strategy preserved.
+- `Dockerfile` → serve as `USER 101:101`, `COPY nginx.conf` as primary config,
+  `EXPOSE 8080`, healthcheck on `:8080`.
+- `k8s/deployment.yaml` → `containerPort: 8080`, probes on `:8080`, writable `emptyDir`
+  at `/tmp`, `runAsUser/runAsGroup: 101` (matches image USER) alongside the existing
+  non-root/read-only/cap-drop constraints.
+- `docker-compose.yml` → `8080:8080`, healthcheck on `:8080`; `k8s/README.md` documents
+  the non-root runtime model.
+
+The container now satisfies its own hardening constraints. **Re-verify with a real
+`docker build`/`docker run` and a k8s (kind/minikube) apply before go-live.**
+
