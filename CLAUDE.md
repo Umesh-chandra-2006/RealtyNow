@@ -34,11 +34,12 @@ Testing is wired up via npm scripts — run the full unit suite or single files:
 ```bash
 npm test                               # vitest run — unit tests (jsdom; config: vitest.config.ts, setup: src/test/setup.ts)
 npx vitest run path/to/file.test.ts    # Single unit-test file
+npm run lint:ci                        # eslint . --max-warnings 244 — fails on new warnings above the current baseline
 npm run e2e                            # Playwright E2E in e2e/ (auto-starts `npm run dev` on :5173)
 npx playwright test e2e/auth.spec.ts   # Single E2E spec
 ```
 
-There are `*.test.ts(x)` files under `src/` plus the vitest setup (`src/test/setup.ts`). Add unit tests next to the module they cover, or under `src/lib/__tests__/`.
+Tests live under `src/` (currently 7 unit test files / 64 tests) plus the vitest setup (`src/test/setup.ts`); E2E specs live in `e2e/`. The CI quality job also runs `node scripts/scan-secrets.mjs` after install and fails on new known-leaked/high-entropy secrets. Add unit tests next to the module they cover, or under `src/lib/__tests__/`.
 
 Supabase is managed via the CLI against migrations in `supabase/migrations/` and edge functions in `supabase/functions/*/index.ts` (Deno runtime — do not expect Node types/imports to resolve there; `npm:`/`jsr:` specifiers are normal).
 
