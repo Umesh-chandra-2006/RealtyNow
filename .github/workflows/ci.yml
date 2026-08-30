@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
 
 jobs:
@@ -39,11 +39,13 @@ jobs:
 
   # End-to-end tests against a provisioned test backend.
   # The SPA e2e specs hit live Supabase REST + auth, so they need a deployed
-  # test project. Runs only when E2E_BASE_URL is provided (repo secrets); skipped
-  # (and never blocks the release) otherwise.
+  # test project. Opt-in via repo variable RUN_E2E=true (plus the E2E_*
+  # secrets, consumed inside the steps only) -- skipped, and never blocks the
+  # release, otherwise. Job-level `if` cannot reference secrets per GitHub
+  # docs, which is why the gate uses a variable, not a secret check.
   e2e:
     runs-on: ubuntu-latest
-    if: ${{ secrets.E2E_BASE_URL != '' && secrets.E2E_BASE_URL != null }}
+    if: ${{ vars.RUN_E2E == 'true' }}
     steps:
       - uses: actions/checkout@v4
 
