@@ -22,6 +22,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { checkRateLimit } from "../_shared/rate-limit.ts";
+import { sendEmail } from "../_shared/email.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -130,10 +131,11 @@ async function handler(req: Request): Promise<Response> {
   const notificationId = body.notification_id;
   if (!notificationId) return json({ error: "notification_id is required", success: false }, 400);
 
+  let pushConfigError: string | null = null;
   if (!FIREBASE_SERVICE_ACCOUNT_JSON) {
-    // Not configured yet — fail soft. The in-app notification (already
-    // inserted before this function was ever called) is unaffected.
-    return json({ success: false, error: "FCM is not configured on the server (FIREBASE_SERVICE_ACCOUNT_JSON missing)" }, 200);
+    // FCM not configured — record it and continue so the transactional email
+    // channel (independent of push) can still be attempted below.
+    pushConfigError = "FCM is not configured on the server (FIREBASE_SERVICE_ACCOUNT_JSON missing)";
   }
 
   const { data: notification } = await admin.from("notifications").select("*").eq("id", notificationId).maybeSingle();
@@ -145,85 +147,148 @@ async function handler(req: Request): Promise<Response> {
     .eq("user_id", notification.user_id)
     .eq("is_active", true);
 
-  if (!tokens || tokens.length === 0) {
-    return json({ success: true, delivered: 0, reason: "No active push tokens for this user" });
-  }
-
-  let sa: ServiceAccount;
-  try {
-    sa = JSON.parse(FIREBASE_SERVICE_ACCOUNT_JSON);
-  } catch {
-    return json({ success: false, error: "FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON" }, 200);
-  }
-
-  const accessToken = await getAccessToken(sa);
   let delivered = 0;
 
-  for (const t of tokens) {
-    const message = {
-      message: {
-        token: t.token,
-        notification: { title: notification.title, body: notification.body ?? "" },
-        data: {
-          notification_id: notification.id,
-          type: notification.type ?? "",
-          link: notification.link ?? "/",
-        },
-        webpush: {
-          fcm_options: { link: notification.link ?? "/" },
-          notification: { icon: "/pwa-192x192.png" },
-        },
-      },
-    };
+  if (tokens && tokens.length > 0 && !pushConfigError) {
+    let sa: ServiceAccount;
+    try {
+      sa = JSON.parse(FIREBASE_SERVICE_ACCOUNT_JSON!);
+    } catch {
+      pushConfigError = "FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON";
+      sa = null!;
+    }
 
-    // Retry once on transient failure — satisfies "retry failed delivery"
-    // without an unbounded retry loop that could hang the function.
-    let lastError: string | null = null;
-    let ok = false;
-    for (let attempt = 0; attempt < 2 && !ok; attempt++) {
-      try {
-        const res = await fetch(`https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-          body: JSON.stringify(message),
-        });
-        const resBody = await res.json().catch(() => ({}));
-        if (res.ok) {
-          ok = true;
-          delivered++;
+    if (sa) {
+      const accessToken = await getAccessToken(sa);
+
+      for (const t of tokens) {
+        const message = {
+          message: {
+            token: t.token,
+            notification: { title: notification.title, body: notification.body ?? "" },
+            data: {
+              notification_id: notification.id,
+              type: notification.type ?? "",
+              link: notification.link ?? "/",
+            },
+            webpush: {
+              fcm_options: { link: notification.link ?? "/" },
+              notification: { icon: "/pwa-192x192.png" },
+            },
+          },
+        };
+
+        // Retry once on transient failure — satisfies "retry failed delivery"
+        // without an unbounded retry loop that could hang the function.
+        let lastError: string | null = null;
+        let ok = false;
+        for (let attempt = 0; attempt < 2 && !ok; attempt++) {
+          try {
+            const res = await fetch(`https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`, {
+              method: "POST",
+              headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+              body: JSON.stringify(message),
+            });
+            const resBody = await res.json().catch(() => ({}));
+            if (res.ok) {
+              ok = true;
+              delivered++;
+              await admin.from("notification_delivery_log").insert({
+                notification_id: notification.id,
+                channel: "push",
+                status: "delivered",
+                provider: "fcm",
+                provider_ref: resBody.name ?? null,
+              });
+            } else {
+              lastError = JSON.stringify(resBody);
+              const errCode = resBody?.error?.status;
+              if (errCode === "NOT_FOUND" || errCode === "UNREGISTERED" || errCode === "INVALID_ARGUMENT") {
+                // Token is dead — deactivate it so future sends skip it.
+                await admin.from("push_tokens").update({ is_active: false }).eq("id", t.id);
+                break; // no point retrying an invalid token
+              }
+            }
+          } catch (err) {
+            lastError = err instanceof Error ? err.message : String(err);
+          }
+        }
+
+        if (!ok) {
           await admin.from("notification_delivery_log").insert({
             notification_id: notification.id,
             channel: "push",
-            status: "delivered",
+            status: "failed",
             provider: "fcm",
-            provider_ref: resBody.name ?? null,
+            error_message: lastError,
           });
-        } else {
-          lastError = JSON.stringify(resBody);
-          const errCode = resBody?.error?.status;
-          if (errCode === "NOT_FOUND" || errCode === "UNREGISTERED" || errCode === "INVALID_ARGUMENT") {
-            // Token is dead — deactivate it so future sends skip it.
-            await admin.from("push_tokens").update({ is_active: false }).eq("id", t.id);
-            break; // no point retrying an invalid token
-          }
         }
-      } catch (err) {
-        lastError = err instanceof Error ? err.message : String(err);
       }
-    }
-
-    if (!ok) {
-      await admin.from("notification_delivery_log").insert({
-        notification_id: notification.id,
-        channel: "push",
-        status: "failed",
-        provider: "fcm",
-        error_message: lastError,
-      });
     }
   }
 
-  return json({ success: true, delivered, total_tokens: tokens.length });
+  // ── Transactional email for the same notification (honest delivery log) ──
+  // Best-effort, never a fake success: resolves the recipient's email from
+  // auth.users (the notification row only stores user_id) and dispatches via
+  // the shared Resend helper. Logs channel="email" to notification_delivery_log
+  // with the real outcome.
+  let emailDispatched = false;
+  let emailSkipped: string | null = null;
+  const { data: recipient } = await admin
+    .from("auth.users")
+    .select("email")
+    .eq("id", notification.user_id)
+    .maybeSingle();
+
+  const recipientEmail = recipient?.email;
+  if (!recipientEmail) {
+    emailSkipped = "Recipient has no email on record";
+  } else if (recipientEmail.endsWith("@realtynow.internal")) {
+    emailSkipped = "Synthetic internal email; not deliverable";
+  } else {
+    const emailResult = await sendEmail({
+      to: recipientEmail,
+      subject: notification.title,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <p style="font-size: 18px; color: #111;">${escapeHtml(notification.title)}</p>
+          ${notification.body ? `<p>${escapeHtml(notification.body)}</p>` : ""}
+          ${notification.link ? `<p><a href="${escapeHtml(notification.link)}" style="color:#b61f24;">View details</a></p>` : ""}
+          <p style="color:#666; font-size: 13px;">You are receiving this because you're signed up with RealtyNow.</p>
+        </div>
+      `,
+    });
+
+    await admin.from("notification_delivery_log").insert({
+      notification_id: notification.id,
+      channel: "email",
+      status: emailResult.ok ? "sent" : "failed",
+      provider: emailResult.ok ? "resend" : null,
+      provider_ref: emailResult.id ?? null,
+      error_message: emailResult.ok ? null : emailResult.error ?? null,
+    });
+    emailDispatched = emailResult.ok;
+    if (!emailResult.ok) emailSkipped = emailResult.error ?? "Email send failed";
+  }
+
+  return json({
+    success: true,
+    delivered,
+    total_tokens: tokens ? tokens.length : 0,
+    push_config_error: pushConfigError,
+    email_dispatched: emailDispatched,
+    email_skipped: emailSkipped,
+  });
+}
+
+/** Minimal HTML-escape for values interpolated into email bodies. */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 Deno.serve(handler);

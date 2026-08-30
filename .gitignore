@@ -11,6 +11,10 @@ dist
 dist-ssr
 *.local
 
+# k6 load-test artifacts — never commit real JWTs or result runs
+k6/k6-tokens*.json
+k6/k6-results*
+
 .vscode/*
 !.vscode/extensions.json
 .idea
