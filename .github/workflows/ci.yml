@@ -31,6 +31,9 @@ jobs:
       - name: Unit tests
         run: npm test
 
+      - name: Docs sync (fail if documented API surface drifts from code)
+        run: node scripts/docs-sync.mjs --check
+
       - name: Build
         run: npm run build
 

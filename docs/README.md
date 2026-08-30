@@ -14,7 +14,11 @@ This directory is the **single source of truth** for how RealtyNow is built, ope
 | [DESIGN.md](./DESIGN.md) | Design system & UI architecture: color tokens, typography, spacing, responsive standards. | Frontend / UI |
 | [COMPONENTS.md](./COMPONENTS.md) | Component architecture and shared component inventory. | Frontend |
 | [DATABASE.md](./DATABASE.md) | Database schema specification (36 tables), RLS model, and data-flow rules. | Backend / DB |
-| [API.md](./API.md) | REST/RPC/edge-function surface: endpoints, payloads, auth, rate limits. | Backend / Integrations |
+| [API.md](./API.md) | REST/RPC/edge-function surface: endpoints, payloads, auth, rate limits. **Code-exact; “Last verified” stamped.** | Backend / Integrations |
+| [DEPENDENCIES.md](./DEPENDENCIES.md) | Runtime/dev/Deno dependencies, version drift findings, `src/lib` module map. | All engineers |
+| [DEVELOPMENT_GUIDELINES.md](./DEVELOPMENT_GUIDELINES.md) | Hard invariants, the four gates, branch/commit rules, review checklist. | All engineers / AI agents |
+| [DEPLOYMENT.md](./DEPLOYMENT.md) | Netlify + Docker/Kubernetes deployment, secrets matrix, release workflow. | Eng / Ops |
+| [MAINTENANCE.md](./MAINTENANCE.md) | How-to recipes: add migration/edge function/table/route/test, regenerate assets, docs-sync. | Maintainers / AI agents |
 | [AI_FEATURES.md](./AI_FEATURES.md) | AI feature specification & roadmap; the no-fabrication search guarantee. | Product & Backend |
 | [PRODUCT.md](./PRODUCT.md) | Product overview and functional requirements. | Product / Stakeholders |
 | [SCREENS.md](./SCREENS.md) | Screen routing & page inventory across all four roles. | Frontend / QA |
@@ -43,7 +47,9 @@ This directory is the **single source of truth** for how RealtyNow is built, ope
 
 | Concern | Location |
 | --- | --- |
-| Working rules for AI coding agents | [`CLAUDE.md`](../CLAUDE.md) |
+| **AI-agent entry point (tool-agnostic)** | [`AGENTS.md`](../AGENTS.md) |
+| Working rules for AI coding agents (Claude-specific) | [`CLAUDE.md`](../CLAUDE.md) |
+| Auto-generated inventories (API/RPC/deps/snapshot) | [`docs/generated/`](./generated/) — regenerate via `node scripts/docs-sync.mjs` |
 | Quickstart, scripts, and structure | [`README.md`](../README.md) |
 | One-off data repair / backfill scripts | [`scripts/repair/`](../scripts/repair/) |
 | Ad-hoc SQL diagnostics | [`scripts/db/`](../scripts/db/) |
@@ -60,3 +66,4 @@ This directory is the **single source of truth** for how RealtyNow is built, ope
 - `docs/DESIGN.md` and `docs/ARCHITECTURE.md` are the two complementary design docs — DESIGN is the token/UI spec, ARCHITECTURE is the system overview.
 - SQL diagnostics belong in `scripts/db/`, never in `docs/`.
 - Any doc embedding real credentials is forbidden (secret scanner enforces).
+- `docs/generated/` is **machine-generated** (`scripts/docs-sync.mjs`); CI fails on drift (`--check`). Edit the generator or the code, not the output.

@@ -41,6 +41,15 @@ npx playwright test e2e/auth.spec.ts   # Single E2E spec
 
 Tests live under `src/` (currently 7 unit test files / 64 tests) plus the vitest setup (`src/test/setup.ts`); E2E specs live in `e2e/`. The CI quality job also runs `node scripts/scan-secrets.mjs` after install and fails on new known-leaked/high-entropy secrets. Add unit tests next to the module they cover, or under `src/lib/__tests__/`.
 
+Doc-sync (keeps the generated inventory in `docs/generated/` exact — CI fails on drift):
+
+```bash
+node scripts/docs-sync.mjs          # regenerate docs/generated/*
+node scripts/docs-sync.mjs --check  # CI gate: fail if code surface ≠ docs
+```
+
+For discovered conventions, invariants, recipes, and module maps prefer the curated docs over grepping: read `AGENTS.md` (tool-agnostic entry), `docs/DEVELOPMENT_GUIDELINES.md` (hard invariants + gates), `docs/MAINTENANCE.md` (how-to), `docs/DEPENDENCIES.md` (modules), `docs/DEPLOYMENT.md` (deploy).
+
 Supabase is managed via the CLI against migrations in `supabase/migrations/` and edge functions in `supabase/functions/*/index.ts` (Deno runtime — do not expect Node types/imports to resolve there; `npm:`/`jsr:` specifiers are normal).
 
 ## Architecture
