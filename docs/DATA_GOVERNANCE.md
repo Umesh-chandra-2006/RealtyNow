@@ -82,18 +82,23 @@ Hardcoded admin phone numbers are removed from client code (`src/lib/admin-auth.
 
 Self-service erasure is wired end-to-end:
 
-- **RPC `fn_request_account_erasure()`** (`SECURITY DEFINER`, migration `0146`) is the
-  single erasure primitive. Identity is bound to `auth.uid()` (no parameters), so a
-  caller can only erase their own account. Two DPDP-correct modes:
+- **RPC `fn_request_account_erasure()`** (`SECURITY DEFINER`, migration `0146`, hardened
+  by `0147`) is the single erasure primitive. Identity is bound to `auth.uid()` (no
+  parameters), so a caller can only erase their own account. Two DPDP-correct modes:
   - **`purged`** — no `public.payments` rows exist → hard-delete `auth.users`, which
     cascades `profiles` and all `ON DELETE CASCADE` personal rows (notifications, push
-    tokens, enquiries, subscriptions, wallets); `SET NULL` FKs (approved_by,
-    listed_by_user_id) are nulled.
-  - **`anonymized`** — `public.payments` rows exist (statutory financial retention) →
-    scrub all personal-identifying `profiles` fields (email→placeholder, name/phone/
-    avatar/bio/company/license→null), set `status='deactivated'`, and set
-    `auth.users.banned_until = now()` so the account can no longer authenticate. No
-    in-app PII remains.
+    tokens, enquiries, subscriptions, wallets). If a **NO ACTION audit FK** (KYC
+    `reviewed_by`/`verified_by`, invoice/ad `created_by`/`updated_by`) blocks the delete,
+    `0147` catches `foreign_key_violation` and falls back to `anonymized` instead of
+    erroring — so the erasure right is always fulfilled (no partial state).
+  - **`anonymized`** — retention rows exist (payments `ON DELETE RESTRICT`, or an audit
+    FK referenced this user) → scrub all personal-identifying `profiles` fields
+    (email→placeholder, name/phone/avatar/bio/company/license→null), set
+    `status='deactivated'`, and set `auth.users.banned_until = now()` so the account can
+    no longer authenticate. No in-app PII remains.
+  - Anonymization is extracted into internal-only helper `fn_apply_erasure_anonymization(uuid)`
+    (SECURITY DEFINER, **not** granted to `authenticated`) so it cannot be invoked directly
+    to scrub another user — it is only reachable through the main RPC.
 - **Client flow**: "Danger zone → Delete my account" on `/portal/settings`
   (`PortalSettings` in `src/pages/portal/enquiries-settings.tsx`) double-confirms, calls
   the RPC, toasts the outcome (mode-aware), then signs out.
