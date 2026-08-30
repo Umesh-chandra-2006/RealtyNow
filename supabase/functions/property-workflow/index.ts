@@ -20,6 +20,15 @@ function error(message: string, status = 400) {
   return json({ error: message, success: false }, status);
 }
 
+// Resolve the authenticated caller's database role. Uses the service-role client
+// so the stored role (not a client-supplied value) is read. Returns true only for
+// admin/staff roles that may moderate properties. Mirrors the publish gate.
+async function isAdminOrStaff(supabase: any, userId: string | null): Promise<boolean> {
+  if (!userId) return false;
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", userId).single();
+  return !!profile && ["admin", "super_admin", "verification_executive"].includes(profile.role);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -41,10 +50,10 @@ serve(async (req) => {
   let body: Record<string, unknown> = {};
   try { body = await req.json(); } catch { /* no body */ }
 
-  // calculate-score and expire are deliberately PUBLIC (no auth, no owner
-  // check), so they are the abuse-prone surface of this function. Throttle
-  // them per-IP; the gated actions (publish/verify/renew) stay user-limited.
-  if (action === "calculate-score" || action === "expire") {
+  // calculate-score is deliberately PUBLIC (powers anonymous listing ratings),
+  // so it is the abuse-prone surface of this function — throttle it per-IP.
+  // The gated actions (publish/verify/expire/renew) are authorization-bound.
+  if (action === "calculate-score") {
     const rate = await checkRateLimit(supabase, req, {
       endpoint: `property-workflow:${action}`,
       maxRequests: 30,
@@ -76,9 +85,8 @@ serve(async (req) => {
     const { property_id } = body;
     if (!property_id || !userId) return error("property_id and auth required");
 
-    // Verify user is admin or staff
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", userId).single();
-    if (!profile || !["admin", "super_admin", "verification_executive"].includes(profile.role)) {
+    // Verify user is admin or staff (shared gate, also used by verify/expire)
+    if (!(await isAdminOrStaff(supabase, userId))) {
       return error("Unauthorized: admin access required", 403);
     }
 
@@ -98,6 +106,13 @@ serve(async (req) => {
   if (action === "verify") {
     const { property_id, status, notes } = body;
     if (!property_id || !userId) return error("property_id and auth required");
+
+    // AUDIT FIX (High #9): verify approves/rejects a property, so it must be
+    // gated to admin/staff like publish. Previously any authenticated user
+    // could set any property to approved/rejected via this service-role path.
+    if (!(await isAdminOrStaff(supabase, userId))) {
+      return error("Unauthorized: admin access required", 403);
+    }
 
     const { data: currentProp } = await supabase
       .from("properties")
@@ -150,6 +165,11 @@ serve(async (req) => {
 
   // ─── ACTION: expire ───────────────────────────────────────────
   if (action === "expire") {
+    // AUDIT FIX (High #9): the expire sweep was callable by anyone (no auth).
+    // Gate it to admin/staff — it mutates listing state platform-wide.
+    if (!(await isAdminOrStaff(supabase, userId))) {
+      return error("Unauthorized: admin access required", 403);
+    }
     const { data } = await supabase.rpc("fn_expire_stale_listings");
     return json({ success: true, expired_count: data });
   }
@@ -162,17 +182,39 @@ serve(async (req) => {
     const validDays = [30, 60, 90, 180, 365];
     if (!validDays.includes(Number(validity_days))) return error("validity_days must be 30, 60, 90, 180, or 365");
 
-    const { data: prop } = await supabase.from("properties").select("owner_id, published_at").eq("id", property_id).single();
-    if (!prop) return error("Property not found", 404);
+    const { data: prop, error: propErr } = await supabase
+      .from("properties")
+      .select("owner_id, published_at, renewal_count")
+      .eq("id", property_id)
+      .single();
+    if (propErr || !prop) return error("Property not found", 404);
     if (prop.owner_id !== userId) return error("Unauthorized", 403);
 
+    // AUDIT FIX (High #9): a free user could extend/refresh a listing forever.
+    // Renewal now requires an ACTIVE paid subscription (status ACTIVE and not
+    // yet expired), enforced server-side against customer_subscriptions.
+    const { data: activeSub } = await supabase
+      .from("customer_subscriptions")
+      .select("id")
+      .eq("customer_id", userId)
+      .eq("status", "ACTIVE")
+      .gt("expiry_date", new Date().toISOString())
+      .limit(1)
+      .maybeSingle();
+    if (!activeSub) {
+      return error("Renewal requires an active paid subscription.", 403);
+    }
+
     const newExpiry = new Date();
-    newExpiry.setDate(newExpiry.getDate() + Number(validity_days));
+    const nextExpiry = new Date(newExpiry.getTime() + Number(validity_days) * 86400000);
+    const prevRenewalCount = Number(prop.renewal_count ?? 0) || 0;
 
     const { error: err } = await supabase.from("properties").update({
       listing_validity: validity_days,
-      expires_at: newExpiry.toISOString(),
-      renewal_count: supabase.rpc("fn_expire_stale_listings"), // increment
+      expires_at: nextExpiry.toISOString(),
+      // AUDIT FIX: previously renewal_count was set to the RPC-call object
+      // (copy/paste) — a correctness bug. Increment the stored counter instead.
+      renewal_count: prevRenewalCount + 1,
       last_renewed_at: new Date().toISOString(),
       status: "published",
       updated_at: new Date().toISOString()
@@ -180,7 +222,7 @@ serve(async (req) => {
 
     if (err) return error(err.message, 500);
 
-    return json({ success: true, property_id, new_expiry: newExpiry.toISOString() });
+    return json({ success: true, property_id, new_expiry: nextExpiry.toISOString() });
   }
 
   return error("Unknown action. Use x-action header: calculate-score | publish | verify | expire | renew", 400);
