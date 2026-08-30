@@ -75,6 +75,12 @@ serve(async (req) => {
         return json({ success: true, message: 'Webhook processed (already confirmed)' }, 200, req);
       }
 
+      if (paymentRecord.status === 'refunded') {
+        // Never resurrect a refunded payment via a captured webhook.
+        console.error('txn webhook: refusing to flip refunded payment', orderId);
+        return json({ success: false, message: 'Refunded payment cannot be confirmed' }, 400, req);
+      }
+
       if (Math.abs(Number(paymentRecord.amount) - Number(capturedAmount)) > 0.01) {
         console.error(
           'txn webhook: amount mismatch. expected',
