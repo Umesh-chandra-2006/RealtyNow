@@ -177,7 +177,7 @@ Deno.serve(async (req: Request) => {
 
     const hash = bcrypt.hashSync(code, 10);
     const { error } = await supabase.from('admin_security').insert({ admin_id: adminId, secret_code_hash: hash });
-    if (error) return fail(error.message, 500);
+    if (error) { console.error('[admin-security] DB error:', error); return fail('Database operation failed', 500); }
     await logEvent(supabase, adminId, req, 'secret_setup', 'success');
     return json({ success: true });
   }
@@ -291,7 +291,7 @@ Deno.serve(async (req: Request) => {
     const { error } = await supabase
       .from('admin_security')
       .upsert({ admin_id: targetAdminId, secret_code_hash: hash, failed_attempts: 0, locked_until: null });
-    if (error) return fail(error.message, 500);
+    if (error) { console.error('[admin-security] DB error:', error); return fail('Database operation failed', 500); }
     await logEvent(supabase, targetAdminId, req, 'secret_reset', 'success');
     return json({ success: true });
   }
@@ -341,7 +341,7 @@ Deno.serve(async (req: Request) => {
     if (targetAdminId === adminId && status === 'suspended') return fail('You cannot suspend your own account.');
 
     const { error } = await supabase.from('admins').update({ status, updated_at: new Date().toISOString() }).eq('id', targetAdminId);
-    if (error) return fail(error.message, 500);
+    if (error) { console.error('[admin-security] DB error:', error); return fail('Database operation failed', 500); }
     return json({ success: true });
   }
 
@@ -351,7 +351,7 @@ Deno.serve(async (req: Request) => {
       .from('admins')
       .select('id, mobile, role, status, created_at, profiles(first_name, last_name, email)')
       .order('created_at', { ascending: false });
-    if (error) return fail(error.message, 500);
+    if (error) { console.error('[admin-security] DB error:', error); return fail('Database operation failed', 500); }
 
     const ids = (admins ?? []).map((a) => a.id as string);
     const { data: security } = ids.length
@@ -371,7 +371,7 @@ Deno.serve(async (req: Request) => {
     let q = supabase.from('admin_login_logs').select('*').order('created_at', { ascending: false }).limit(100);
     if (filterAdminId) q = q.eq('admin_id', filterAdminId);
     const { data, error } = await q;
-    if (error) return fail(error.message, 500);
+    if (error) { console.error('[admin-security] DB error:', error); return fail('Database operation failed', 500); }
     return json({ success: true, logs: data ?? [] });
   }
 

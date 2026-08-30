@@ -448,6 +448,7 @@ Deno.serve(async (req: Request) => {
 
     return json({ success: true, verification: { ...verification, check_results: checks, ai_score: score, verification_status: status } });
   } catch (err) {
-    return json({ error: err instanceof Error ? err.message : 'Verification failed' }, 500);
+    console.error('[verifyProperty] error:', err);
+    return json({ error: 'Verification failed' }, 500);
   }
 });

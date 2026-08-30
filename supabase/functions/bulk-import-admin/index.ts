@@ -160,7 +160,7 @@ Deno.serve(async (req: Request) => {
       .select('*')
       .eq('admin_id', adminId)
       .order('created_at', { ascending: false });
-    if (error) return fail(error.message, 500);
+    if (error) { console.error('[bulk-import-admin] DB error:', error); return fail('Database operation failed', 500); }
     return json({ success: true, jobs: data });
   }
 

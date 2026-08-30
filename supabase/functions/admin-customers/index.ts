@@ -98,7 +98,7 @@ Deno.serve(async (req: Request) => {
     q = q.order('created_at', { ascending: false });
 
     const { data, error, count } = await q;
-    if (error) return fail(error.message, 500);
+    if (error) { console.error('[admin-customers] DB error:', error); return fail('Database operation failed', 500); }
 
     const [{ count: total }, { count: active }, { count: newThisMonth }] = await Promise.all([
       supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'customer'),
@@ -134,7 +134,7 @@ Deno.serve(async (req: Request) => {
       .eq('id', customerId)
       .eq('role', 'customer')
       .maybeSingle();
-    if (error) return fail(error.message, 500);
+    if (error) { console.error('[admin-customers] DB error:', error); return fail('Database operation failed', 500); }
     if (!customer) return fail('Customer not found', 404);
 
     const [{ count: properties }, { count: favorites }, { count: enquiries }, { count: appointments }] = await Promise.all([
@@ -168,7 +168,7 @@ Deno.serve(async (req: Request) => {
       .update({ status, updated_at: new Date().toISOString() })
       .eq('id', customerId)
       .eq('role', 'customer');
-    if (error) return fail(error.message, 500);
+    if (error) { console.error('[admin-customers] DB error:', error); return fail('Database operation failed', 500); }
     return json({ success: true });
   }
 
@@ -185,7 +185,7 @@ Deno.serve(async (req: Request) => {
     updates.updated_at = new Date().toISOString();
 
     const { error } = await supabase.from('profiles').update(updates).eq('id', customerId).eq('role', 'customer');
-    if (error) return fail(error.message, 500);
+    if (error) { console.error('[admin-customers] DB error:', error); return fail('Database operation failed', 500); }
     return json({ success: true });
   }
 
@@ -195,7 +195,7 @@ Deno.serve(async (req: Request) => {
     if (!Array.isArray(customerIds) || customerIds.length === 0) return fail('customerIds is required');
 
     const { error } = await supabase.from('profiles').delete().in('id', customerIds).eq('role', 'customer');
-    if (error) return fail(error.message, 500);
+    if (error) { console.error('[admin-customers] DB error:', error); return fail('Database operation failed', 500); }
     return json({ success: true });
   }
 

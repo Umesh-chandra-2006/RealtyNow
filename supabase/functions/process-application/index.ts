@@ -482,7 +482,7 @@ serve(async (req) => {
 
   } catch (err: any) {
     console.error('process-application error:', err.message);
-    return new Response(JSON.stringify({ error: err.message }), {
+    return new Response(JSON.stringify({ error: 'Processing failed' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

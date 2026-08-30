@@ -281,6 +281,7 @@ Deno.serve(async (req: Request) => {
 
     return json({ success: true, seo_title: seo.seo_title, seo_slug: seo.seo_slug, canonical_url: canonicalUrl });
   } catch (err) {
-    return json({ error: err instanceof Error ? err.message : 'SEO generation failed' }, 500);
+    console.error('[generatePropertySeo] error:', err);
+    return json({ error: 'SEO generation failed' }, 500);
   }
 });

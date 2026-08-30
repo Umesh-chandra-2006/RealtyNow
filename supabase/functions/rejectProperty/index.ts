@@ -111,6 +111,7 @@ Deno.serve(async (req: Request) => {
 
     return json({ success: true, property_id: propertyId, result: rpcResult });
   } catch (err) {
-    return json({ error: err instanceof Error ? err.message : 'Rejection failed' }, 500);
+    console.error('[rejectProperty] error:', err);
+    return json({ error: 'Rejection failed' }, 500);
   }
 });

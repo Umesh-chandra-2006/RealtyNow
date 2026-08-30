@@ -99,7 +99,8 @@ serve(async (req) => {
       status: 200,
     })
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error('[get-map-config] error:', error);
+    return new Response(JSON.stringify({ error: 'Request failed' }), {
       headers: { ...headers, 'Content-Type': 'application/json' },
       status: 400,
     })

@@ -74,7 +74,7 @@ serve(async (req) => {
     if (!property_id) return error("property_id is required");
 
     const { data, error: err } = await supabase.rpc("fn_calculate_property_score", { p_property_id: property_id });
-    if (err) return error(err.message, 500);
+    if (err) { console.error('[property-workflow] DB error:', err); return error('Database operation failed', 500); }
     return json({ success: true, data });
   }
 
@@ -92,7 +92,7 @@ serve(async (req) => {
       p_property_id: property_id,
       p_admin_id: userId
     });
-    if (err) return error(err.message, 500);
+    if (err) { console.error('[property-workflow] DB error:', err); return error('Database operation failed', 500); }
 
     // Calculate score after publish
     await supabase.rpc("fn_calculate_property_score", { p_property_id: property_id });
@@ -147,7 +147,7 @@ serve(async (req) => {
     }
 
     const { error: err } = await supabase.from("properties").update(updateData).eq("id", property_id);
-    if (err) return error(err.message, 500);
+    if (err) { console.error('[property-workflow] DB error:', err); return error('Database operation failed', 500); }
 
     // Log audit
     await supabase.rpc("fn_log_audit", {
@@ -218,7 +218,7 @@ serve(async (req) => {
       updated_at: new Date().toISOString()
     }).eq("id", property_id).eq("owner_id", userId);
 
-    if (err) return error(err.message, 500);
+    if (err) { console.error('[property-workflow] DB error:', err); return error('Database operation failed', 500); }
 
     return json({ success: true, property_id, new_expiry: nextExpiry.toISOString() });
   }

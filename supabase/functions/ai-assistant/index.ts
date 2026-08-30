@@ -366,7 +366,8 @@ Deno.serve(async (req: Request) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err) {
-    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : 'AI request failed' }), {
+    console.error('[ai-assistant] error:', err);
+    return new Response(JSON.stringify({ error: 'AI request failed' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

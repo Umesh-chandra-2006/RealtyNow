@@ -50,7 +50,7 @@ Deno.serve(async (req: Request) => {
       .limit(1)
       .maybeSingle();
 
-    if (error) return json({ error: error.message }, 500);
+    if (error) { console.error('[getVerificationStatus] DB error:', error); return json({ error: 'Request failed' }, 500); }
     if (!data) {
       return json({
         success: true,
@@ -61,6 +61,7 @@ Deno.serve(async (req: Request) => {
 
     return json({ success: true, verification: data });
   } catch (err) {
-    return json({ error: err instanceof Error ? err.message : 'Request failed' }, 500);
+    console.error('[getVerificationStatus] error:', err);
+    return json({ error: 'Request failed' }, 500);
   }
 });

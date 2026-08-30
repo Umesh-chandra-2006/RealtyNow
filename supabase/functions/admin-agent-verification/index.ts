@@ -80,7 +80,7 @@ Deno.serve(async (req: Request) => {
         updated_at: new Date().toISOString(),
       })
       .eq('id', agentId);
-    if (error) return fail(error.message, 500);
+    if (error) { console.error('[admin-agent-verification] DB error:', error); return fail('Database operation failed', 500); }
     return json({ success: true });
   }
 
@@ -100,7 +100,7 @@ Deno.serve(async (req: Request) => {
         updated_at: new Date().toISOString(),
       })
       .eq('id', agentId);
-    if (error) return fail(error.message, 500);
+    if (error) { console.error('[admin-agent-verification] DB error:', error); return fail('Database operation failed', 500); }
     return json({ success: true });
   }
 
@@ -110,7 +110,7 @@ Deno.serve(async (req: Request) => {
       .from('profiles')
       .update({ rera_verification_status: 'under_review', updated_at: new Date().toISOString() })
       .eq('id', agentId);
-    if (error) return fail(error.message, 500);
+    if (error) { console.error('[admin-agent-verification] DB error:', error); return fail('Database operation failed', 500); }
     return json({ success: true });
   }
 
@@ -118,7 +118,7 @@ Deno.serve(async (req: Request) => {
   if (action === 'get-document') {
     if (!agent.rera_document_url) return fail('No RERA document on file', 404);
     const { data, error } = await supabase.storage.from('agent-documents').createSignedUrl(agent.rera_document_url as string, 600);
-    if (error || !data?.signedUrl) return fail(error?.message ?? 'Could not generate document URL', 500);
+    if (error || !data?.signedUrl) { console.error('[admin-agent-verification] signed URL error:', error); return fail('Could not generate document URL', 500); }
     return json({ success: true, url: data.signedUrl });
   }
 
