@@ -8,6 +8,7 @@
     "build": "npm run images && vite build && node -e \"import fs from 'fs'; if(fs.existsSync('public/.htaccess')) { fs.copyFileSync('public/.htaccess', 'dist/.htaccess'); }\"",
     "images": "node scripts/optimize-images.mjs",
     "lint": "eslint .",
+    "lint:ci": "eslint . --max-warnings 244",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
     "test": "vitest run",

@@ -22,11 +22,39 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Lint
-        run: npm run lint
+      - name: Lint (fail on NEW warnings beyond the 244 baseline)
+        run: npm run lint:ci
 
       - name: Unit tests
         run: npm test
 
       - name: Build
         run: npm run build
+
+  # End-to-end tests against a provisioned test backend.
+  # The SPA e2e specs hit live Supabase REST + auth, so they need a deployed
+  # test project. Runs only when E2E_BASE_URL is provided (repo secrets); skipped
+  # (and never blocks the release) otherwise.
+  e2e:
+    runs-on: ubuntu-latest
+    if: ${{ secrets.E2E_BASE_URL != '' && secrets.E2E_BASE_URL != null }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run e2e tests
+        run: npm run e2e
+        env:
+          E2E_BASE_URL: ${{ secrets.E2E_BASE_URL }}
+          VITE_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}

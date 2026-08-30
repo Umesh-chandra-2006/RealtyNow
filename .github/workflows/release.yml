@@ -1,0 +1,79 @@
+name: Release
+
+# Builds the container image, pushes to GHCR, and rolls it out to Kubernetes.
+# Guarded by the `production` environment (required reviewers) and supports
+# one-click rollback to the previous image tag (kubectl rollout undo).
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      sha: ${{ steps.meta.outputs.sha }}
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set image metadata (SHA tag + latest)
+        id: meta
+        run: |
+          sha=$(echo "${GITHUB_SHA}" | cut -c1-12)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "tag=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure kubeconfig
+        uses: azure/k8s-set-context@v4
+        with:
+          method: service-account
+          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+
+      - name: Deploy image
+        id: deploy
+        run: |
+          kubectl set image deployment/realtynow realtynow=${{ needs.build-and-push.outputs.tag }} -n realtynow --record
+          kubectl rollout status deployment/realtynow -n realtynow --timeout=5m
+
+      - name: Rollback on failure
+        if: ${{ failure() && steps.deploy.outcome == 'failure' }}
+        run: kubectl rollout undo deployment/realtynow -n realtynow

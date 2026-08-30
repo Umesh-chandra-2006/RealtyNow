@@ -1,0 +1,38 @@
+# Horizontal autoscaling for the stateless web tier.
+# Scales replicas on CPU (self-referential, computed against the requests
+# declared in deployment.yaml) and memory. Adopt a metrics-server-backed
+# memory metric (or rely on CPU only) depending on your cluster.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: realtynow
+  namespace: realtynow
+  labels:
+    app: realtynow
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: realtynow
+  minReplicas: 2
+  maxReplicas: 8
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 20
+          periodSeconds: 60
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
