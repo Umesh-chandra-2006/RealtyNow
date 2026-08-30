@@ -3,18 +3,14 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
 import { DashboardLayout, PageHeader, StatCard } from '../../components/dashboard-layout';
-import { Card, Skeleton, Badge, Button } from '../../components/ui';
+import { Card, Skeleton, Badge } from '../../components/ui';
 import {
   Building2,
   MessageSquare,
   Briefcase,
   TrendingUp,
   Layers,
-  Grid3x3,
   Boxes,
-  Tag,
-  ArrowRight,
-  CheckCircle2,
   ChevronRight,
 } from 'lucide-react';
 import { getBuilderSections } from '../portal/sections';

@@ -30,6 +30,7 @@ export interface GooglePlaceDetails {
 
 export function useGooglePlaces() {
   const [isReady, setIsReady] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const autocompleteServiceRef = useRef<google.maps.places.AutocompleteService | null>(null);
   const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
   const geocoderRef = useRef<google.maps.Geocoder | null>(null);
@@ -41,7 +42,7 @@ export function useGooglePlaces() {
     }
 
     if (isScriptLoading && loadingPromise) {
-      loadingPromise.then(() => setIsReady(true)).catch(() => {});
+      loadingPromise.then(() => setIsReady(true)).catch(() => setLoadError('Google Maps failed to load.'));
       return;
     }
 
@@ -50,6 +51,9 @@ export function useGooglePlaces() {
       const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
       if (!apiKey) {
         console.error('Missing Google Maps API Key');
+        isScriptLoading = false;
+        loadingPromise = null;
+        setLoadError('Google Maps is not configured.');
         reject(new Error('Missing API Key'));
         return;
       }
@@ -57,7 +61,9 @@ export function useGooglePlaces() {
       (window as any).initGoogleMaps = () => {
         isScriptLoaded = true;
         isScriptLoading = false;
+        loadingPromise = null;
         setIsReady(true);
+        setLoadError(null);
         resolve();
       };
 
@@ -66,7 +72,11 @@ export function useGooglePlaces() {
       script.async = true;
       script.defer = true;
       script.onerror = (e) => {
+        // Reset module state so a later mount retries instead of being stuck
+        // on the rejected promise forever (the infinite "loading" bug).
         isScriptLoading = false;
+        loadingPromise = null;
+        setLoadError('Google Maps failed to load.');
         reject(e);
       };
       document.head.appendChild(script);
@@ -179,5 +189,5 @@ export function useGooglePlaces() {
     });
   }, [isReady]);
 
-  return { isReady, getPredictions, getPlaceDetails };
+  return { isReady, loadError, getPredictions, getPlaceDetails };
 }

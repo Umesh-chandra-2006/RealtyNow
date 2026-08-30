@@ -1,5 +1,3 @@
-import { supabase } from './supabase';
-import { ALL_INDIAN_CITIES, type IndianCity } from './indian-cities';
 
 export interface StructuredCity {
   id: string;

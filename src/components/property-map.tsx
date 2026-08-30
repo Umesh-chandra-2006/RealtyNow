@@ -3,21 +3,17 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { Link } from 'react-router-dom';
-import { formatCompactPrice, formatPrice, generatePropertyUrl, buildWhatsAppUrl, cn } from '../lib/utils';
+import { generatePropertyUrl, buildWhatsAppUrl, cn } from '../lib/utils';
 import { getPropertyPricingDisplay } from '../lib/plot-pricing';
 import { resolvePropertyCoordinates, ResolvedCoordinates, CITY_COORDINATES } from '../lib/geo-coordinates';
 import {
   MapPin,
-  Layers,
   Maximize2,
   Bed,
   Bath,
-  Maximize,
   Sparkles,
   ExternalLink,
   MessageCircle,
-  ShieldCheck,
-  Compass,
 } from 'lucide-react';
 import type { Property } from '../lib/types';
 import { getPropertyCoverImage, handleImageError, DEFAULT_PROPERTY_IMAGE } from '../lib/property-images';

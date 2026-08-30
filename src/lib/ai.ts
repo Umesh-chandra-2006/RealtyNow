@@ -3,7 +3,6 @@ import i18n from './i18n/i18n';
 import { formatPrice, formatCompactPrice, generatePropertyUrl } from './utils';
 import { normalizeCityAliases } from './properties';
 import { parsePropertySearchQuery, fetchLocationCategoryDiscovery } from './search-engine';
-import type { Property } from './types';
 
 export type AITask =
   | 'chat'
@@ -67,7 +66,7 @@ function priceUnitToInr(amount: number, unit: string): number {
 // Pulls a budget constraint ("under 1 crore", "above 50 lakhs") out of the raw
 // message and returns the message with that phrase removed — the phrase must not
 // leak into the free-text location query below, or numbers/units like "crore"
-// end up required as literal substrings of search_text and silently zero out
+// end up required as literal substrings of search_document and silently zero out
 // every result.
 function extractPriceConstraint(message: string): { max_price?: number; min_price?: number; rest: string } {
   let rest = message;

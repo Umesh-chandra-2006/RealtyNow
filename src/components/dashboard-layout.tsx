@@ -1,7 +1,7 @@
 import { useState, useRef, useLayoutEffect, useEffect, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, LogOut, Home, Globe, ChevronDown, ChevronRight } from 'lucide-react';
+import { Menu, X, LogOut, Home, Globe, ChevronDown } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { useLanguageContext } from '../lib/i18n/language-context';
 import { LanguageSelectorModal } from './language-selector-modal';

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, MapPin, CheckCircle2, Video, Home as HomeIcon, Send } from 'lucide-react';
+import { Calendar, MapPin, CheckCircle2, Video, Home as HomeIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { ensureUserProfile } from '../lib/profile-utils';

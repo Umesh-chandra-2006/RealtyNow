@@ -3,13 +3,7 @@ import {
   Ticket,
   Search,
   PlusCircle,
-  Clock,
-  CheckCircle2,
-  AlertCircle,
   ChevronRight,
-  Filter,
-  MessageSquare,
-  ArrowUpRight,
   ShieldAlert,
 } from 'lucide-react';
 import type { SupportTicket, SupportStatus } from '../../lib/support';

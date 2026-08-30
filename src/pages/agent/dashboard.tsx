@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AiLeadAssistant } from '../../components/agent/AiLeadAssistant';
 import { Link, useNavigate } from 'react-router-dom';
-import { PlusCircle } from 'lucide-react';
 import {
   Building2,
   MessageSquare,
@@ -13,7 +12,7 @@ import {
 import { useAuth } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
 import { useLanguageContext } from '../../lib/i18n/language-context';
-import { DashboardLayout, StatCard, PageHeader } from '../../components/dashboard-layout';
+import { DashboardLayout, StatCard } from '../../components/dashboard-layout';
 import { getAgentSections } from '../portal/sections';
 import { Card, Skeleton, Badge, EmptyState } from '../../components/ui';
 import { formatNumber } from '../../lib/utils';

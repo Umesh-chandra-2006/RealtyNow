@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from 'react';
+import { reportError } from '../lib/sentry';
 
 interface Props {
   children: ReactNode;
@@ -73,6 +74,7 @@ export class ErrorBoundary extends Component<Props, State> {
       return; // Handled by reload above
     }
     console.error('ErrorBoundary caught an error', error, errorInfo);
+    reportError(error, { componentStack: errorInfo.componentStack });
   }
 
   handleRetry = () => {

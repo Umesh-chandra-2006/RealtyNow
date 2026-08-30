@@ -2,7 +2,7 @@ import { supabase } from '../../../lib/supabase';
 import { markDraftSubmitted } from '../../../lib/listing-drafts';
 import { triggerAiVerification, triggerPropertySeoGeneration } from '../../../lib/properties';
 import { ensureUserProfile } from '../../../lib/profile-utils';
-import { validatePropertyPrice, isPropertyPublishable } from '../../../lib/price-validation';
+import { validatePropertyPrice } from '../../../lib/price-validation';
 import { RENT_LIKE_PURPOSES } from '../../../lib/utils';
 import type { ListingPurpose, WorkflowField } from '../../../lib/listing-config';
 

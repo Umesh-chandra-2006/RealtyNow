@@ -1,32 +1,23 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Search,
-  SlidersHorizontal,
   Download,
   Eye,
   Edit2,
   Phone,
-  Mail,
-  Building2,
-  Calendar,
-  Clock,
-  CheckCircle2,
   AlertTriangle,
-  Flame,
   ChevronDown,
   RotateCcw,
   LayoutList,
   LayoutGrid,
-  ExternalLink,
   MessageCircle,
   Activity,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
   Columns as ColumnsIcon,
-  Check,
 } from 'lucide-react';
-import { Badge, Button, Input, Select } from '../ui';
+import { Button, Select } from '../ui';
 import { formatDate, formatDateTime, formatPrice, buildWhatsAppUrl, exportToCsv, exportToExcel } from '../../lib/utils';
 import { useToast } from '../toast';
 import { UnifiedLeadDetailModal } from './UnifiedLeadDetailModal';

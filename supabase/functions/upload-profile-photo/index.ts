@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 import { corsHeaders } from '../_shared/cors.ts';
+import { checkRateLimit } from '../_shared/rate-limit.ts';
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
@@ -17,6 +18,28 @@ serve(async (req) => {
 
   try {
     if (req.method !== 'POST') throw new Error('Method not allowed');
+
+    // This endpoint is fully unauthenticated (caller supplies only `role`),
+    // so it is a storage-pollution / DOS surface. Throttle per-IP BEFORE
+    // consuming the multipart body to avoid wasting bandwidth on abusers.
+    const rateSupabase = createClient(
+      Deno.env.get('SUPABASE_URL') || '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '',
+    );
+    const rate = await checkRateLimit(rateSupabase, req, {
+      endpoint: 'upload-profile-photo',
+      maxRequests: 15,
+      windowSeconds: 60,
+    });
+    if (!rate.allowed) {
+      const respHeaders = new Headers(corsHeaders);
+      respHeaders.set('Content-Type', 'application/json');
+      for (const [k, v] of Object.entries(rate.headers)) respHeaders.set(k, v);
+      return new Response(JSON.stringify({ error: 'Rate limit exceeded', success: false }), {
+        status: 429,
+        headers: respHeaders,
+      });
+    }
 
     const formData = await req.formData();
     const file = formData.get('file');

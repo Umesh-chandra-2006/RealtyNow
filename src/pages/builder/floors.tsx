@@ -1,6 +1,6 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Edit3, Layers, Plus, Trash2, Building2, Sparkles, Check, AlertCircle, ArrowRight } from 'lucide-react';
+import { Edit3, Layers, Plus, Trash2, Building2, AlertCircle, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
@@ -9,7 +9,7 @@ import { getBuilderSections } from '../portal/sections';
 import { useLanguageContext } from '../../lib/i18n';
 import { DataTable } from '../../components/data-table';
 import type { Column } from '../../components/data-table';
-import { Badge, Button, EmptyState, Input, Modal, Select, Spinner } from '../../components/ui';
+import { Badge, Button, EmptyState, Input, Modal, Select } from '../../components/ui';
 import { useToast } from '../../components/toast';
 import { useRealtimeCount } from '../../lib/realtime';
 import { logBuilderAudit } from '../../lib/builder-audit';

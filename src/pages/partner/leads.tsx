@@ -1,25 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
   Search,
   Plus,
   Handshake,
   User,
-  Phone,
-  Mail,
-  Calendar,
-  Clock,
-  ArrowRight,
-  Filter,
   RefreshCw,
-  ExternalLink,
-  Building2,
-  Tag,
-  CheckCircle2,
-  AlertCircle,
-  TrendingUp,
-  SlidersHorizontal,
   Eye,
   MessageCircle,
 } from 'lucide-react';
@@ -28,7 +15,7 @@ import { useAuth } from '../../lib/auth';
 import { useLanguageContext } from '../../lib/i18n/language-context';
 import { DashboardLayout, PageHeader } from '../../components/dashboard-layout';
 import { getPartnerSections } from '../portal/sections';
-import { Card, Button, Input, Select, Badge, Skeleton, EmptyState } from '../../components/ui';
+import { Card, Button, Select, Badge } from '../../components/ui';
 import { formatDate, formatPrice, buildWhatsAppUrl, cn } from '../../lib/utils';
 import { useToast } from '../../components/toast';
 

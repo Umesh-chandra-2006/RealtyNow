@@ -189,7 +189,7 @@ const PROPERTY_TERM_MAP: Record<string, string> = {
 
 // Category-only terms — when the entire query resolves to one of these,
 // it means the user's intent is captured by the category filter alone;
-// we skip the redundant search_text ILIKE to avoid over-filtering.
+// we skip the redundant search_document ILIKE to avoid over-filtering.
 const PURE_CATEGORY_TERMS = new Set([
   'plot', 'plots', 'land', 'lands', 'open plot', 'open plots', 'residential plot',
   'residential plots', 'apartment', 'apartments', 'flat', 'flats',
@@ -263,11 +263,17 @@ export function normalizeSearchQuery(raw: string): {
 import { normalizeCategorySlug } from './categories';
 
 export function buildPublishedQuery(filters: PropertyFilters = {}) {
-  // Canonical public live filter: status is published/live OR is_live is true
+  // The v_properties_search VIEW is the single source of truth and now only
+  // exposes live listings (see migration 0142: WHERE deleted_at IS NULL AND
+  // is_active = true AND (status IN published/live OR approval_status approved
+  // OR is_live = true)). We must NOT set the live guard here with .or(): chained
+  // .or() calls in supabase-js replace (not AND) one another, so this early
+  // guard was silently dropped by later category/purpose/locality .or() filters,
+  // leaking non-live rows into public results. Leaving it off lets the remaining
+  // .or() groups behave as pure AND-ed filters while the view keeps the rows safe.
   let q = supabase
     .from('v_properties_search')
-    .select('*', { count: 'exact' })
-    .or('status.eq.published,status.eq.live,is_live.eq.true');
+    .select('*', { count: 'exact' });
 
   let activePurpose = filters.purpose;
   if (!activePurpose && filters.q) {
@@ -279,7 +285,7 @@ export function buildPublishedQuery(filters: PropertyFilters = {}) {
 
   if (activePurpose) {
     if (activePurpose.toLowerCase() === 'pg') {
-      q = q.or('purpose.ilike.pg,purpose.ilike.coliving,purpose.ilike.hostel,search_text.ilike.%pg%');
+      q = q.or('purpose.ilike.pg,purpose.ilike.coliving,purpose.ilike.hostel,search_document.ilike.%pg%');
     } else {
       q = q.eq('purpose', activePurpose);
     }
@@ -381,7 +387,7 @@ export function buildPublishedQuery(filters: PropertyFilters = {}) {
       parts.push(`city_name.ilike.%${cityName}%`);
       parts.push(`city.ilike.%${cityName}%`);
       parts.push(`address.ilike.%${cityName}%`);
-      parts.push(`search_text.ilike.%${cityName}%`);
+      parts.push(`search_document.ilike.%${cityName}%`);
       parts.push(`formatted_address.ilike.%${cityName}%`);
       parts.push(`draft_data->>city_name.ilike.%${cityName}%`);
       parts.push(`draft_data->>locality_name.ilike.%${cityName}%`);
@@ -401,7 +407,7 @@ export function buildPublishedQuery(filters: PropertyFilters = {}) {
         parts.push(`district.ilike.%${cleanLoc}%`);
         parts.push(`title.ilike.%${cleanLoc}%`);
         parts.push(`address.ilike.%${cleanLoc}%`);
-        parts.push(`search_text.ilike.%${cleanLoc}%`);
+        parts.push(`search_document.ilike.%${cleanLoc}%`);
       }
     }
 
@@ -433,7 +439,7 @@ export function buildPublishedQuery(filters: PropertyFilters = {}) {
       orParts.add(`draft_data->>locality_name.ilike.%${cleanLocality}%`);
       orParts.add(`draft_data->>city_name.ilike.%${cleanLocality}%`);
       orParts.add(`draft_data->>address.ilike.%${cleanLocality}%`);
-      orParts.add(`search_text.ilike.%${cleanLocality}%`);
+      orParts.add(`search_document.ilike.%${cleanLocality}%`);
       orParts.add(`title.ilike.%${cleanLocality}%`);
 
       // Special alias/spelling variation handlers
@@ -442,27 +448,27 @@ export function buildPublishedQuery(filters: PropertyFilters = {}) {
         orParts.add('locality_name.ilike.%serilingampall%');
         orParts.add('title.ilike.%serlingampall%');
         orParts.add('title.ilike.%serilingampall%');
-        orParts.add('search_text.ilike.%serlingampall%');
-        orParts.add('search_text.ilike.%serilingampall%');
+        orParts.add('search_document.ilike.%serlingampall%');
+        orParts.add('search_document.ilike.%serilingampall%');
       }
 
       if (lowerLoc.includes('bodup') || lowerLoc.includes('bodi')) {
         orParts.add('locality_name.ilike.%boduppal%');
         orParts.add('title.ilike.%boduppal%');
-        orParts.add('search_text.ilike.%boduppal%');
+        orParts.add('search_document.ilike.%boduppal%');
       }
 
       if (lowerLoc.includes('kphb') || lowerLoc.includes('kukat')) {
         orParts.add('locality_name.ilike.%kphb%');
         orParts.add('locality_name.ilike.%kukatpally%');
-        orParts.add('search_text.ilike.%kphb%');
-        orParts.add('search_text.ilike.%kukatpally%');
+        orParts.add('search_document.ilike.%kphb%');
+        orParts.add('search_document.ilike.%kukatpally%');
       }
 
       if (lowerLoc.includes('shadnag') || lowerLoc.includes('shad nagar')) {
         orParts.add('locality_name.ilike.%shadnagar%');
         orParts.add('title.ilike.%shadnagar%');
-        orParts.add('search_text.ilike.%shadnagar%');
+        orParts.add('search_document.ilike.%shadnagar%');
         orParts.add('city.ilike.%shadnagar%');
         orParts.add('district.ilike.%shadnagar%');
       }
@@ -472,7 +478,7 @@ export function buildPublishedQuery(filters: PropertyFilters = {}) {
       for (const w of words) {
         orParts.add(`locality_name.ilike.%${w}%`);
         orParts.add(`address.ilike.%${w}%`);
-        orParts.add(`search_text.ilike.%${w}%`);
+        orParts.add(`search_document.ilike.%${w}%`);
         orParts.add(`title.ilike.%${w}%`);
       }
 
@@ -525,7 +531,7 @@ export function buildPublishedQuery(filters: PropertyFilters = {}) {
     if (!categoryAlreadyHandled && !purposeAlreadyHandled) {
       const isNumeric = !isNaN(Number(cleaned));
       if (isNumeric) {
-        q = q.or(`search_text.ilike.%${cleaned}%,price.eq.${cleaned},rent_amount.eq.${cleaned},price_per_unit.eq.${cleaned}`);
+        q = q.or(`search_document.ilike.%${cleaned}%,price.eq.${cleaned},rent_amount.eq.${cleaned},price_per_unit.eq.${cleaned}`);
       } else {
         // Build clean search variations for terms (e.g. villa/villas/vilas, plot/plots, flat/flats/apartment)
         const tokenSet = new Set<string>();
@@ -560,7 +566,7 @@ export function buildPublishedQuery(filters: PropertyFilters = {}) {
           .filter((t) => t.length > 1 && !t.includes(','));
 
         if (targetTokens.length > 0) {
-          const tokenMatches = targetTokens.map((t) => `search_text.ilike.%${t}%`).join(',');
+          const tokenMatches = targetTokens.map((t) => `search_document.ilike.%${t}%`).join(',');
           q = q.or(tokenMatches);
         }
       }

@@ -19,8 +19,6 @@ import {
   Clock,
   MapPin,
   Building2,
-  ChevronRight,
-  Sparkles,
   Inbox,
   Filter,
 } from 'lucide-react';

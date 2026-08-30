@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   ResponsiveContainer,
@@ -14,7 +14,7 @@ import {
 } from 'recharts';
 import { useQuery } from '@tanstack/react-query';
 import { useLanguageContext } from '../../lib/i18n/language-context';
-import { TrendingUp, DollarSign, Users, Building2, Sparkles, Loader2 } from 'lucide-react';
+import { TrendingUp, DollarSign, Users, Building2, Sparkles } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useRealtimeMulti } from '../../lib/realtime';
 import { formatCompactPrice, formatPrice } from '../../lib/utils';

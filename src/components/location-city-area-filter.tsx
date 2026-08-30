@@ -8,7 +8,6 @@ import {
   Check,
   Loader2,
   Sparkles,
-  AlertCircle,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {

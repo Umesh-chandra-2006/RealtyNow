@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Plus,
@@ -11,12 +11,8 @@ import {
   Search,
   Building2,
   User,
-  Phone,
-  Calendar,
   AlertCircle,
   RefreshCw,
-  Clock,
-  Layers,
 } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';

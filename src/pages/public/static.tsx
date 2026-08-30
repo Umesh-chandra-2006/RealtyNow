@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
+import DOMPurify from 'dompurify';
 import {
   Calendar,
-  ArrowLeft,
   Search as SearchIcon,
   ChevronRight,
   MapPin,
@@ -20,7 +20,7 @@ import {
 import { supabase } from '../../lib/supabase';
 import { useRealtimeCount } from '../../lib/realtime';
 import { useLanguageContext } from '../../lib/i18n/language-context';
-import { Card, EmptyState, Button, Skeleton, Input, Textarea } from '../../components/ui';
+import { Card, Button, Skeleton, Input, Textarea } from '../../components/ui';
 import { cn } from '../../lib/utils';
 
 export function BlogListPage() {
@@ -517,7 +517,11 @@ export function BlogDetailPage() {
               {blog.body && blog.body.length > 200 ? (
                 <div 
                   className="prose prose-slate max-w-none prose-headings:font-display prose-headings:font-extrabold prose-p:leading-relaxed prose-a:text-red-600 prose-img:rounded-2xl"
-                  dangerouslySetInnerHTML={{ __html: blog.body }}
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(blog.body, {
+                    USE_PROFILES: { html: true },
+                    FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form'],
+                    FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'style'],
+                  }) }}
                 />
               ) : (
                 /* Fallback to full editorial layout when body is brief */

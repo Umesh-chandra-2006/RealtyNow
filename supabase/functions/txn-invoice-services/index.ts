@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { createHmac } from "https://deno.land/std@0.168.0/node/crypto.ts";
+import { checkRateLimit } from "../_shared/rate-limit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -54,18 +55,50 @@ serve(async (req) => {
     if (event.event === "payment.captured") {
       const paymentId = event.payload.payment.entity.id;
       const orderId = event.payload.payment.entity.order_id;
-      const amount = event.payload.payment.entity.amount / 100;
+      const capturedAmount = event.payload.payment.entity.amount / 100; // paise -> rupees
 
-      // Update txn_payments
-      const { data: paymentRecord } = await supabase
+      // Look up the payment row we created BEFORE this webhook could fire.
+      // We must verify the captured amount matches the order amount exactly —
+      // the HMAC signature proves Razorpay sent the event, but a signed event
+      // must not be allowed to flush a DIFFERENT (e.g. larger, already-paid)
+      // row, or mark success for an underpayment/overpayment.
+      const { data: paymentRecord, error: fetchErr } = await supabase
+        .from('txn_payments')
+        .select('id, invoice_id, amount, status')
+        .eq('gateway', orderId)
+        .maybeSingle();
+
+      if (fetchErr || !paymentRecord) {
+        console.error('txn webhook: no matching txn_payments row for order', orderId);
+        return json({ success: false, message: 'No matching payment row' }, 404);
+      }
+
+      if (paymentRecord.status === 'success') {
+        // Already confirmed — idempotent replay, no double-processing.
+        return json({ success: true, message: 'Webhook processed (already confirmed)' });
+      }
+
+      if (Math.abs(Number(paymentRecord.amount) - Number(capturedAmount)) > 0.01) {
+        console.error(
+          'txn webhook: amount mismatch. expected',
+          paymentRecord.amount,
+          'captured',
+          capturedAmount
+        );
+        return json({ success: false, message: 'Amount mismatch — webhook rejected' }, 400);
+      }
+
+      const { error: updateErr } = await supabase
         .from('txn_payments')
         .update({ status: 'success', transaction_id: paymentId, paid_date: new Date().toISOString() })
-        .eq('gateway', orderId)
-        .select('invoice_id')
-        .single();
+        .eq('id', paymentRecord.id);
 
-      if (paymentRecord?.invoice_id) {
-        // Update txn_invoices
+      if (updateErr) {
+        console.error('txn webhook: failed to update payment', updateErr);
+        return json({ success: false, message: 'Update failed' }, 500);
+      }
+
+      if (paymentRecord.invoice_id) {
         await supabase
           .from('txn_invoices')
           .update({ payment_status: 'paid', invoice_status: 'issued' })
@@ -79,6 +112,18 @@ serve(async (req) => {
   // =========================================================
   // AUTHENTICATED ACTIONS (REQUIRE USER JWT)
   // =========================================================
+  const rate = await checkRateLimit(supabase, req, {
+    endpoint: "txn-invoice-services",
+    maxRequests: 30,
+    windowSeconds: 60,
+  });
+  if (!rate.allowed) {
+    return new Response(JSON.stringify({ error: "Rate limit exceeded", success: false }), {
+      status: rate.status,
+      headers: { ...corsHeaders, ...rate.headers, "Content-Type": "application/json" },
+    });
+  }
+
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return error("Authentication required", 401);
   const { data: { user } } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));

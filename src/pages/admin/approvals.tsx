@@ -16,7 +16,7 @@ import { PublishToSectionControl, closeAllPublishPopovers } from '../../componen
 import { BulkPublishModal } from '../../components/admin/bulk-publish-modal';
 import { mapJoined } from '../../lib/join-helpers';
 import { formatPrice, formatDate, cn, generatePropertyUrl } from '../../lib/utils';
-import { getPropertyPricingDisplay, getPriceUnitLabel } from '../../lib/plot-pricing';
+import { getPriceUnitLabel } from '../../lib/plot-pricing';
 import { isPropertyPublishable } from '../../lib/price-validation';
 import { PropertyPriceCell } from '../../components/ui/property-price-cell';
 import { useRealtimeCount } from '../../lib/realtime';
@@ -1147,7 +1147,7 @@ export function AdminProperties() {
       else if (tab === 'approved') q = q.eq('status', 'approved');
       else q = q.eq('status', tab);
     }
-    if (search) q = q.ilike('search_text', `%${search}%`);
+    if (search) q = q.ilike('search_document', `%${search}%`);
     if (filters.city) q = q.eq('city_id', filters.city);
     if (filters.minPrice) q = q.gte('price', Number(filters.minPrice));
     if (filters.maxPrice) q = q.lte('price', Number(filters.maxPrice));
@@ -1280,9 +1280,9 @@ export function AdminProperties() {
       if (search) {
         const isNumeric = !isNaN(Number(search)) && search.trim() !== '';
         if (isNumeric) {
-          q = q.or(`search_text.ilike.%${search}%,price.eq.${search},rent_amount.eq.${search}`);
+          q = q.or(`search_document.ilike.%${search}%,price.eq.${search},rent_amount.eq.${search}`);
         } else {
-          q = q.ilike('search_text', `%${search}%`);
+          q = q.ilike('search_document', `%${search}%`);
         }
       }
       if (filters.city) {

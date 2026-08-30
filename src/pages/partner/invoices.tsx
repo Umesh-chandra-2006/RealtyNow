@@ -4,11 +4,7 @@ import {
   FileText,
   Download,
   Search,
-  CheckCircle2,
-  Clock,
   Printer,
-  ExternalLink,
-  ShieldCheck,
   RefreshCw,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -16,8 +12,8 @@ import { useAuth } from '../../lib/auth';
 import { useLanguageContext } from '../../lib/i18n/language-context';
 import { DashboardLayout, PageHeader } from '../../components/dashboard-layout';
 import { getPartnerSections } from '../portal/sections';
-import { Card, Button, Input, Badge, Skeleton } from '../../components/ui';
-import { formatDate, formatPrice, exportToCsv, cn } from '../../lib/utils';
+import { Card, Button, Badge } from '../../components/ui';
+import { formatDate, formatPrice, exportToCsv } from '../../lib/utils';
 import { useToast } from '../../components/toast';
 
 export function PartnerInvoicesPage() {

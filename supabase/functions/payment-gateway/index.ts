@@ -5,6 +5,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { createHmac } from "https://deno.land/std@0.168.0/node/crypto.ts";
+import { checkRateLimit } from "../_shared/rate-limit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -28,6 +29,18 @@ serve(async (req) => {
     { auth: { persistSession: false } }
   );
 
+  const rate = await checkRateLimit(supabase, req, {
+    endpoint: "payment-gateway",
+    maxRequests: 30,
+    windowSeconds: 60,
+  });
+  if (!rate.allowed) {
+    return new Response(JSON.stringify({ error: "Rate limit exceeded", success: false }), {
+      status: rate.status,
+      headers: { ...corsHeaders, ...rate.headers, "Content-Type": "application/json" },
+    });
+  }
+
   const RAZORPAY_KEY_ID     = Deno.env.get("RAZORPAY_KEY_ID") ?? "";
   const RAZORPAY_KEY_SECRET = Deno.env.get("RAZORPAY_KEY_SECRET") ?? "";
 
@@ -46,7 +59,7 @@ serve(async (req) => {
 
   // ─── ACTION: create-order ─────────────────────────────────────
   if (action === "create-order") {
-    const { package_id, billing_cycle, payment_type, discount_pct } = body;
+    const { package_id, billing_cycle, payment_type, coupon_code } = body;
     if (!package_id) return error("package_id is required");
 
     // Fetch package
@@ -54,8 +67,41 @@ serve(async (req) => {
     if (!pkg) return error("Package not found or inactive", 404);
 
     const basePrice = billing_cycle === "yearly" ? pkg.price_yearly : pkg.price_monthly;
-    const discountPct = Number(discount_pct ?? 0);
-    const discountAmt  = Math.round(basePrice * (discountPct / 100) * 100) / 100;
+
+    // SECURITY (audit finding): the client previously supplied discount_pct
+    // directly, letting anyone grant themselves a 100% discount. Discounts are
+    // now derived ONLY from a server-validated coupon. The raw client value is
+    // ignored entirely — never trust a price-affecting field from the browser.
+    let discountAmt = 0;
+    let appliedCampaignId: string | null = null;
+    if (coupon_code && typeof coupon_code === "string" && coupon_code.trim()) {
+      const code = coupon_code.trim();
+      const { data: campaign, error: campErr } = await supabase
+        .from("discount_campaigns")
+        .select("id, discount_type, percentage, flat_amount, valid_from, valid_to, is_active, min_purchase, max_discount")
+        .eq("coupon_code", code)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (!campErr && campaign) {
+        const now = Date.now();
+        const validFrom = campaign.valid_from ? new Date(campaign.valid_from).getTime() : -Infinity;
+        const validTo = campaign.valid_to ? new Date(campaign.valid_to).getTime() : Infinity;
+        if (now >= validFrom && now <= validTo && (!campaign.min_purchase || basePrice >= campaign.min_purchase)) {
+          if (campaign.discount_type === "percentage") {
+            const raw = basePrice * (Number(campaign.percentage) / 100);
+            discountAmt = campaign.max_discount ? Math.min(raw, campaign.max_discount) : raw;
+          } else {
+            discountAmt = Math.min(campaign.flat_amount ?? 0, basePrice);
+          }
+          appliedCampaignId = campaign.id;
+        } else {
+          return error("Coupon code is not currently valid");
+        }
+      } else {
+        return error("Invalid coupon code");
+      }
+    }
+    discountAmt = Math.round(Math.max(0, Number(discountAmt)) * 100) / 100;
     const subtotal     = basePrice - discountAmt;
     const taxAmount    = Math.round(subtotal * 0.18 * 100) / 100;
     const totalAmount  = Math.round((subtotal + taxAmount) * 100) / 100;
@@ -68,7 +114,9 @@ serve(async (req) => {
       p_payment_type:  payment_type || "upfront",
       p_billing_cycle: billing_cycle || "monthly",
       p_gateway:       "razorpay",
-      p_discount_pct:  discountPct
+      p_discount_pct:  0,
+      p_discount_amount: discountAmt,
+      p_coupon_id:     appliedCampaignId,
     });
     if (payErr) return error(payErr.message, 500);
 
@@ -211,5 +259,76 @@ serve(async (req) => {
     });
   }
 
-  return error("Unknown action. Use x-action: create-order | verify-payment | generate-invoice", 400);
+  // ─── ACTION: subscription-activate ────────────────────────────
+  // Server-verified subscription activation. The browser previously called the
+  // `activate_subscription_payment` RPC directly with a self-supplied amount,
+  // letting anyone grant themselves a plan (see 0141/0145). Here the amount is
+  // always recomputed from the plan server-side, the Razorpay signature is
+  // verified (mandatory for paid plans), and only then is the service-role
+  // activation RPC invoked. The caller's identity (userId) comes from the JWT
+  // verified at the top of this handler.
+  if (action === "subscription-activate") {
+    const { plan_id, razorpay_order_id, razorpay_payment_id, razorpay_signature } = body;
+    if (!plan_id) return error("plan_id is required");
+    if (!userId) return error("Proxy authentication required", 401);
+
+    // Fetch the plan and compute the amount server-side — NEVER trust a
+    // client-supplied amount.
+    const { data: plan, error: planErr } = await supabase
+      .from("subscription_plans")
+      .select("*")
+      .eq("id", plan_id)
+      .eq("is_active", true)
+      .maybeSingle();
+    if (planErr || !plan) return error("Plan not found or inactive", 404);
+
+    const basePrice = Number(plan.price || 0);
+    const expectedAmount = Math.round(basePrice * 1.18 * 100) / 100; // incl. 18% GST
+
+    // Paid plans require a verified Razorpay transaction.
+    if (basePrice > 0) {
+      if (!RAZORPAY_KEY_SECRET) return error("Razorpay gateway not configured", 500);
+      if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+        return error("razorpay_order_id, razorpay_payment_id and razorpay_signature are required", 400);
+      }
+      const expectedSig = createHmac("sha256", RAZORPAY_KEY_SECRET)
+        .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+        .digest("hex");
+      if (expectedSig !== razorpay_signature) {
+        await supabase.rpc("fn_log_audit", {
+          p_action: "subscription_signature_mismatch",
+          p_entity: "subscription_plans",
+          p_entity_id: plan_id as string,
+          p_severity: "critical",
+        });
+        return error("Payment signature verification failed", 400);
+      }
+    }
+
+    const { data: subscriptionId, error: activateErr } = await supabase.rpc(
+      "activate_subscription_payment",
+      {
+        p_customer_id: userId,
+        p_plan_id: plan_id,
+        p_amount: expectedAmount,
+        p_gateway: basePrice > 0 ? "Razorpay" : "Free",
+        p_gateway_order_id: razorpay_order_id || `free_${Date.now()}`,
+        p_gateway_payment_id: razorpay_payment_id || `pay_${Date.now()}`,
+      }
+    );
+    if (activateErr) {
+      await supabase.rpc("fn_log_audit", {
+        p_action: "subscription_activation_failed",
+        p_entity: "subscription_plans",
+        p_entity_id: plan_id as string,
+        p_metadata: { error: activateErr.message },
+        p_severity: "warning",
+      });
+      return error(activateErr.message, 500);
+    }
+
+    return json({ success: true, subscription_id: subscriptionId, plan_id, amount: expectedAmount });
+  }
+
+  return error("Unknown action. Use x-action: create-order | verify-payment | generate-invoice | subscription-activate", 400);
 });

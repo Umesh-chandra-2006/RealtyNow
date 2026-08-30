@@ -224,7 +224,7 @@ function LocationField({
   error?: string;
   onChange: (value: LocationValue) => void;
 }) {
-  const { isReady, getPredictions, getPlaceDetails } = useGooglePlaces();
+  const { isReady, loadError, getPredictions, getPlaceDetails } = useGooglePlaces();
   const [searchTerm, setSearchTerm] = useState(value.formatted_address || value.location_name || value.address || '');
   const [predictions, setPredictions] = useState<GooglePlacePrediction[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -372,7 +372,9 @@ function LocationField({
       
       {error && <p className="text-xs font-semibold text-error-600">{error}</p>}
       
-      {!isReady && (
+      {loadError ? (
+        <p className="text-xs font-semibold text-error-600">Google Maps unavailable — you can still type a location manually.</p>
+      ) : !isReady && (
         <p className="text-xs text-navy-400">Loading map services...</p>
       )}
     </div>

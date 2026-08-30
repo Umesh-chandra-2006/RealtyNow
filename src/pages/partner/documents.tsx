@@ -3,20 +3,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   FileText,
   Upload,
-  CheckCircle2,
-  AlertTriangle,
   Clock,
   ShieldCheck,
   Download,
   Eye,
   RefreshCw,
   Edit3,
-  CreditCard,
   Building,
   Printer,
-  Sparkles,
   Award,
-  Check,
   FileCheck,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -24,8 +19,8 @@ import { useAuth } from '../../lib/auth';
 import { useLanguageContext } from '../../lib/i18n/language-context';
 import { DashboardLayout, PageHeader } from '../../components/dashboard-layout';
 import { getPartnerSections } from '../portal/sections';
-import { Card, Button, Badge, Input, Select } from '../../components/ui';
-import { formatDate, cn } from '../../lib/utils';
+import { Card, Button, Badge, Input } from '../../components/ui';
+import { formatDate } from '../../lib/utils';
 import { useToast } from '../../components/toast';
 
 export function PartnerDocumentsPage() {

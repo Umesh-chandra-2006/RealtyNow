@@ -21,6 +21,7 @@
 // firebase-admin npm package, for reliability in the Deno edge runtime.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { checkRateLimit } from "../_shared/rate-limit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -104,6 +105,24 @@ async function handler(req: Request): Promise<Response> {
   const FIREBASE_SERVICE_ACCOUNT_JSON = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_JSON");
 
   const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+
+  // Anon-key callable by design (fn_dispatch_push uses the public anon key), so
+  // throttle per-IP tightly: an abuser could otherwise re-trigger FCM sends and
+  // flip valid push tokens inactive (deactivating push for real users).
+  const rate = await checkRateLimit(admin, req, {
+    endpoint: "send-push",
+    maxRequests: 30,
+    windowSeconds: 60,
+  });
+  if (!rate.allowed) {
+    const respHeaders = new Headers(corsHeaders);
+    respHeaders.set("Content-Type", "application/json");
+    for (const [k, v] of Object.entries(rate.headers)) respHeaders.set(k, v);
+    return new Response(
+      JSON.stringify({ error: "Rate limit exceeded", success: false }),
+      { status: 429, headers: respHeaders }
+    );
+  }
 
   let body: { notification_id?: string } = {};
   try { body = await req.json(); } catch { /* empty */ }

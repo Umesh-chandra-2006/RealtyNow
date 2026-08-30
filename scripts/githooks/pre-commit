@@ -1,0 +1,24 @@
+#!/bin/sh
+# RealtyNow git pre-commit hook: runs the secret scanner on staged files.
+# Registered by setting `git config core.hooksPath scripts/githooks`.
+# Requires Node.js (any recent LTS).
+
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null)
+
+if [ -z "$STAGED_FILES" ]; then
+  exit 0
+fi
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "pre-commit (scan-secrets): node not found, skipping scan"
+  exit 0
+fi
+
+# Scan the whole working tree (the scanner skips non-code/ignored dirs).
+node "$(dirname "$0")/../scan-secrets.mjs"
+status=$?
+if [ $status -ne 0 ]; then
+  echo "pre-commit (scan-secrets): REJECTED commit — fix the secrets above, or add an intentional allowance."
+  exit $status
+fi
+exit 0

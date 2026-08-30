@@ -1,5 +1,6 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2.57.4';
+import { checkRateLimit } from '../_shared/rate-limit.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -127,7 +128,7 @@ async function answerFromRealtyNowListings(message: string, supabaseUrl: string,
     if (maxPrice != null) params.append('price', `lte.${maxPrice}`);
     if (minPrice != null) params.append('price', `gte.${minPrice}`);
     for (const token of q.split(' ').filter(Boolean)) {
-      params.append('search_text', `ilike.*${token}*`);
+      params.append('search_document', `ilike.*${token}*`);
     }
 
     const res = await fetch(`${supabaseUrl}/rest/v1/v_properties_search?${params.toString()}`, {
@@ -293,6 +294,28 @@ Deno.serve(async (req: Request) => {
       });
       const { data } = await supabase.auth.getUser();
       userId = data.user?.id ?? null;
+    }
+
+    // Throttle per-IP. AI is the single most abuse-prone surface (every
+    // non-search call bills tokens on OpenRouter), so apply a tight cap here,
+    // independent of auth, before any prompt is built or LLM contacted.
+    const rateSupabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    );
+    const rate = await checkRateLimit(rateSupabase, req, {
+      endpoint: 'ai-assistant',
+      maxRequests: 20,
+      windowSeconds: 60,
+    });
+    if (!rate.allowed) {
+      const respHeaders = new Headers(corsHeaders);
+      respHeaders.set('Content-Type', 'application/json');
+      for (const [k, v] of Object.entries(rate.headers)) respHeaders.set(k, v);
+      return new Response(
+        JSON.stringify({ error: 'Rate limit exceeded. Please try again later.', success: false }),
+        { status: 429, headers: respHeaders },
+      );
     }
 
     const body = (await req.json()) as AIRequestBody;

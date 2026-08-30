@@ -5,7 +5,7 @@ import { GitCompare, MapPin, X, CheckCircle2, XCircle, ArrowLeft, Home, Shield, 
 import { fetchComparedProperties, clearCompareList, toggleCompareProperty } from '../../lib/compare';
 import { useAuth } from '../../lib/auth';
 import { useLanguageContext } from '../../lib/i18n/language-context';
-import { formatCompactPrice, formatPrice, generatePropertyUrl, getPropertyPrice } from '../../lib/utils';
+import { formatPrice, generatePropertyUrl, getPropertyPrice } from '../../lib/utils';
 import { getPropertyPricingDisplay } from '../../lib/plot-pricing';
 import type { Property } from '../../lib/types';
 import { useToast } from '../../components/toast';

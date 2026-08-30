@@ -1,7 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Sparkles, ChevronLeft, ChevronRight, ArrowRight, Heart } from 'lucide-react';
+import { Sparkles, ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { HomePropertyCard } from '../../pages/public/home';

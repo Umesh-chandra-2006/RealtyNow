@@ -2,24 +2,18 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Wallet,
-  DollarSign,
   ArrowUpRight,
   Clock,
   CheckCircle2,
-  AlertCircle,
-  Building,
-  CreditCard,
-  Plus,
   RefreshCw,
-  TrendingUp,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { useLanguageContext } from '../../lib/i18n/language-context';
 import { DashboardLayout, PageHeader } from '../../components/dashboard-layout';
 import { getPartnerSections } from '../portal/sections';
-import { Card, Button, Input, Select, Badge, Modal, Skeleton } from '../../components/ui';
-import { formatDate, formatPrice, cn } from '../../lib/utils';
+import { Card, Button, Input, Select, Badge, Modal } from '../../components/ui';
+import { formatDate, formatPrice } from '../../lib/utils';
 import { useToast } from '../../components/toast';
 
 export function PartnerPayoutsPage() {

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import {
   Calendar,
   CheckCircle2,
@@ -8,13 +8,8 @@ import {
   ClipboardList,
   Star,
   Phone,
-  Mail,
   MessageCircle,
-  Building2,
-  ExternalLink,
   User,
-  Clock,
-  MapPin,
 } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
@@ -23,7 +18,7 @@ import { DashboardLayout, PageHeader } from '../../components/dashboard-layout';
 import { getAgentSections } from '../portal/sections';
 import { Card, Skeleton, Badge, Button, EmptyState, Modal, Textarea } from '../../components/ui';
 import { useRealtimeCount } from '../../lib/realtime';
-import { formatDate, buildWhatsAppUrl } from '../../lib/utils';
+import { buildWhatsAppUrl } from '../../lib/utils';
 import { AgentLeadDetailDrawer } from '../../components/agent/AgentLeadDetailDrawer';
 
 const APPT_STATUSES = ['requested', 'confirmed', 'completed', 'cancelled'] as const;

@@ -1,5 +1,5 @@
 import React from 'react';
-import { MapPin, Sparkles, ArrowRight, Check } from 'lucide-react';
+import { MapPin, Sparkles, Check } from 'lucide-react';
 import type { CategorySlug } from '../lib/categories';
 import type { LocationDiscoveryResult } from '../lib/search-engine';
 

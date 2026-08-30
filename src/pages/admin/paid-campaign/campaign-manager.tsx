@@ -2,15 +2,9 @@ import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Sparkles,
-  SlidersHorizontal,
-  Building2,
-  Award,
   LayoutGrid,
-  Zap,
   Plus,
   Search,
-  ArrowUpDown,
   ArrowUp,
   ArrowDown,
   Trash2,
@@ -18,24 +12,17 @@ import {
   Copy,
   Eye,
   RefreshCw,
-  Clock,
-  CheckCircle2,
-  AlertCircle,
-  ExternalLink,
   Layers,
   MapPin,
-  IndianRupee,
-  Building,
   Smartphone,
   Tablet,
   Monitor,
   Table as TableIcon,
-  Filter,
 } from 'lucide-react';
 import { DashboardLayout, PageHeader } from '../../../components/dashboard-layout';
 import { getAdminSections } from '../../portal/sections';
 import { useLanguageContext } from '../../../lib/i18n/language-context';
-import { Card, Button, Badge, Modal, Input, Select, Skeleton, EmptyState } from '../../../components/ui';
+import { Card, Button, Modal, Input, Select, Skeleton, EmptyState } from '../../../components/ui';
 import { useToast } from '../../../components/toast';
 import { formatDate, formatPrice, cn } from '../../../lib/utils';
 import { PropertyImage } from '../../../components/property-image';

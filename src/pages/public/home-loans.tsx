@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { PieChart, CheckCircle2, MessageCircle, Send } from 'lucide-react';
+import { PieChart, CheckCircle2, MessageCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useLanguageContext } from '../../lib/i18n/language-context';
-import { Card, EmptyState, Button, Input, Textarea } from '../../components/ui';
+import { Card, Button, Input, Textarea } from '../../components/ui';
 import { useAuth } from '../../lib/auth';
 import { useToast } from '../../hooks/useToast';
 

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Edit3, Home, Plus, Trash2, Building2, Layers, Grid3x3 } from 'lucide-react';
+import { Edit3, Home, Plus, Trash2, Building2, Layers } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';

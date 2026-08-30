@@ -77,16 +77,10 @@ export function RazorpayCheckout({
         throw new Error('Please log in to choose or activate a subscription plan.');
       }
 
-      // 2. Free Plan (RealtyNow Starter): Direct instant activation without payment gateway
+      // 2. Free Plan (RealtyNow Starter): Direct instant activation without payment gateway.
+      // Amount is computed server-side by the edge function; no ids need supplying.
       if (amount === 0) {
-        const subId = await activateSubscription(
-          session.user.id,
-          effectivePlanId,
-          0,
-          `free_${Date.now()}`,
-          `pay_${Date.now()}`,
-          'Free'
-        );
+        const subId = await activateSubscription(session.user.id, effectivePlanId);
         addToast('success', `🎉 ${planName} activated successfully!`);
         if (onSuccess) onSuccess(subId);
         setLoading(false);
@@ -118,14 +112,15 @@ export function RazorpayCheckout({
           },
           handler: async function (response: any) {
             try {
-              const subId = await activateSubscription(
-                session.user.id,
-                effectivePlanId,
-                amount,
-                response.razorpay_order_id || `order_${Date.now()}`,
-                response.razorpay_payment_id || `pay_${Date.now()}`,
-                'Razorpay'
-              );
+              // Pass the REAL Razorpay order/payment/signature back for
+              // server-side verification. The edge function validates the
+              // HMAC signature and recomputes the amount from the plan price,
+              // so a caller cannot fabricate these values to self-grant a plan.
+              const subId = await activateSubscription(session.user.id, effectivePlanId, {
+                gatewayOrderId: response?.razorpay_order_id,
+                gatewayPaymentId: response?.razorpay_payment_id,
+                razorpaySignature: response?.razorpay_signature,
+              });
               addToast('success', `🎉 Congratulations! ${planName} is now active.`);
               if (onSuccess) onSuccess(subId);
             } catch (err: any) {
@@ -151,17 +146,10 @@ export function RazorpayCheckout({
         return;
       }
 
-      // 4. Fallback if offline / test environment without network gateway
-      const subId = await activateSubscription(
-        session.user.id,
-        effectivePlanId,
-        amount,
-        `order_${Date.now()}`,
-        `pay_${Date.now()}`,
-        'Razorpay (Simulated)'
-      );
-      addToast('success', `🎉 ${planName} activated successfully!`);
-      if (onSuccess) onSuccess(subId);
+      // 4. Razorpay script did not load. There is NO simulated/offline payment
+      // path: fabricated order/payment ids would let a caller self-grant a paid
+      // plan without paying. Fail loudly so the user can retry with the gateway.
+      throw new Error('Payment gateway failed to load. Please check your connection and try again.');
     } catch (err: any) {
       console.error('Payment initialization error:', err);
       addToast('error', err.message || 'Payment initiation failed.');

@@ -358,9 +358,9 @@ export async function fetchLocationCategoryDiscovery(
       q = q.eq('purpose', purpose);
     }
 
-    // Match all tokens against search_text (which contains locality + city + project + title)
+    // Match all tokens against search_document (which contains locality + city + project + title)
     for (const token of tokens) {
-      q = q.ilike('search_text', `%${token}%`);
+      q = q.ilike('search_document', `%${token}%`);
     }
 
     const { data, error } = await q.limit(1000);

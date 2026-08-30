@@ -1,20 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
-  MessageSquare,
   Send,
-  Sparkles,
   Bot,
   User,
-  Shield,
   Loader2,
-  Paperclip,
-  ArrowRight,
-  Headphones,
   CheckCheck,
 } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
-import { supabase } from '../../lib/supabase';
 import { useToast } from '../toast';
 import { cn } from '../../lib/utils';
 import { format } from 'date-fns';

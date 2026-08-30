@@ -30,7 +30,8 @@ export default tseslint.config(
         { 'vars': 'all', 'varsIgnorePattern': '^_', 'args': 'after-used', 'argsIgnorePattern': '^_' }
       ],
       '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-unused-expressions': ['error', { allowTernary: true, allowShortCircuit: true }]
+      '@typescript-eslint/no-unused-expressions': ['error', { allowTernary: true, allowShortCircuit: true }],
+      'no-empty': ['error', { allowEmptyCatch: true }]
     },
   },
 );

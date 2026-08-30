@@ -10,13 +10,9 @@ import {
   Zap,
   ArrowRight,
   ShieldCheck,
-  Home,
-  Building2,
-  LandPlot,
   Loader2,
   MapPin,
   Bed,
-  Tag,
   ExternalLink,
   X,
 } from 'lucide-react';
@@ -110,7 +106,7 @@ async function doLiveSearch(
 
   // Apply location/keyword tokens
   for (const token of locationTokens) {
-    query = query.ilike('search_text', `%${token}%`);
+    query = query.ilike('search_document', `%${token}%`);
   }
 
   // If no meaningful tokens extracted but we have purposeOrType, skip text filter

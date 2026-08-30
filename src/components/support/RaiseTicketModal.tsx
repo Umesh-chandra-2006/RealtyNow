@@ -4,13 +4,10 @@ import {
   Upload,
   Ticket,
   CheckCircle2,
-  AlertCircle,
   Paperclip,
   Building2,
   ArrowRight,
-  Sparkles,
   Loader2,
-  FileText,
   Trash2,
 } from 'lucide-react';
 import {

@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   CalendarCheck2,
@@ -9,13 +9,9 @@ import {
   Trash2,
   Plus,
   UserPlus,
-  Building2,
-  AlertCircle,
-  ArrowRight,
   User,
   Home,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import { useAuth } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
 import { DashboardLayout, PageHeader, StatCard } from '../../components/dashboard-layout';

@@ -1,31 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
   UserCircle,
   ShieldCheck,
-  Building2,
-  MapPin,
   Award,
-  Phone,
-  Mail,
   Save,
   Upload,
   ExternalLink,
-  CheckCircle2,
-  AlertCircle,
   FileCheck,
-  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
 import { DashboardLayout, PageHeader } from '../../components/dashboard-layout';
 import { getAgentSections } from '../portal/sections';
 import { useLanguageContext } from '../../lib/i18n/language-context';
-import { Card, Input, Button, Textarea, Badge, Avatar, Spinner } from '../../components/ui';
+import { Card, Input, Button, Textarea, Badge, Avatar } from '../../components/ui';
 import { useToast } from '../../components/toast';
 import { uploadProfilePhoto } from '../../lib/profile-photo';
-import type { Profile } from '../../lib/types';
 
 const SPECIALIZATION_OPTIONS = [
   'Residential Apartments',

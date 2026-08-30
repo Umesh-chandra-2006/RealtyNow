@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Megaphone,
   Sparkles,
   SlidersHorizontal,
   Building2,
@@ -11,22 +10,17 @@ import {
   Zap,
   Plus,
   ArrowRight,
-  ShieldCheck,
-  Calendar,
   Layers,
-  BarChart3,
-  TrendingUp,
   RefreshCw,
   Clock,
   CheckCircle2,
   AlertCircle,
   FileEdit,
-  Eye,
 } from 'lucide-react';
 import { DashboardLayout, PageHeader } from '../../../components/dashboard-layout';
 import { getAdminSections } from '../../portal/sections';
 import { useLanguageContext } from '../../../lib/i18n/language-context';
-import { Card, Button, Badge, Modal, Input, Select, Skeleton } from '../../../components/ui';
+import { Card, Button, Modal, Input, Select, Skeleton } from '../../../components/ui';
 import { useToast } from '../../../components/toast';
 import {
   type CampaignType,

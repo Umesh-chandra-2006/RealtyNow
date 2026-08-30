@@ -1,27 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
-  HelpCircle,
   Ticket,
   Headphones,
   BookOpen,
-  Sparkles,
-  Search,
   ChevronDown,
-  ThumbsUp,
-  ThumbsDown,
   ArrowRight,
-  PlusCircle,
-  CheckCircle2,
   FileQuestion,
-  Lightbulb,
 } from 'lucide-react';
 import { DashboardLayout } from '../../components/dashboard-layout';
 import { getPortalSections } from './sections';
 import { useLanguageContext } from '../../lib/i18n/language-context';
 import { useAuth } from '../../lib/auth';
 import {
-  SUPPORT_CATEGORIES,
   KNOWLEDGE_ARTICLES,
   fetchMySupportTickets,
   fetchSupportContactConfig,

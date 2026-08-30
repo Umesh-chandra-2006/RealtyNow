@@ -5,21 +5,17 @@ import {
   Copy,
   Check,
   QrCode,
-  Share2,
   MessageCircle,
   ExternalLink,
   Download,
-  Building2,
-  TrendingUp,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { useLanguageContext } from '../../lib/i18n/language-context';
 import { DashboardLayout, PageHeader } from '../../components/dashboard-layout';
 import { getPartnerSections } from '../portal/sections';
-import { Card, Button, Input } from '../../components/ui';
+import { Card, Button } from '../../components/ui';
 import { useToast } from '../../components/toast';
-import { buildWhatsAppUrl } from '../../lib/utils';
 
 export function PartnerToolsPage() {
   const { t } = useLanguageContext();

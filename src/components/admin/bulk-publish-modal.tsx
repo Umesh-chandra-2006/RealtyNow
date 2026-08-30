@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Layers, Check, AlertCircle, Sparkles } from 'lucide-react';
 import { Modal, Button } from '../ui';
 import {
   type CampaignType,

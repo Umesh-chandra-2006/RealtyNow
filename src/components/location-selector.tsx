@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocationContext } from '../contexts/location-context';
-import { MapPin, Search, Crosshair, ChevronDown, Check, Loader2, LocateFixed, Lock, ExternalLink, RefreshCw, X, ShieldAlert, Sparkles } from 'lucide-react';
+import { MapPin, Search, Crosshair, ChevronDown, Check, Loader2, LocateFixed, Lock, RefreshCw, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from './toast';
 import { supabase } from '../lib/supabase';

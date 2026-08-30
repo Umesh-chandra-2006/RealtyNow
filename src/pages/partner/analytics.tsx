@@ -1,14 +1,9 @@
 import React, { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  TrendingUp,
   Award,
-  Handshake,
   DollarSign,
-  Target,
   Percent,
-  Calendar,
-  CheckCircle2,
   Clock,
   RefreshCw,
 } from 'lucide-react';
@@ -17,8 +12,8 @@ import { useAuth } from '../../lib/auth';
 import { useLanguageContext } from '../../lib/i18n/language-context';
 import { DashboardLayout, PageHeader } from '../../components/dashboard-layout';
 import { getPartnerSections } from '../portal/sections';
-import { Card, Button, Badge } from '../../components/ui';
-import { formatPrice, formatDate } from '../../lib/utils';
+import { Card, Button } from '../../components/ui';
+import { formatPrice } from '../../lib/utils';
 
 export function PartnerAnalyticsPage() {
   const { t } = useLanguageContext();

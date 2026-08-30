@@ -15,7 +15,6 @@ import {
   ArrowRight,
   ShieldCheck,
   Sparkles,
-  Award,
   Clock,
 } from 'lucide-react';
 import { motion } from 'framer-motion';

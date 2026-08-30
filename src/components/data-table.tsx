@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Search, ArrowUpDown, Calendar, LayoutList, LayoutGrid, User, Mail, Phone, Building, FileText } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, ArrowUpDown, Calendar, LayoutList, LayoutGrid, Mail, Phone, Building } from 'lucide-react';
 import { Button, Input, Skeleton, Badge } from './ui';
 import { cn, formatDate, formatPrice } from '../lib/utils';
 import { StatusBadge } from './property-card';

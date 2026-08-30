@@ -1,5 +1,11 @@
 import { supabase } from './supabase';
+import { cachedLoader, createTtlCache } from './ttl-cache';
 import type { Property } from './types';
+
+// Featured properties change frequently (admins reorder/allocate, schedules
+// flip), so use a SHORT TTL here — enough to dedupe concurrent/rapid reads on
+// the same mount (home.tsx, category tiles) without serving stale placements.
+const featuredCache = createTtlCache<Promise<any[]>>(15 * 1000);
 
 export type FeaturedPriority = 'High' | 'Medium' | 'Low';
 export type FeaturedStatus = 'ACTIVE' | 'SCHEDULED' | 'EXPIRED' | 'INACTIVE';
@@ -133,6 +139,11 @@ export async function fetchFeaturedPropertiesAdmin(): Promise<FeaturedPropertyIt
  * Fetch public eligible featured properties for the homepage carousel.
  */
 export async function fetchPublicFeaturedProperties(cityId?: string): Promise<any[]> {
+  const key = cityId || 'all';
+  return cachedLoader(featuredCache, key, () => loadPublicFeaturedProperties(cityId));
+}
+
+async function loadPublicFeaturedProperties(cityId?: string): Promise<any[]> {
   try {
     const now = new Date();
 
@@ -304,7 +315,8 @@ export async function fetchEligibleProperties(params?: {
     q = q.eq('city_id', params.cityId);
   }
 
-  let { data, error } = await q;
+  const { data: initialData, error } = await q;
+  let data = initialData;
 
   // Fallback to properties table directly if view is empty or errors
   if (error || !data || data.length === 0) {

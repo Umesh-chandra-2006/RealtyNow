@@ -4,6 +4,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { checkRateLimit } from "../_shared/rate-limit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -39,6 +40,26 @@ serve(async (req) => {
   const action = req.headers.get("x-action") || "";
   let body: Record<string, unknown> = {};
   try { body = await req.json(); } catch { /* no body */ }
+
+  // calculate-score and expire are deliberately PUBLIC (no auth, no owner
+  // check), so they are the abuse-prone surface of this function. Throttle
+  // them per-IP; the gated actions (publish/verify/renew) stay user-limited.
+  if (action === "calculate-score" || action === "expire") {
+    const rate = await checkRateLimit(supabase, req, {
+      endpoint: `property-workflow:${action}`,
+      maxRequests: 30,
+      windowSeconds: 60,
+    });
+    if (!rate.allowed) {
+      const respHeaders = new Headers(corsHeaders);
+      respHeaders.set("Content-Type", "application/json");
+      for (const [k, v] of Object.entries(rate.headers)) respHeaders.set(k, v);
+      return new Response(
+        JSON.stringify({ error: "Rate limit exceeded", success: false }),
+        { status: 429, headers: respHeaders }
+      );
+    }
+  }
 
   // ─── ACTION: calculate-score ───────────────────────────────────
   if (action === "calculate-score") {

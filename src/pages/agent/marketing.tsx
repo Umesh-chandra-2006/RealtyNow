@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Megaphone,
-  Share2,
   Copy,
   Check,
   Send,
@@ -12,9 +11,6 @@ import {
   Instagram,
   Linkedin,
   FileText,
-  ExternalLink,
-  Smartphone,
-  Flame,
 } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
@@ -22,9 +18,9 @@ import { callAI } from '../../lib/ai';
 import { DashboardLayout, PageHeader } from '../../components/dashboard-layout';
 import { getAgentSections } from '../portal/sections';
 import { useLanguageContext } from '../../lib/i18n/language-context';
-import { Card, Button, Input, Badge, Spinner, Textarea } from '../../components/ui';
+import { Card, Button, Badge, Spinner, Textarea } from '../../components/ui';
 import { useToast } from '../../components/toast';
-import { formatPrice, generatePropertyUrl, buildWhatsAppUrl } from '../../lib/utils';
+import { formatPrice, generatePropertyUrl } from '../../lib/utils';
 import type { Property } from '../../lib/types';
 
 export function AgentMarketing() {

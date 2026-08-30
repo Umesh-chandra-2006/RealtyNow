@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
@@ -14,29 +14,21 @@ import {
   Settings,
   ArrowUp,
   ArrowDown,
-  GripVertical,
-  Calendar,
   Building2,
   MapPin,
-  Tag,
   Copy,
   Check,
-  Filter,
   ExternalLink,
-  ShieldCheck,
   RefreshCw,
-  Layers,
-  ChevronRight,
-  SlidersHorizontal,
   Zap,
 } from 'lucide-react';
-import { DashboardLayout, PageHeader } from '../../components/dashboard-layout';
+import { DashboardLayout } from '../../components/dashboard-layout';
 import { getAdminSections } from '../portal/sections';
 import { useLanguageContext } from '../../lib/i18n/language-context';
-import { Card, Button, Modal, Badge, Input, Select, EmptyState } from '../../components/ui';
+import { Card, Button, Modal } from '../../components/ui';
 import { useToast } from '../../components/toast';
 import { supabase } from '../../lib/supabase';
-import { formatPrice, formatDate, cn, generatePropertyUrl } from '../../lib/utils';
+import { cn, generatePropertyUrl } from '../../lib/utils';
 import { getPropertyCoverImage, handleImageError, DEFAULT_PROPERTY_IMAGE } from '../../lib/property-images';
 import { getPropertyPricingDisplay } from '../../lib/plot-pricing';
 import * as api from '../../lib/featured-properties-api';

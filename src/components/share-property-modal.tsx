@@ -9,7 +9,6 @@ import {
   Globe,
   ExternalLink,
   MapPin,
-  Building2,
   Sparkles,
 } from 'lucide-react';
 import { Modal, Button } from './ui';

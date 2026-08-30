@@ -10,11 +10,7 @@ import {
   ArrowLeft,
   Upload,
   FileCheck,
-  Building2,
-  Phone,
-  Mail,
   ShieldCheck,
-  FileText,
   Landmark,
   Sparkles,
   AlertCircle,
@@ -29,7 +25,6 @@ import { Logo } from '../../components/logo';
 import { uploadFile } from '../../lib/storage';
 import {
   getIndianStates,
-  getCitiesForState,
   getDistrictsForCity,
 } from '../../lib/indian-location-data';
 import {

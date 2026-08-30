@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Search,
   Sparkles,
@@ -14,7 +14,6 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { searchKnowledgeBase, type KnowledgeArticle } from '../../lib/support';
-import { cn } from '../../lib/utils';
 import { useClickOutside } from '../../hooks/useClickOutside';
 
 interface HelpCenterHeroProps {

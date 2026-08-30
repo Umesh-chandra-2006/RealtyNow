@@ -2,37 +2,15 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Search,
-  SlidersHorizontal,
   Download,
   Eye,
-  Edit2,
   Phone,
-  Mail,
-  Building2,
-  Calendar,
-  Clock,
-  CheckCircle2,
-  AlertTriangle,
-  Flame,
-  ChevronDown,
-  RotateCcw,
   LayoutList,
   LayoutGrid,
-  ExternalLink,
   MessageCircle,
-  Activity,
-  Layers,
-  DollarSign,
-  TrendingUp,
-  UserCheck,
-  UserPlus,
   Trash2,
   CheckSquare,
-  Square,
-  Sparkles,
   Inbox,
-  Filter,
-  ArrowUpDown,
   RefreshCw,
   Plus,
 } from 'lucide-react';
@@ -45,8 +23,6 @@ import { getAdminSections } from '../../portal/sections';
 import { useLanguageContext } from '../../../lib/i18n/language-context';
 import {
   formatDate,
-  formatDateTime,
-  formatPrice,
   buildWhatsAppUrl,
   exportToCsv,
   exportToExcel,
@@ -249,7 +225,7 @@ export function AdminAllLeadsPage() {
     const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay())).getTime();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
 
-    let total = allLeads.length;
+    const total = allLeads.length;
     let newCount = 0;
     let inProgressCount = 0;
     let contactedCount = 0;

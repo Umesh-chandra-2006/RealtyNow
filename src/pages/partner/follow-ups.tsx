@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
   CalendarClock,
@@ -9,19 +9,12 @@ import {
   AlertCircle,
   Phone,
   MessageCircle,
-  Building2,
   RefreshCw,
-  ExternalLink,
   Plus,
-  Filter,
   Search,
   CheckSquare,
   Square,
   Trash2,
-  Tag,
-  AlertTriangle,
-  UserCheck,
-  Send,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';

@@ -1,19 +1,15 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
 import {
-  Users, Building2, Building, Handshake, Briefcase, UserPlus, Kanban,
-  ClipboardList, CalendarClock, TrendingUp, FileText, CheckCircle2, XCircle,
-  AlertTriangle, Search, SlidersHorizontal, Phone, Mail, MapPin, Eye,
-  ArrowUpRight, ShieldCheck, ShieldAlert, Award, Calendar, DollarSign,
-  UserCheck, Tag, Target, Wallet, Clock, RefreshCw, RotateCcw, ChevronRight, Plus,
-  FileCheck, Sparkles, MessageSquare, Check, X, ExternalLink, Copy
+  Users, Building2, Handshake, Briefcase, UserPlus, FileText, CheckCircle2, XCircle, Search, Phone, Mail, Eye, ShieldCheck, DollarSign,
+  UserCheck, Target, Clock, RefreshCw, RotateCcw, Plus,
+  FileCheck, MessageSquare, Check, X, ExternalLink, Copy
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { DashboardLayout, PageHeader, StatCard } from '../../components/dashboard-layout';
 import { getAdminSections } from '../portal/sections';
 import { useLanguageContext } from '../../lib/i18n/language-context';
-import { Card, Button, Badge, Modal, Input, Select, Textarea, Skeleton, EmptyState } from '../../components/ui';
+import { Card, Button, Badge, Modal, Input, Textarea, Skeleton, EmptyState } from '../../components/ui';
 import { DataTable, type Column } from '../../components/data-table';
 import { formatDate, formatPrice, cn } from '../../lib/utils';
 import { getPropertyPricingDisplay } from '../../lib/plot-pricing';

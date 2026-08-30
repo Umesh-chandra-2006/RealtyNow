@@ -5,13 +5,13 @@ import { supabase } from '../../lib/supabase';
 import { DashboardLayout, PageHeader } from '../../components/dashboard-layout';
 import { getAdminSections } from '../portal/sections';
 import { useLanguageContext } from '../../lib/i18n/language-context';
-import { Card, Button, Badge, EmptyState, Skeleton } from '../../components/ui';
+import { Card, Button, EmptyState, Skeleton } from '../../components/ui';
 import { DataTable, type Column } from '../../components/data-table';
 import { formatDate, cn } from '../../lib/utils';
 import type { AgentApplication, BuilderApplication, PartnerApplication } from '../../lib/types';
 import {
   CheckCircle2, Eye, Clock, FileText,
-  Building2, User, Phone, Mail, MapPin, Award, BadgeCheck, Calendar, Handshake,
+  Building2, User, Phone, Mail, MapPin, Award, Handshake,
 } from 'lucide-react';
 import { ApplicationReviewDrawer } from '../../components/admin/ApplicationReviewDrawer';
 

@@ -17,7 +17,7 @@ import { ensureUserProfile } from '../../lib/profile-utils';
 import { useServiceStatus, SERVICE_KEYS } from '../../lib/service-status';
 import { ServiceUnavailable } from '../../components/service-unavailable';
 import { cn, formatPrice } from '../../lib/utils';
-import { toAreaUnitCode, getPriceUnitLabel, calculatePlotTotalPrice, calculateLandEquivalents, normalizeAreaUnit } from '../../lib/plot-pricing';
+import { toAreaUnitCode, getPriceUnitLabel, calculateLandEquivalents, normalizeAreaUnit } from '../../lib/plot-pricing';
 import { validateUnitPrice, validatePropertyPrice, MIN_PROPERTY_PRICE } from '../../lib/price-validation';
 
 // ─── Plot-specific vocab ──────────────────────────────────────────────────

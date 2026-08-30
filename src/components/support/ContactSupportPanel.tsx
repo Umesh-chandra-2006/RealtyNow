@@ -6,8 +6,6 @@ import {
   Phone,
   MessageCircle,
   Clock,
-  ShieldCheck,
-  Sparkles,
   ArrowRight,
   Headphones,
 } from 'lucide-react';

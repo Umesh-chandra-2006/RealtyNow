@@ -5,15 +5,10 @@ import {
   Send,
   Users,
   MessageSquare,
-  Building2,
   Copy,
   Check,
   Bot,
-  Zap,
-  TrendingUp,
   ShieldCheck,
-  RefreshCw,
-  PhoneCall,
 } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
@@ -21,7 +16,7 @@ import { callAI } from '../../lib/ai';
 import { DashboardLayout, PageHeader } from '../../components/dashboard-layout';
 import { getAgentSections } from '../portal/sections';
 import { useLanguageContext } from '../../lib/i18n/language-context';
-import { Card, Input, Button, Spinner, Badge, Select } from '../../components/ui';
+import { Card, Input, Button, Spinner, Badge } from '../../components/ui';
 import { useToast } from '../../components/toast';
 import { cn, formatPrice } from '../../lib/utils';
 import type { Property } from '../../lib/types';

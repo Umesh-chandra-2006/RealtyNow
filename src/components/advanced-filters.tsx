@@ -4,16 +4,6 @@ import {
   ChevronDown,
   Check,
   SlidersHorizontal,
-  MapPin,
-  CheckCircle2,
-  Building,
-  Home,
-  Store,
-  Warehouse,
-  LandPlot,
-  Users,
-  Briefcase,
-  Layers,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import type { PropertyFilters } from '../lib/properties';

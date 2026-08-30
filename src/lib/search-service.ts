@@ -17,7 +17,7 @@ import {
 } from './search-engine';
 import { buildPublishedQuery, type PropertyFilters } from './properties';
 import { categorizeProperty, normalizeCategorySlug, type CategorySlug } from './categories';
-import { matchesAllAmenities, matchesAmenity } from './amenities';
+import { matchesAllAmenities } from './amenities';
 
 export interface GlobalSearchOptions extends PropertyFilters {
   /** Raw natural language query or keyword */
@@ -363,7 +363,7 @@ export async function fetchLiveSearchSuggestions(
       .select('id, title, price, rent_amount, purpose, locality_name, city_name, bedrooms, property_type_name, images, cover_image_url')
       .or('status.eq.published,status.eq.live,is_live.eq.true')
       .or('price.gte.1000,rent_amount.gte.1000')
-      .ilike('search_text', `%${parsedIntent.location || trimmed}%`)
+      .ilike('search_document', `%${parsedIntent.location || trimmed}%`)
       .limit(4);
 
     if (cityId) {
@@ -391,7 +391,7 @@ export async function fetchLiveSearchSuggestions(
     }));
 
     // 2. Fetch matching localities with count
-    let locQuery = supabase
+    const locQuery = supabase
       .from('localities')
       .select('name, cities(name)')
       .ilike('name', `%${parsedIntent.location || trimmed}%`)

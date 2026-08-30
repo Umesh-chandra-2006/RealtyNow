@@ -20,8 +20,6 @@ import {
   TrendingUp,
   Building2,
   Home,
-  Store,
-  Warehouse,
   Users,
   Star,
   Phone,
@@ -34,7 +32,6 @@ import {
   FileText,
   Wallet,
   KeyRound,
-  Briefcase,
   Heart,
   GitCompare,
   BarChart3,
@@ -56,7 +53,6 @@ import {
   Share2,
   Check,
   CheckCircle2,
-  Calendar,
   X,
 } from 'lucide-react';
 import { useClickOutside } from '../../hooks/useClickOutside';
@@ -65,7 +61,7 @@ import type { CategorySlug } from '../../lib/categories';
 import { normalizeSearchQuery } from '../../lib/properties';
 import { supabase } from '../../lib/supabase';
 import { useRealtimeCount } from '../../lib/realtime';
-import { formatPrice, formatCompactPrice, formatNumber, cn, generatePropertyUrl, getPropertyPrice, buildWhatsAppUrl } from '../../lib/utils';
+import { formatPrice, formatCompactPrice, formatNumber, cn, generatePropertyUrl, buildWhatsAppUrl } from '../../lib/utils';
 import { sharePropertyNativeOrCopy } from '../../lib/share-service';
 import { useLanguageContext } from '../../lib/i18n/language-context';
 import { useToast } from '../../components/toast';
@@ -77,15 +73,13 @@ import { useFavorites, toggleFavoriteProperty, getLocalFavoriteIds } from '../..
 import { useAuth } from '../../lib/auth';
 import { getPropertyCoverImage, handleImageError, DEFAULT_PROPERTY_IMAGE } from '../../lib/property-images';
 import { PropertyImage } from '../../components/property-image';
-import { getPropertyPricingDisplay, getPriceUnitLabel } from '../../lib/plot-pricing';
+import { getPropertyPricingDisplay } from '../../lib/plot-pricing';
 import { PostPropertyLink } from '../../components/post-property-link';
-import { ContactAgentModal } from '../../components/contact-agent-modal';
-import { BookVisitModal } from '../../components/book-visit-modal';
 import { fetchPublicFeaturedProperties } from '../../lib/featured-properties-api';
 import { fetchPublicCampaigns } from '../../lib/paid-campaigns-api';
 import { isRakshaBandhanActive } from '../../lib/campaigns/festive-campaigns';
 import { RakshaBandhanPropertySection } from '../../components/festive/RakshaBandhanPropertySection';
-import { RakhiMandala, TinyRakhiIcon } from '../../components/festive/RakshaBandhanIcons';
+import { TinyRakhiIcon } from '../../components/festive/RakshaBandhanIcons';
 
 type HomeCardProperty = Property & {
   city_name?: string | null;
@@ -1212,7 +1206,7 @@ function AISmartSearch() {
           .from('v_properties_search')
           .select('id, title, seo_slug, price, rent_amount, purpose, locality_name, city_name, bedrooms, property_type_name, cover_image_url, images')
           .or('status.eq.published,status.eq.live,is_live.eq.true')
-          .ilike('search_text', `%${normalized}%`)
+          .ilike('search_document', `%${normalized}%`)
           .limit(5);
 
         setPropertySuggestions(propData ?? []);

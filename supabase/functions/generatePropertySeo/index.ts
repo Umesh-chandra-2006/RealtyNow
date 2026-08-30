@@ -9,6 +9,7 @@
 
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2.57.4';
+import { checkRateLimit } from '../_shared/rate-limit.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -31,6 +32,16 @@ function serviceClient() {
   return createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '', {
     auth: { persistSession: false },
   });
+}
+
+async function resolveCaller(req: Request): Promise<string | null> {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) return null;
+  const supabase = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_ANON_KEY') ?? '', {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const { data } = await supabase.auth.getUser();
+  return data.user?.id ?? null;
 }
 
 // Same slug convention as src/lib/utils.ts generatePropertyUrl() — canonical_url must match
@@ -166,6 +177,18 @@ Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 200, headers: corsHeaders });
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
+  const rate = await checkRateLimit(serviceClient(), req, {
+    endpoint: 'generatePropertySeo',
+    maxRequests: 30,
+    windowSeconds: 60,
+  });
+  if (!rate.allowed) {
+    return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), {
+      status: rate.status,
+      headers: { ...corsHeaders, ...rate.headers, 'Content-Type': 'application/json' },
+    });
+  }
+
   try {
     const body = await req.json().catch(() => ({}));
     const propertyId = body?.property_id;
@@ -173,12 +196,24 @@ Deno.serve(async (req: Request) => {
 
     const supabase = serviceClient();
 
+    const callerId = await resolveCaller(req);
+
     const { data: property, error: propErr } = await supabase
       .from('v_properties_search')
       .select('*')
       .eq('id', propertyId)
       .single();
     if (propErr || !property) return json({ error: 'Property not found' }, 404);
+
+    // This function MUTATES a row via the service key, so it must never run
+    // as an anonymous/unknown caller. Only the owner, the assigned agent, or
+    // an admin may regenerate a property's SEO.
+    if (!callerId) return json({ error: 'Authentication required' }, 401);
+    const isOwnerOrAgent = callerId === property.owner_id || callerId === property.assigned_agent_id;
+    if (!isOwnerOrAgent) {
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', callerId).maybeSingle();
+      if (!profile || profile.role !== 'admin') return json({ error: 'Unauthorized' }, 403);
+    }
 
     let builderName: string | null = null;
     if (property.builder_id) {

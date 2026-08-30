@@ -4,11 +4,8 @@ import {
   ThumbsUp,
   ThumbsDown,
   CheckCircle2,
-  HelpCircle,
   ArrowRight,
-  Sparkles,
   Lightbulb,
-  FileText,
   Share2,
   Check,
 } from 'lucide-react';
@@ -18,7 +15,6 @@ import {
   submitArticleFeedback,
 } from '../../lib/support';
 import { useAuth } from '../../lib/auth';
-import { cn } from '../../lib/utils';
 import { useToast } from '../toast';
 
 interface KnowledgeBaseArticleModalProps {

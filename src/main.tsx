@@ -6,7 +6,9 @@ import App from './App.tsx';
 import './index.css';
 import { ErrorBoundary } from './components/error-boundary';
 import { registerServiceWorker } from './registerServiceWorker';
+import { initSentry } from './lib/sentry';
 
+initSentry();
 registerServiceWorker();
 
 createRoot(document.getElementById('root')!).render(

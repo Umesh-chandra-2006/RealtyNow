@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Building2, Edit3, Percent, Trash2, UserCog, Users, User, Camera, Upload, Check } from 'lucide-react';
+import { Building2, Edit3, Percent, Trash2, UserCog, Users, User, Camera } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
 import { DashboardLayout, PageHeader, StatCard } from '../../components/dashboard-layout';

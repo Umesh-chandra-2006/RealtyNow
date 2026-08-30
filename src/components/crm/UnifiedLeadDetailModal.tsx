@@ -1,34 +1,18 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
-  X,
   Phone,
   Mail,
   MessageCircle,
   Building2,
   Calendar,
-  Clock,
-  Send,
-  User,
-  Plus,
-  ArrowRight,
   ExternalLink,
-  MapPin,
-  Tag,
-  AlertCircle,
   FileText,
-  PhoneCall,
   Check,
-  CheckCircle2,
   Edit3,
-  Flame,
   Activity,
-  DollarSign,
-  Home,
   Save,
-  ShieldCheck,
-  RotateCcw,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';

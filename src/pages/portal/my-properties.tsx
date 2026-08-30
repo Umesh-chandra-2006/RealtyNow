@@ -15,7 +15,7 @@ import { DataTable, type Column, BulkActionsBar } from '../../components/data-ta
 import { submitPropertyForReview } from '../../lib/properties';
 import { mapJoined } from '../../lib/join-helpers';
 import { formatPrice, formatDate , generatePropertyUrl, getPropertyPrice } from '../../lib/utils';
-import { getPropertyPricingDisplay, getPriceUnitLabel } from '../../lib/plot-pricing';
+import { getPriceUnitLabel } from '../../lib/plot-pricing';
 import { PropertyPriceCell } from '../../components/ui/property-price-cell';
 import type { Property } from '../../lib/types';
 import { getPropertyCoverImage, handleImageError, DEFAULT_PROPERTY_IMAGE } from '../../lib/property-images';

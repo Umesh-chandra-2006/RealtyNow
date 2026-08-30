@@ -1,4 +1,11 @@
 import { supabase } from './supabase';
+import { cachedLoader, createTtlCache } from './ttl-cache';
+
+// Cities and property types are reference data: they change rarely and are
+// fetched on many mounts (search page, home filters, admin dropdowns). A 30
+// minute TTL cache prevents hammering Supabase with the same read.
+const citiesCache = createTtlCache<Promise<CityOption[]>>(30 * 60 * 1000);
+const propertyTypesCache = createTtlCache<Promise<PropertyTypeOption[]>>(30 * 60 * 1000);
 
 export interface IndianCity {
   id?: string;
@@ -342,6 +349,10 @@ export const DEFAULT_PROPERTY_TYPES: PropertyTypeOption[] = [
  * Ensures the returned list is never empty, always contains all Indian cities, and includes real UUIDs when available.
  */
 export async function fetchAllIndianCities(): Promise<CityOption[]> {
+  return cachedLoader(citiesCache, 'all', loadAllIndianCities);
+}
+
+async function loadAllIndianCities(): Promise<CityOption[]> {
   try {
     const { data: dbCities, error } = await supabase
       .from('cities')
@@ -393,6 +404,10 @@ export async function fetchAllIndianCities(): Promise<CityOption[]> {
  * Fetches property types from Supabase and merges with defaults
  */
 export async function fetchAllPropertyTypes(): Promise<PropertyTypeOption[]> {
+  return cachedLoader(propertyTypesCache, 'all', loadAllPropertyTypes);
+}
+
+async function loadAllPropertyTypes(): Promise<PropertyTypeOption[]> {
   try {
     const { data: dbTypes, error } = await supabase
       .from('property_types')

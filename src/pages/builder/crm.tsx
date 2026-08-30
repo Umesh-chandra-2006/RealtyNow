@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
@@ -17,13 +17,11 @@ import { supabase } from '../../lib/supabase';
 import { DashboardLayout, PageHeader } from '../../components/dashboard-layout';
 import { getBuilderSections } from '../portal/sections';
 import { useLanguageContext } from '../../lib/i18n';
-import { DataTable } from '../../components/data-table';
-import type { Column } from '../../components/data-table';
 import { Badge, Button, Card, EmptyState, Select, Textarea } from '../../components/ui';
 import { useToast } from '../../components/toast';
 import { useRealtimeCount } from '../../lib/realtime';
 import { logBuilderAudit } from '../../lib/builder-audit';
-import { formatDate, formatDateTime, isUuid } from '../../lib/utils';
+import { formatDateTime, isUuid } from '../../lib/utils';
 
 type BuilderLeadStatus = 'new' | 'contacted' | 'site_visit' | 'negotiation' | 'won' | 'lost' | 'closed';
 type BuilderLeadActivityType = 'note' | 'call' | 'email' | 'meeting' | 'site_visit' | 'status_change';

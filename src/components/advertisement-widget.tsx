@@ -1,7 +1,18 @@
 import { useEffect, useState } from 'react';
+import DOMPurify from 'dompurify';
 import { fetchActiveAdvertisements, trackAdImpression, trackAdClick, Advertisement } from '../lib/advertisements';
 import { cn } from '../lib/utils';
 import { ExternalLink } from 'lucide-react';
+
+// HTML ads are admin-supplied strings rendered into the DOM; always sanitize
+// before injecting to prevent stored XSS (audit finding: dangerouslySetInnerHTML).
+function sanitizeHtml(raw: string): string {
+  return DOMPurify.sanitize(raw, {
+    USE_PROFILES: { html: true },
+    FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form'],
+    FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'style', 'src'],
+  });
+}
 
 interface AdvertisementWidgetProps {
   page: string;
@@ -62,7 +73,7 @@ export function AdvertisementWidget({ page, position, deviceType = 'All Devices'
       <div 
         className={cn("relative w-full rounded-2xl overflow-hidden shadow-sm", className)}
         onClick={handleClick}
-        dangerouslySetInnerHTML={{ __html: ad.html_content }} 
+        dangerouslySetInnerHTML={{ __html: sanitizeHtml(ad.html_content) }} 
       />
     );
   }

@@ -1,0 +1,25 @@
+# RealtyNow SPA — local container orchestration.
+#
+#   docker compose up --build -d     # build & run at http://localhost:8080
+#   docker compose down              # stop
+#
+# The SPA is fully static — the nginx container is the only service. It is
+# configured (Dockerfile HEALTHCHECK + nginx.conf) to sit behind a load
+# balancer / autoscaler for production.
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: realtynow-web:latest
+    container_name: realtynow-web
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

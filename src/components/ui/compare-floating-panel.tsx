@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { GitCompare, X, ChevronUp, ChevronDown, Trash2 } from 'lucide-react';
 import { getCompareIds, clearCompareList, fetchComparedProperties } from '../../lib/compare';
 import { useAuth } from '../../lib/auth';
-import { formatCompactPrice } from '../../lib/utils';
 import { getPropertyPricingDisplay } from '../../lib/plot-pricing';
 import { Button } from '../ui';
 import type { Property } from '../../lib/types';

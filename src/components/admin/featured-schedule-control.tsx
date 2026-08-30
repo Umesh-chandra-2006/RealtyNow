@@ -8,12 +8,9 @@ import {
   Check,
   X,
   Zap,
-  CheckCircle2,
   Calendar as CalendarIcon,
   AlertCircle,
   Clock,
-  Sparkles,
-  ArrowRight,
   Infinity as InfinityIcon,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -136,7 +133,7 @@ function DateTimePickerModal({
 
   // Time State
   const [selectedHour, setSelectedHour] = useState(() => {
-    let h = initialDate.getHours() % 12;
+    const h = initialDate.getHours() % 12;
     return h === 0 ? '12' : String(h).padStart(2, '0');
   });
   const [selectedMinute, setSelectedMinute] = useState(() => {
@@ -155,7 +152,7 @@ function DateTimePickerModal({
       setCurrentMonth(d.getMonth());
       setCurrentYear(d.getFullYear());
       setSelectedDay(d.getDate());
-      let h = d.getHours() % 12;
+      const h = d.getHours() % 12;
       setSelectedHour(h === 0 ? '12' : String(h).padStart(2, '0'));
       const m = d.getMinutes();
       const nearest5 = Math.round(m / 5) * 5;

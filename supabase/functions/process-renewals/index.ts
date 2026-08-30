@@ -12,6 +12,30 @@ serve(async (req) => {
   }
 
   try {
+    // This batch job mutates user_packages (expiring them) and inserts
+    // renewal notifications using the service key. It must never be callable
+    // by anonymous clients. Guard it with a shared secret that the scheduler
+    // presents in the x-cron-secret header. If INTERNAL_CRON_SECRET is not
+    // configured, refuse to run rather than silently exposing the endpoint.
+    const cronSecret = Deno.env.get('INTERNAL_CRON_SECRET');
+    if (!cronSecret) {
+      console.error('process-renewals: INTERNAL_CRON_SECRET is not configured; refusing to run');
+      return new Response(JSON.stringify({ error: 'Server not configured for scheduled processing' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 503,
+      });
+    }
+    const presented = req.headers.get('x-cron-secret') ?? '';
+    const a = presented.trim();
+    const b = cronSecret.trim();
+    // Constant-time-ish compare
+    if (a.length !== b.length || a.split('').some((ch, i) => ch !== b[i])) {
+      return new Response(JSON.stringify({ error: 'Forbidden' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 403,
+      });
+    }
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''

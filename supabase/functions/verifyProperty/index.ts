@@ -9,6 +9,7 @@
 
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2.57.4';
+import { checkRateLimit } from '../_shared/rate-limit.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -311,6 +312,18 @@ Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 200, headers: corsHeaders });
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
+  const rate = await checkRateLimit(serviceClient(), req, {
+    endpoint: 'verifyProperty',
+    maxRequests: 30,
+    windowSeconds: 60,
+  });
+  if (!rate.allowed) {
+    return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), {
+      status: rate.status,
+      headers: { ...corsHeaders, ...rate.headers, 'Content-Type': 'application/json' },
+    });
+  }
+
   try {
     const body = await req.json().catch(() => ({}));
     const propertyId = body?.property_id;
@@ -322,18 +335,16 @@ Deno.serve(async (req: Request) => {
     const { data: property, error: propErr } = await supabase.from('properties').select('*').eq('id', propertyId).single();
     if (propErr || !property) return json({ error: 'Property not found' }, 404);
 
+    // This function MUTATES the ai_verifications / verification_logs audit
+    // trail and denormalized properties columns, so it must never run as an
+    // anonymous/unknown caller. Require an authenticated identity.
+    if (!callerId) return json({ error: 'Authentication required' }, 401);
+
     // Caller must be the owner, the assigned agent, or an admin.
-    if (callerId) {
-      const isOwnerOrAgent = callerId === property.owner_id || callerId === property.assigned_agent_id;
-      if (!isOwnerOrAgent) {
-        const { data: profile } = await supabase.from('profiles').select('role').eq('id', callerId).single();
-        if (profile?.role !== 'admin') return json({ error: 'Unauthorized' }, 403);
-      }
-    } else {
-      // No auth context at all (e.g. server-to-server) — allow, since this function only
-      // ever mutates the ai_verifications/verification_logs audit trail + denormalized
-      // properties columns for the property_id explicitly supplied, mirroring ai-assistant's
-      // "soft" auth check.
+    const isOwnerOrAgent = callerId === property.owner_id || callerId === property.assigned_agent_id;
+    if (!isOwnerOrAgent) {
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', callerId).maybeSingle();
+      if (!profile || (profile.role !== 'admin')) return json({ error: 'Unauthorized' }, 403);
     }
 
     const { data: ownerProfile } = await supabase

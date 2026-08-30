@@ -293,24 +293,10 @@ export async function fetchActiveCustomerSubscription(userId: string): Promise<A
       };
     }
 
-    // 3. Fallback: check localStorage for active simulation session
-    const localActive = localStorage.getItem(`realtynow_active_sub_${userId}`);
-    if (localActive) {
-      try {
-        const parsed = JSON.parse(localActive);
-        const expiry = new Date(parsed.expiry_date);
-        const now = new Date();
-        const remainingDays = Math.max(0, Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
-        if (remainingDays > 0) {
-          return {
-            ...parsed,
-            remaining_days: remainingDays,
-          };
-        }
-      } catch (err) {
-        console.warn('Could not parse local subscription:', err);
-      }
-    }
+    // 3. No localStorage fallback: the active subscription must always reflect
+    //    the authoritative server state. A client-cached (or user-editable)
+    //    "active" record here would let a session appear entitled without a
+    //    real, server-verified subscription.
 
     return null;
   } catch (err) {
@@ -403,86 +389,50 @@ export async function toggleSubscriptionPlanStatus(id: string, isActive: boolean
 }
 
 /**
- * Activate subscription upon confirmed payment
+ * Activate subscription upon confirmed payment.
+ *
+ * SECURITY (audit finding, closes the self-grant + client-supplied-amount hole):
+ * This no longer calls the `activate_subscription_payment` RPC directly from
+ * the browser. A browser session cannot mint its own subscription — the amount
+ * would be client-supplied and fabricated order/payment ids could be passed.
+ * Instead the caller must submit the REAL Razorpay order/payment/signature ids
+ * from a successful checkout to the `payment-gateway` edge function, which,
+ * under the service key, verifies the Razorpay HMAC signature, recomputes the
+ * amount from the server-side plan price, and only then performs activation.
  */
 export async function activateSubscription(
   userId: string,
   planId: string,
-  amount: number,
-  gatewayOrderId?: string,
-  gatewayPaymentId?: string,
-  gateway = 'Razorpay'
+  opts: {
+    gatewayOrderId?: string;
+    gatewayPaymentId?: string;
+    razorpaySignature?: string;
+  } = {}
 ): Promise<string> {
-  try {
-    const { data, error } = await supabase.rpc('activate_subscription_payment', {
-      p_customer_id: userId,
-      p_plan_id: planId,
-      p_amount: amount,
-      p_gateway: gateway,
-      p_gateway_order_id: gatewayOrderId || null,
-      p_gateway_payment_id: gatewayPaymentId || null,
-    });
+  const { gatewayOrderId, gatewayPaymentId, razorpaySignature } = opts;
 
-    if (!error && data) {
-      return data;
-    }
-  } catch (rpcErr) {
-    console.warn('RPC activate_subscription_payment not available, falling back to direct state update:', rpcErr);
+  // Free plans still route through the server so activation is never a purely
+  // client-side decision; the edge function treats a 0-price plan as "Free"
+  // (no signature required) and a paid plan as requiring a verified signature.
+  const { data, error } = await supabase.functions.invoke('payment-gateway', {
+    headers: { 'x-action': 'subscription-activate' },
+    body: {
+      plan_id: planId,
+      razorpay_order_id: gatewayOrderId || null,
+      razorpay_payment_id: gatewayPaymentId || null,
+      razorpay_signature: razorpaySignature || null,
+    },
+  });
+
+  if (error) {
+    console.error('subscription activation failed:', error.message);
+    throw new Error(`Subscription activation requires a verified payment (${error.message})`);
   }
 
-  // Find plan details from defaults or DB
-  const allPlans = await fetchSubscriptionPlans(true);
-  const selectedPlan = allPlans.find((p) => p.id === planId || p.slug === planId) || allPlans[0];
-  const validityDays = selectedPlan.validity_days || 30;
-  const now = new Date();
-  const expiry = new Date(now.getTime() + validityDays * 24 * 60 * 60 * 1000);
-
-  const subId = `sub_${Date.now()}`;
-  const summary: ActiveSubscriptionSummary = {
-    subscription_id: subId,
-    plan_id: selectedPlan.id,
-    plan_name: selectedPlan.name,
-    plan_slug: selectedPlan.slug,
-    status: 'ACTIVE',
-    amount_paid: amount,
-    currency: 'INR',
-    start_date: now.toISOString(),
-    expiry_date: expiry.toISOString(),
-    remaining_days: validityDays,
-    listing_limit: selectedPlan.listing_limit,
-    listings_used: 0,
-    enquiry_limit: selectedPlan.enquiry_limit,
-    enquiries_used: 0,
-    visibility_level: selectedPlan.visibility_level,
-    premium_placement: selectedPlan.premium_placement,
-    photoshoot_support: selectedPlan.photoshoot_support,
-    account_manager: selectedPlan.account_manager,
-    field_assistance: selectedPlan.field_assistance,
-    phone_privacy: selectedPlan.phone_privacy,
-    features_list: selectedPlan.features_list,
-  };
-
-  localStorage.setItem(`realtynow_active_sub_${userId}`, JSON.stringify(summary));
-
-  // Save in history
-  const historyItem: CustomerSubscription = {
-    id: subId,
-    customer_id: userId,
-    plan_id: selectedPlan.id,
-    amount_paid: amount,
-    currency: 'INR',
-    start_date: now.toISOString(),
-    expiry_date: expiry.toISOString(),
-    status: 'ACTIVE',
-    listings_used: 0,
-    enquiries_used: 0,
-    auto_renew: true,
-    plan: selectedPlan,
-    created_at: now.toISOString(),
-  };
-
-  const existingHistory = JSON.parse(localStorage.getItem(`realtynow_sub_history_${userId}`) || '[]');
-  localStorage.setItem(`realtynow_sub_history_${userId}`, JSON.stringify([historyItem, ...existingHistory]));
+  const subId = (data as { subscription_id?: string })?.subscription_id;
+  if (!subId) {
+    throw new Error('Subscription activation returned no subscription id');
+  }
 
   return subId;
 }

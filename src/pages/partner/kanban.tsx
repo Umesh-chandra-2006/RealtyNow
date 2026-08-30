@@ -1,27 +1,18 @@
-import React, { useState, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import React, { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
-  Kanban as KanbanIcon,
   Plus,
-  Handshake,
-  User,
-  Phone,
   ArrowRight,
   RefreshCw,
-  ExternalLink,
-  Building2,
-  Calendar,
-  Clock,
-  Sparkles,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { useLanguageContext } from '../../lib/i18n/language-context';
 import { DashboardLayout, PageHeader } from '../../components/dashboard-layout';
 import { getPartnerSections } from '../portal/sections';
-import { Card, Button, Badge, Skeleton } from '../../components/ui';
-import { formatDate, formatPrice, buildWhatsAppUrl, cn } from '../../lib/utils';
+import { Card, Button } from '../../components/ui';
+import { formatDate, formatPrice, cn } from '../../lib/utils';
 import { useToast } from '../../components/toast';
 
 const KANBAN_STAGES = [

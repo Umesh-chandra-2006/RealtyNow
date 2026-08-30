@@ -15,7 +15,6 @@ import {
   Building2,
   MapPin,
   Trash2,
-  Calendar,
   Clock,
   ExternalLink,
 } from 'lucide-react';

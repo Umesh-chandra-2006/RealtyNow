@@ -16,7 +16,7 @@ import { StatusBadge } from '../../components/property-card';
 import { DataTable, type Column } from '../../components/data-table';
 import { mapJoined } from '../../lib/join-helpers';
 import { formatPrice, formatDate, generatePropertyUrl } from '../../lib/utils';
-import { getPropertyPricingDisplay, getPriceUnitLabel } from '../../lib/plot-pricing';
+import { getPriceUnitLabel } from '../../lib/plot-pricing';
 import { PropertyPriceCell } from '../../components/ui/property-price-cell';
 import { useRealtimeCount } from '../../lib/realtime';
 import type { Property } from '../../lib/types';

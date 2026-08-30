@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   ArrowLeft,
-  Ticket,
   Clock,
   CheckCircle2,
   AlertCircle,
@@ -15,9 +14,7 @@ import {
   Bot,
   Check,
   X,
-  FileText,
   Download,
-  AlertTriangle,
 } from 'lucide-react';
 import {
   fetchSupportTicketDetails,

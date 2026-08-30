@@ -10,7 +10,6 @@ import {
   SlidersHorizontal,
   X,
   MapPin,
-  Home,
   ChevronLeft,
   ChevronRight,
   Search,
@@ -44,14 +43,14 @@ import {
   AlertTriangle,
   Loader2,
 } from 'lucide-react';
-import { type PropertyFilters, fetchPublishedProperties, sanitizeSearchQuery, normalizeSearchQuery } from '../../lib/properties';
+import { type PropertyFilters, normalizeSearchQuery } from '../../lib/properties';
 import { useClickOutside } from '../../hooks/useClickOutside';
 import { supabase } from '../../lib/supabase';
 import { useLanguageContext } from '../../lib/i18n/language-context';
 import { useAuth } from '../../lib/auth';
 import { useToast } from '../../components/toast';
-import { formatCompactPrice, formatPrice, formatNumber, cn, generatePropertyUrl, getPropertyPrice, buildWhatsAppUrl } from '../../lib/utils';
-import { getPropertyPricingDisplay, getPriceUnitLabel } from '../../lib/plot-pricing';
+import { formatCompactPrice, formatNumber, cn, generatePropertyUrl, buildWhatsAppUrl } from '../../lib/utils';
+import { getPropertyPricingDisplay } from '../../lib/plot-pricing';
 import { sharePropertyNativeOrCopy } from '../../lib/share-service';
 import type { Property } from '../../lib/types';
 import { getCategoryMeta, normalizeCategorySlug } from '../../lib/categories';
@@ -60,7 +59,7 @@ import { ContactAgentModal } from '../../components/contact-agent-modal';
 import { BookVisitModal } from '../../components/book-visit-modal';
 
 import { LocationCategoryDiscovery } from '../../components/location-category-discovery';
-import { parsePropertySearchQuery, fetchLocationCategoryDiscovery, fetchSearchCategoryCounts, type LocationDiscoveryResult } from '../../lib/search-engine';
+import { parsePropertySearchQuery, fetchLocationCategoryDiscovery, fetchSearchCategoryCounts } from '../../lib/search-engine';
 import type { CategorySlug } from '../../lib/categories';
 import { useFavorites, toggleFavoriteProperty, getLocalFavoriteIds } from '../../lib/favorites';
 import { isCompared, toggleCompareProperty, getCompareIds } from '../../lib/compare';
@@ -69,7 +68,6 @@ import { PropertyImage } from '../../components/property-image';
 import { AdvancedFilters } from '../../components/advanced-filters';
 import { LocationCityAreaFilter } from '../../components/location-city-area-filter';
 import { useSEO } from '../../hooks/use-seo';
-import { PostPropertyLink } from '../../components/post-property-link';
 
 import { executeGlobalPropertySearch } from '../../lib/search-service';
 import { logSearchQuery } from '../../lib/search-analytics';
@@ -1118,6 +1116,9 @@ export function SearchPage() {
   // which also handles ESC and touchstart so mobile works too.
   const searchContainerRef = useRef<HTMLDivElement>(null);
   useClickOutside(searchContainerRef, () => setSuggestions([]), suggestions.length > 0);
+  // Debounce the autocomplete Suggest query so it doesn't fire a live
+  // v_properties_search ILIKE on every keystroke (matches home.tsx's 250ms).
+  const suggestionsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: types } = useQuery({
     queryKey: ['ptypes-all'],
@@ -1125,6 +1126,7 @@ export function SearchPage() {
       const { data } = await supabase.from('property_types').select('id, name, category').order('name');
       return data ?? [];
     },
+    staleTime: 30 * 60 * 1000,
   });
   const { data: cities } = useQuery({
     queryKey: ['cities-all'],
@@ -1132,6 +1134,7 @@ export function SearchPage() {
       const { data } = await supabase.from('cities').select('id, name').order('name');
       return data ?? [];
     },
+    staleTime: 30 * 60 * 1000,
   });
   const { data: localities } = useQuery({
     queryKey: ['localities-all'],
@@ -1139,6 +1142,7 @@ export function SearchPage() {
       const { data } = await supabase.from('localities').select('id, name, city_id').order('name').limit(200);
       return data ?? [];
     },
+    staleTime: 30 * 60 * 1000,
   });
 
   const rawQ = params.get('q') || '';
@@ -1174,7 +1178,7 @@ export function SearchPage() {
         .from('v_properties_search')
         .select('id, title, seo_slug, price, rent_amount, purpose, locality_name, city_name, bedrooms, property_type_name, cover_image_url, images')
         .or('status.eq.published,status.eq.live,is_live.eq.true')
-        .ilike('search_text', `%${cleaned}%`)
+        .ilike('search_document', `%${cleaned}%`)
         .limit(6);
 
       setSuggestions(propData ?? []);
@@ -1330,6 +1334,7 @@ export function SearchPage() {
   const { data: locationDiscovery } = useQuery({
     queryKey: ['search-category-discovery-sync', baseCategoryFilters],
     queryFn: () => fetchSearchCategoryCounts(baseCategoryFilters),
+    staleTime: 60 * 1000,
   });
 
   // Query canonical live properties with intelligence and relevance ranking
@@ -1362,6 +1367,7 @@ export function SearchPage() {
       };
     },
     placeholderData: (previousData) => previousData,
+    staleTime: 60 * 1000,
   });
 
   const categoryCountsMap = useMemo(() => {
@@ -1564,7 +1570,8 @@ export function SearchPage() {
                 value={query}
                 onChange={(e) => {
                   setFilter('q', e.target.value);
-                  searchSuggestions(e.target.value);
+                  if (suggestionsDebounceRef.current) clearTimeout(suggestionsDebounceRef.current);
+                  suggestionsDebounceRef.current = setTimeout(() => searchSuggestions(e.target.value), 250);
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
@@ -2450,6 +2457,7 @@ export function CategoryPage({ category }: { category: 'buy' | 'rent' | 'commerc
   const { data: locationDiscovery } = useQuery({
     queryKey: ['category-page-discovery-sync', category, baseCategoryFilters],
     queryFn: () => fetchSearchCategoryCounts(baseCategoryFilters),
+    staleTime: 60 * 1000,
   });
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
@@ -2470,6 +2478,7 @@ export function CategoryPage({ category }: { category: 'buy' | 'rent' | 'commerc
       };
     },
     placeholderData: (previousData) => previousData,
+    staleTime: 60 * 1000,
   });
 
   const categoryCountsMap = useMemo(() => {

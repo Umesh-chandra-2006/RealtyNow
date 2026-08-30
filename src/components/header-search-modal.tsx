@@ -10,9 +10,6 @@ import {
   TrendingUp,
   Sparkles,
   ArrowRight,
-  Home,
-  Bed,
-  Layers,
   ChevronRight,
 } from 'lucide-react';
 import { useLanguageContext } from '../lib/i18n/language-context';
@@ -24,7 +21,7 @@ import {
   clearRecentSearches,
   type LiveSearchSuggestionsResult,
 } from '../lib/search-service';
-import { formatCompactPrice, formatPrice, cn, generatePropertyUrl } from '../lib/utils';
+import { formatCompactPrice, generatePropertyUrl } from '../lib/utils';
 import { DEFAULT_PROPERTY_IMAGE } from '../lib/property-images';
 import { VoiceSearchButton } from './voice-search-button';
 

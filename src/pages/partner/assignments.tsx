@@ -4,21 +4,9 @@ import { Link } from 'react-router-dom';
 import {
   UserCheck,
   Phone,
-  Mail,
   MessageCircle,
-  Building2,
-  Calendar,
-  Handshake,
   RefreshCw,
-  ExternalLink,
-  ShieldCheck,
   Send,
-  Clock,
-  HelpCircle,
-  AlertTriangle,
-  CheckCircle2,
-  User,
-  Star,
   Headphones,
   Award,
 } from 'lucide-react';
@@ -27,8 +15,8 @@ import { useAuth } from '../../lib/auth';
 import { useLanguageContext } from '../../lib/i18n/language-context';
 import { DashboardLayout, PageHeader } from '../../components/dashboard-layout';
 import { getPartnerSections } from '../portal/sections';
-import { Card, Button, Badge, Input, Select, Textarea } from '../../components/ui';
-import { formatDate, formatDateTime, buildWhatsAppUrl, cn } from '../../lib/utils';
+import { Card, Button, Badge, Select, Textarea } from '../../components/ui';
+import { formatDate, buildWhatsAppUrl } from '../../lib/utils';
 import { useToast } from '../../components/toast';
 
 const DEDICATED_EXECUTIVES = [

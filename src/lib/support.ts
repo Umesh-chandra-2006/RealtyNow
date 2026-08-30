@@ -10,7 +10,6 @@
  */
 
 import { supabase } from './supabase';
-import type { Property } from './types';
 
 // ─── Types & Interfaces ──────────────────────────────────────────
 

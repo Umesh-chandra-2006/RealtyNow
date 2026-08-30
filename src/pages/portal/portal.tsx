@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Building2, Heart, MessageSquare, Eye, Wallet, TrendingUp, Home, Plus, Clock, CheckCircle2, Star, Crown, Sparkles, Building } from 'lucide-react';
-import { PlanDetailsModal } from '../../components/portal/plan-details-modal';
+import { Building2, Heart, MessageSquare, Eye, Wallet, TrendingUp, Home, Plus, Clock, CheckCircle2, Star, Crown, Sparkles } from 'lucide-react';
 import { PackageRenewalWidget } from '../../components/portal/PackageRenewalWidget';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
@@ -458,9 +457,8 @@ import {
   fetchActiveCustomerSubscription,
   fetchCustomerSubscriptionHistory,
   type SubscriptionPlan,
-  type ActiveSubscriptionSummary,
 } from '../../lib/subscriptions';
-import { Zap, Shield, Phone, Calendar, ArrowRight, Check } from 'lucide-react';
+import { Zap, Calendar, Check } from 'lucide-react';
 
 export function PortalSubscription() {
   const { t } = useLanguageContext();

@@ -2,24 +2,18 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
-  Award,
   Building2,
   Mail,
   Phone,
-  ShieldCheck,
   Wallet,
   Handshake,
   Plus,
   ArrowRight,
-  TrendingUp,
   DollarSign,
-  Share2,
   Copy,
   Check,
-  QrCode,
   Sparkles,
   Clock,
-  Eye,
   CheckCircle2,
 } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
@@ -27,7 +21,7 @@ import { supabase } from '../../lib/supabase';
 import { useLanguageContext } from '../../lib/i18n/language-context';
 import { DashboardLayout, PageHeader, StatCard } from '../../components/dashboard-layout';
 import { getPartnerSections } from '../portal/sections';
-import { Card, Button, Badge, Skeleton } from '../../components/ui';
+import { Card, Button, Badge } from '../../components/ui';
 import { formatDate, formatPrice } from '../../lib/utils';
 import { useToast } from '../../components/toast';
 

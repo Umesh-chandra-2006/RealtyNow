@@ -2,10 +2,7 @@ import React, { useState } from 'react';
 import {
   X,
   ShieldAlert,
-  AlertTriangle,
   Upload,
-  Paperclip,
-  CheckCircle2,
   ArrowRight,
   Loader2,
   Trash2,

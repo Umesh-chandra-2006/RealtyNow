@@ -1,0 +1,14 @@
+# Docker build context exclusions — keep the image lean and never bake secrets.
+node_modules
+dist
+.git
+.env
+.env.*
+!.env.example
+scratch
+supabase/.temp
+test_*.js
+test_*.mjs
+test_*.cjs
+*.log
+.DS_Store

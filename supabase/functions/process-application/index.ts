@@ -2,12 +2,44 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 import { corsHeaders } from '../_shared/cors.ts';
 import { normalizeIndianMobile } from '../_shared/phone.ts';
+import { checkRateLimit } from '../_shared/rate-limit.ts';
 
 const TABLE_BY_TYPE: Record<string, string> = {
   agent: 'agent_applications',
   builder: 'builder_applications',
   partner: 'partner_applications',
 };
+
+/**
+ * Resolves the calling user from the user JWT and verifies they are an admin.
+ * Throws a descriptive error (returned as HTTP 400 by the handler) when the
+ * caller is missing, unauthenticated, or not an admin/super_admin. The caller's
+ * role is read from profiles via the *anon* client so it reflects the real JWT
+ * identity rather than trusting a client-supplied role.
+ */
+async function requireAdmin(
+  supabaseUrl: string,
+  supabaseAnonKey: string,
+  authHeader: string | null
+): Promise<string> {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    throw new Error('Authentication required: admin authorization header missing');
+  }
+  const client = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: authHeader } },
+    auth: { persistSession: false },
+  });
+  const { data: { user }, error: userErr } = await client.auth.getUser();
+  if (userErr || !user) {
+    throw new Error('Authentication invalid: could not resolve user from JWT');
+  }
+  const { data: profile } = await client.from('profiles').select('role').eq('id', user.id).maybeSingle();
+  const role = profile?.role;
+  if (role !== 'admin' && role !== 'super_admin') {
+    throw new Error('Forbidden: caller is not authorized to process applications');
+  }
+  return user.id;
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -18,6 +50,19 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+
+    // Admin-gated endpoint: throttle per-IP to slow credential/abuse attacks.
+    const rate = await checkRateLimit(
+      createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false } }),
+      req,
+      { endpoint: 'process-application', maxRequests: 20, windowSeconds: 60 }
+    );
+    if (!rate.allowed) {
+      return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), {
+        status: rate.status,
+        headers: { ...corsHeaders, ...rate.headers, 'Content-Type': 'application/json' },
+      });
+    }
 
     // Admin client (service role) — can bypass RLS for privileged operations
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
@@ -33,20 +78,15 @@ serve(async (req) => {
     if (!type || !TABLE_BY_TYPE[type]) throw new Error('Invalid application type');
     if (!action) throw new Error('action is required');
 
-    // Identify the calling user from JWT (best-effort — non-blocking)
-    let adminUserId: string | null = null;
-    try {
-      const authHeader = req.headers.get('Authorization');
-      if (authHeader) {
-        const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-          global: { headers: { Authorization: authHeader } },
-        });
-        const { data: { user } } = await supabaseClient.auth.getUser();
-        if (user) adminUserId = user.id;
-      }
-    } catch (authErr) {
-      console.warn('Could not resolve admin user from JWT:', authErr);
-    }
+    // ─── MANDATORY ADMIN AUTH ───────────────────────────────────────────────
+    // This function performs privileged, irreversible actions (approving an
+    // application = creating real auth users via the service key; rejecting;
+    // suspending/reactivating accounts). Previously the JWT check was best-effort
+    // and non-blocking, so any caller with the anon key could invoke it.
+    // Now we REQUIRE an authenticated caller whose profiles.role is an admin,
+    // and reject everyone else before touching any data.
+    const authHeader = req.headers.get('Authorization');
+    const adminUserId = await requireAdmin(supabaseUrl, supabaseAnonKey, authHeader);
 
     console.log(`process-application: action=${action} type=${type} app=${application_id} admin=${adminUserId}`);
 

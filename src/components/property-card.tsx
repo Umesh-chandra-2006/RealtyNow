@@ -1,24 +1,22 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Bed, MapPin, Heart, Star, GitCompare, Share2, ShieldCheck, Sparkles, Phone, MessageCircle, Calendar, ArrowRight, Eye } from 'lucide-react';
+import { Bed, MapPin, Heart, Star, GitCompare, Share2, ShieldCheck, Sparkles, ArrowRight, Eye } from 'lucide-react';
 import type { Property } from '../lib/types';
-import { formatCompactPrice, cn, generatePropertyUrl, getPropertyPrice, buildWhatsAppUrl } from '../lib/utils';
+import { cn, generatePropertyUrl, buildWhatsAppUrl } from '../lib/utils';
 import { Badge } from './ui';
 import { isCompared, toggleCompareProperty } from '../lib/compare';
 import { useAuth } from '../lib/auth';
 import { useToast } from './toast';
 import { useLanguageContext } from '../lib/i18n/language-context';
 import { SharePropertyModal } from './share-property-modal';
-import { ContactAgentModal } from './contact-agent-modal';
-import { BookVisitModal } from './book-visit-modal';
 import { supabase } from '../lib/supabase';
 
 import { useQueryClient } from '@tanstack/react-query';
 import { useFavorites, toggleFavoriteProperty, getLocalFavoriteIds } from '../lib/favorites';
 import { getPropertyCoverImage } from '../lib/property-images';
 import { PropertyImage } from './property-image';
-import { getPropertyPricingDisplay, getPriceUnitLabel } from '../lib/plot-pricing';
+import { getPropertyPricingDisplay } from '../lib/plot-pricing';
 
 export function PropertyCard({ property, compact, isAiRecommended = false }: { property: Property; compact?: boolean, isAiRecommended?: boolean }) {
   const { user } = useAuth();

@@ -33,6 +33,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { normalizeIndianMobile } from "../_shared/phone.ts";
 import { isAuthorizedAdminMobile } from "../_shared/admin-auth.ts";
+import { checkRateLimit } from "../_shared/rate-limit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -235,6 +236,32 @@ serve(async (req) => {
   const action = req.headers.get("x-action") || "";
   let body: Record<string, unknown> = {};
   try { body = await req.json(); } catch { /* empty */ }
+
+  // Per-IP throttling for the PUBLIC, abuse-prone actions. Admin-only actions
+  // (review-agent-request, admin-provision) are deliberately NOT IP-limited so
+  // a shared office IP cannot lock out admins; they remain user/role-gated.
+  const PUBLIC_IP_LIMITS: Record<string, { max: number; window: number }> = {
+    "verify": { max: 10, window: 60 },
+    "check-admin-mobile": { max: 30, window: 60 },
+    "request-agent-access": { max: 10, window: 300 },
+  };
+  if (PUBLIC_IP_LIMITS[action]) {
+    const limits = PUBLIC_IP_LIMITS[action];
+    const rate = await checkRateLimit(admin, req, {
+      endpoint: `otp-auth:${action}`,
+      maxRequests: limits.max,
+      windowSeconds: limits.window,
+    });
+    if (!rate.allowed) {
+      const respHeaders = new Headers(corsHeaders);
+      respHeaders.set("Content-Type", "application/json");
+      for (const [k, v] of Object.entries(rate.headers)) respHeaders.set(k, v);
+      return new Response(
+        JSON.stringify({ error: "Rate limit exceeded. Please try again later.", success: false }),
+        { status: 429, headers: respHeaders }
+      );
+    }
+  }
 
   // ─── ACTION: verify ────────────────────────────────────────────
   // Public — the caller has no session yet, that's the whole point.

@@ -2,23 +2,11 @@ import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
-  Building2,
-  Phone,
-  Mail,
-  Clock,
-  Calendar,
-  CheckCircle2,
-  Users,
-  Eye,
   MessageCircle,
   Tag,
-  SlidersHorizontal,
-  Flame,
   LayoutGrid,
   LayoutList,
   Kanban,
-  ExternalLink,
-  Plus,
   ArrowUpDown,
 } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
@@ -26,8 +14,8 @@ import { supabase } from '../../lib/supabase';
 import { useLanguageContext } from '../../lib/i18n/language-context';
 import { DashboardLayout, PageHeader } from '../../components/dashboard-layout';
 import { getAgentSections } from '../portal/sections';
-import { Card, Badge, Select, Button, Input } from '../../components/ui';
-import { DataTable, type Column } from '../../components/data-table';
+import { Badge, Button } from '../../components/ui';
+import { type Column } from '../../components/data-table';
 import { formatDate, formatPrice, generatePropertyUrl, buildWhatsAppUrl, isUuid } from '../../lib/utils';
 import { useRealtimeCount } from '../../lib/realtime';
 import { AgentKanbanBoard } from '../../components/agent/AgentKanbanBoard';
@@ -148,7 +136,7 @@ export function AgentLeads() {
 
   // Derived filter rows with sorting
   const filteredLeads = useMemo(() => {
-    let result = leads.filter((l) => {
+    const result = leads.filter((l) => {
       const st = l.lead_status || l.status || 'new';
       if (statusFilter !== 'all' && st !== statusFilter) return false;
       if (sourceFilter !== 'all' && (l.source || 'property_contact_agent') !== sourceFilter) return false;

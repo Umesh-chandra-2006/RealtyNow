@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
   Building2,
@@ -7,18 +7,13 @@ import {
   Edit3,
   Trash2,
   Layers,
-  FileText,
-  MapPin,
   CheckCircle2,
   Calendar,
-  Eye,
-  TrendingUp,
   Package,
   Upload,
   Link as LinkIcon,
   Camera,
   X,
-  Image as ImageIcon,
 } from 'lucide-react';
 import { useAuth } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
@@ -26,7 +21,7 @@ import { DashboardLayout, PageHeader, StatCard } from '../../components/dashboar
 import { getBuilderSections } from '../portal/sections';
 import { useLanguageContext } from '../../lib/i18n';
 import { DataTable, type Column } from '../../components/data-table';
-import { Badge, Button, Input, Modal, Select, Textarea, Card, EmptyState, Spinner } from '../../components/ui';
+import { Badge, Button, Input, Modal, Textarea, Card, EmptyState, Spinner } from '../../components/ui';
 import { useToast } from '../../components/toast';
 import { formatDate } from '../../lib/utils';
 import { logBuilderAudit } from '../../lib/builder-audit';

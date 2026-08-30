@@ -21,7 +21,7 @@ import { DashboardLayout, PageHeader, StatCard } from '../../components/dashboar
 import { getAgentSections } from '../portal/sections';
 import { useLanguageContext } from '../../lib/i18n/language-context';
 import { DataTable, type Column } from '../../components/data-table';
-import { Badge, Button, Modal, Input, Select, Textarea, EmptyState } from '../../components/ui';
+import { Badge, Button, Modal, Input, Textarea, EmptyState } from '../../components/ui';
 import { useToast } from '../../components/toast';
 import { useRealtimeCount } from '../../lib/realtime';
 import { formatDate } from '../../lib/utils';
