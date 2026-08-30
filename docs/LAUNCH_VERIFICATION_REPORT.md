@@ -74,3 +74,10 @@ pass probes. Fixed (hardening, not relaxation):
 The container now satisfies its own hardening constraints. **Re-verify with a real
 `docker build`/`docker run` and a k8s (kind/minikube) apply before go-live.**
 
+**Follow-up (access log):** the customized `nginx.conf` had no `access_log` directive,
+so nginx would fall back to its compiled-in `/var/log/nginx/access.log` — unwritable on
+the read-only rootfs, causing an nginx **500** + probe failure (same crash-loop class).
+Fixed with `access_log /dev/stdout;` in `http {}` (logs to the container collector, no
+rootfs write). Keep this in mind for any future nginx tuning: **all log and temp paths
+must stay on stdout/stderr or `/tmp`**.
+
