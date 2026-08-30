@@ -38,3 +38,10 @@ public/optimized/
 /test_*.js
 /test_*.mjs
 /test_*.cjs
+
+# Playwright artifacts (spec traces, screenshots, report) — regenerated on run.
+playwright-report/
+test-results/
+
+# Generated lint/report dumps — regenerated on demand.
+reports/

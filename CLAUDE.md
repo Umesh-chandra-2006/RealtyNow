@@ -78,4 +78,4 @@ The `chat` task intercepts property-search-shaped messages (BHK/locality/city/bu
 
 ### Brand/design system
 
-`DESIGN.md` and `docs/DESIGN.md` define the token system (brand red `#b61f24`, navy neutrals, specific shadow/radius/gradient scales, Plus Jakarta Sans + Inter). Match these instead of introducing ad hoc Tailwind colors when building UI.
+`docs/ARCHITECTURE.md` and `docs/DESIGN.md` define the token system (brand red `#b61f24`, navy neutrals, specific shadow/radius/gradient scales, Plus Jakarta Sans + Inter). Match these instead of introducing ad hoc Tailwind colors when building UI.

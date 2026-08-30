@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
     "test": "vitest run",
     "e2e": "playwright test",
-    "generate-icons": "node generate-pwa-icons.js"
+    "generate-icons": "node scripts/generate-pwa-icons.js"
   },
   "dependencies": {
     "@floating-ui/react": "^0.27.20",
