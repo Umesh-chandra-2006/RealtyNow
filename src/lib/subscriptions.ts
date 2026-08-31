@@ -318,10 +318,6 @@ export async function fetchCustomerSubscriptionHistory(userId: string): Promise<
       .order('created_at', { ascending: false });
 
     if (error || !data || data.length === 0) {
-      const localHistory = localStorage.getItem(`realtynow_sub_history_${userId}`);
-      if (localHistory) {
-        return JSON.parse(localHistory);
-      }
       return [];
     }
     return (data || []).map((row) => ({

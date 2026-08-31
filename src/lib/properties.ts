@@ -649,8 +649,8 @@ export async function fetchProperty(id: string) {
   }
 
   const { data, error } = await supabase
-    .from('properties')
-    .select('*, cities(name), localities(name), property_types(name, category), builders(name), projects(name)')
+    .from('v_properties_search')
+    .select('*')
     .eq('id', targetId)
     .maybeSingle();
 
@@ -659,22 +659,9 @@ export async function fetchProperty(id: string) {
     return null;
   }
   if (!data) return null;
-  const r = data as unknown as {
-    cities?: { name: string };
-    localities?: { name: string };
-    property_types?: { name: string; category?: string };
-    builders?: { name: string };
-    projects?: { name: string };
-  };
-  return {
-    ...data,
-    city_name: r.cities?.name ?? null,
-    locality_name: r.localities?.name ?? null,
-    property_type_name: r.property_types?.name ?? null,
-    property_type_category: r.property_types?.category ?? null,
-    builder_name: r.builders?.name ?? null,
-    project_name: r.projects?.name ?? null,
-  } as unknown as Property;
+  // v_properties_search already carries denormalized city_name, locality_name,
+  // property_type_name, property_type_category, builder_name, project_name.
+  return data as unknown as Property;
 }
 
 export async function trackPropertyView(propertyId: string, viewerId?: string): Promise<number | null> {

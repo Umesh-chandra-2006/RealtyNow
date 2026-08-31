@@ -12,30 +12,6 @@ export async function withErrorHandling<T>(fn: () => Promise<T>, context = 'API 
   }
 }
 
-export async function fetchProperties(filters?: Record<string, unknown>) {
-  return withErrorHandling(async () => {
-    const q = supabase.from('properties').select('*').eq('status', 'published');
-    if (filters) {
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') {
-          q.eq(key, value as never);
-        }
-      });
-    }
-    const { data, error } = await q.order('created_at', { ascending: false });
-    if (error) throw error;
-    return data as Property[];
-  }, 'fetchProperties');
-}
-
-export async function fetchPropertyById(id: string) {
-  return withErrorHandling(async () => {
-    const { data, error } = await supabase.from('properties').select('*').eq('id', id).maybeSingle();
-    if (error) throw error;
-    return data as Property | null;
-  }, 'fetchPropertyById');
-}
-
 export async function createProperty(property: Partial<Property>) {
   return withErrorHandling(async () => {
     if (property.owner_id) {

@@ -147,22 +147,33 @@ serve(async (req) => {
   }
 
   if (action === "send-email") {
-    const { email, customer_name, invoice_no, pdf_url } = body;
-    if (!email) return error("email is required", 400, req);
+    const { invoice_id } = body;
+    if (!invoice_id) return error("invoice_id is required", 400, req);
+
+    // Scope to the caller's own invoice — prevents open-relay abuse.
+    const { data: inv, error: invErr } = await supabase
+      .from("txn_invoices")
+      .select("id, user_id, bill_email, invoice_no")
+      .eq("id", invoice_id)
+      .maybeSingle();
+    if (invErr || !inv) return error("Invoice not found", 404, req);
+    if (inv.user_id !== user.id) return error("Not authorized", 403, req);
+
+    const email = inv.bill_email;
+    if (!email) return error("No billing email on file", 400, req);
 
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #b61f24;">RealtyNow Invoice</h2>
-        ${customer_name ? `<p>Hello ${escapeHtml(customer_name)},</p>` : "<p>Hello,</p>"}
-        <p>Your invoice <strong>${escapeHtml(invoice_no || "-")}</strong> has been generated.</p>
-        ${pdf_url ? `<p>Download: <a href="${escapeHtml(pdf_url)}">View invoice</a></p>` : ""}
+        <p>Hello,</p>
+        <p>Your invoice <strong>${escapeHtml(inv.invoice_no || "-")}</strong> has been generated.</p>
         <p>Thank you for choosing RealtyNow.</p>
       </div>
     `;
 
     const result = await sendEmail({
       to: email,
-      subject: `Your RealtyNow Invoice ${invoice_no || ""}`.trim(),
+      subject: `Your RealtyNow Invoice ${inv.invoice_no || ""}`.trim(),
       html,
     });
 

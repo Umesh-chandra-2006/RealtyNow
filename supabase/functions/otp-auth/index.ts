@@ -603,9 +603,27 @@ serve(async (req) => {
   // back NOT_FOUND, using the same (already-verified) MSG91 access token.
   if (action === "request-agent-access") {
     const requestId = body.requestId as string | undefined;
-    const fullName = (body.full_name as string | undefined)?.trim() || null;
+    const accessToken = body.accessToken as string | undefined;
+    if (!requestId || !accessToken) return error("requestId and accessToken are required");
+
+    // Re-verify the MSG91 access token server-side (never trust the client).
+    const MSG91_AUTH_KEY = Deno.env.get("MSG91_AUTH_KEY") ?? "";
+    const verified = await verifyMsg91AccessToken(accessToken, MSG91_AUTH_KEY);
+    if ("error" in verified) return error(verified.error, verified.status);
+    const verifiedPhone = verified.mobile;
+
+    // Verify the request belongs to the caller's verified phone.
+    const { data: reqRow, error: fetchErr } = await admin
+      .from("agent_requests")
+      .select("id, phone")
+      .eq("id", requestId)
+      .maybeSingle();
+    if (fetchErr || !reqRow) return error("Request not found", 404);
+    if (reqRow.phone !== verifiedPhone) return error("Not authorized", 403);
+
+    // Derive requested_role server-side — do not trust client beyond enum.
     const requestedRole = body.requested_role === "builder" ? "builder" : "agent";
-    if (!requestId) return error("requestId is required");
+    const fullName = (body.full_name as string | undefined)?.trim() || null;
 
     const { error: updateErr } = await admin
       .from("agent_requests")
@@ -629,7 +647,7 @@ serve(async (req) => {
     if (!caller) return error("Authentication required", 401);
 
     const { data: callerProfile } = await admin.from("profiles").select("role").eq("id", caller.id).maybeSingle();
-    if (callerProfile?.role !== "admin") return error("Admin access required", 403);
+    if (!["admin", "super_admin"].includes(callerProfile?.role ?? "")) return error("Admin access required", 403);
 
     const requestId = body.requestId as string | undefined;
     const decision = body.decision as string | undefined;

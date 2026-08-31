@@ -39,6 +39,16 @@ function serviceClient() {
   );
 }
 
+/** Escape a string for safe insertion into an HTML attribute value. */
+function escAttr(s: string): string {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function extractPropertyId(url: URL): string | null {
   // Check query parameter ?id=... or ?slug=...
   const qId = url.searchParams.get('id');
@@ -120,7 +130,7 @@ Deno.serve(async (req) => {
     );
   }
 
-  const title = (prop.seo_title || prop.title || 'Premium Property in Hyderabad').replace(/"/g, '&quot;');
+  const title = (prop.seo_title || prop.title || 'Premium Property in Hyderabad');
   const bhk = prop.bedrooms ? `${prop.bedrooms} BHK ` : '';
   const propType = prop.property_type_name || prop.category || 'Property';
   const purpose = prop.purpose === 'Rent' ? 'for Rent' : 'for Sale';
@@ -133,9 +143,7 @@ Deno.serve(async (req) => {
     prop.seo_description ||
     prop.description ||
     `${bhk}${propType} ${purpose} in ${place}. ${price}. Explore verified listings, photos, floor plans, and amenities on RealtyNow — All About Realty.`
-  )
-    .replace(/"/g, '&quot;')
-    .slice(0, 200);
+  ).slice(0, 200);
 
   // Share previews always carry the RealtyNow logo, never the property's own
   // photo — intentionally not prop.og_image/prop.images[0].
@@ -156,70 +164,70 @@ Deno.serve(async (req) => {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>${title} | RealtyNow</title>
-  <meta name="description" content="${description}">
-  <link rel="canonical" href="${canonicalUrl}">
+  <title>${escAttr(title)} | RealtyNow</title>
+  <meta name="description" content="${escAttr(description)}">
+  <link rel="canonical" href="${escAttr(canonicalUrl)}">
 
   <!-- Open Graph / WhatsApp / Facebook -->
   <meta property="og:type" content="article">
   <meta property="og:site_name" content="RealtyNow — All About Realty">
-  <meta property="og:title" content="${title}">
-  <meta property="og:description" content="${description}">
-  <meta property="og:url" content="${canonicalUrl}">
-  <meta property="og:image" content="${ogImage}">
-  <meta property="og:image:secure_url" content="${ogImage}">
+  <meta property="og:title" content="${escAttr(title)}">
+  <meta property="og:description" content="${escAttr(description)}">
+  <meta property="og:url" content="${escAttr(canonicalUrl)}">
+  <meta property="og:image" content="${escAttr(ogImage)}">
+  <meta property="og:image:secure_url" content="${escAttr(ogImage)}">
   <meta property="og:image:type" content="image/png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="${title}">
+  <meta property="og:image:alt" content="${escAttr(title)}">
   <meta property="og:locale" content="en_IN">
 
   <!-- Twitter / X Card -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:site" content="@RealtyNow">
-  <meta name="twitter:title" content="${title}">
-  <meta name="twitter:description" content="${description}">
-  <meta name="twitter:image" content="${ogImage}">
-  <meta name="twitter:image:alt" content="${title}">
+  <meta name="twitter:title" content="${escAttr(title)}">
+  <meta name="twitter:description" content="${escAttr(description)}">
+  <meta name="twitter:image" content="${escAttr(ogImage)}">
+  <meta name="twitter:image:alt" content="${escAttr(title)}">
 
   <!-- Schema.org Product / RealEstate JSON-LD -->
   <script type="application/ld+json">
-  {
+  ${JSON.stringify({
     "@context": "https://schema.org",
     "@type": "RealEstateListing",
-    "name": "${title}",
-    "description": "${description}",
-    "url": "${canonicalUrl}",
-    "image": "${ogImage}",
+    "name": title,
+    "description": description,
+    "url": canonicalUrl,
+    "image": ogImage,
     "offers": {
       "@type": "Offer",
-      "price": "${prop.price || 0}",
+      "price": String(prop.price || 0),
       "priceCurrency": "INR",
       "availability": "https://schema.org/InStock"
     }
-  }
+  })}
   </script>
 
   <!-- Client-side Redirect for Browser Visitors -->
   <script>
     if (!/bot|crawler|spider|crawling|facebookexternalhit|whatsapp|twitterbot|linkedinbot|telegrambot|slackbot/i.test(navigator.userAgent)) {
-      window.location.replace("${canonicalUrl}");
+      window.location.replace("${escAttr(canonicalUrl)}");
     }
   </script>
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #fff; padding: 40px 20px; text-align: center;">
   <div style="max-width: 600px; margin: 0 auto; background: #1e293b; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.5);">
     <div style="width: 100%; height: 280px; background: #b61f24; display: flex; align-items: center; justify-content: center;">
-      <img src="${ogImage}" alt="RealtyNow" style="width: 140px; height: 140px; object-fit: contain;">
+      <img src="${escAttr(ogImage)}" alt="RealtyNow" style="width: 140px; height: 140px; object-fit: contain;">
     </div>
     <div style="padding: 24px;">
       <span style="background: #e11d48; color: #fff; padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 800; text-transform: uppercase;">
         ${prop.purpose === 'Rent' ? 'FOR RENT' : 'FOR SALE'}
       </span>
-      <h1 style="font-size: 22px; font-weight: 800; margin: 16px 0 8px;">${title}</h1>
-      <p style="font-size: 18px; font-weight: 900; color: #fb7185; margin: 0 0 12px;">${price}</p>
-      <p style="font-size: 14px; color: #94a3b8; margin: 0 0 20px;">📍 ${place}</p>
-      <a href="${canonicalUrl}" style="display: inline-block; background: #e11d48; color: #fff; padding: 12px 28px; border-radius: 12px; font-weight: 700; text-decoration: none;">
+      <h1 style="font-size: 22px; font-weight: 800; margin: 16px 0 8px;">${escAttr(title)}</h1>
+      <p style="font-size: 18px; font-weight: 900; color: #fb7185; margin: 0 0 12px;">${escAttr(price)}</p>
+      <p style="font-size: 14px; color: #94a3b8; margin: 0 0 20px;">📍 ${escAttr(place)}</p>
+      <a href="${escAttr(canonicalUrl)}" style="display: inline-block; background: #e11d48; color: #fff; padding: 12px 28px; border-radius: 12px; font-weight: 700; text-decoration: none;">
         View Property on RealtyNow →
       </a>
     </div>

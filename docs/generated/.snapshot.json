@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-30",
+  "generated": "2026-08-31",
   "edgeFunctions": [
     "admin-agent-verification",
     "admin-customers",
@@ -137,6 +137,7 @@
     "log_property_share",
     "notify_and_audit_partner_document_status",
     "notify_user",
+    "prevent_self_publish",
     "prevent_self_role_escalation",
     "prevent_view_count_tampering",
     "recalculate_plot_total_price",
