@@ -7,12 +7,13 @@ Rules for anyone (human or AI) writing code in this repository. If you break one
 ## 1. Hard invariants (never violate)
 
 1. **Never commit real credentials.** `scripts/scan-secrets.mjs` blocks known-leaked / high-entropy secrets in pre-commit and CI. No `.env` values, keys, JWTs, or admin hashes in source; migration 0060/0068 contain legacy secrets pending rotation — do not add more.
-2. **Public search reads only `v_properties_search`.** Never query raw `properties` for public search/listings. The view enforces the published/live boundary and redacts PII (phones are `NULL`). See `src/lib/properties.ts`.
-3. **Billing truth is server-side.** Payment webhooks verify HMAC + amount; discounts are computed server-side; `discount` payloads from the client are ignored. Never trust a client-supplied price/discount/status.
-4. **Privileged operations live server-side.** Admin moderation, subscription activation, and payout actions happen in edge functions or scoped RPCs — behind a verified `profiles.role ∈ {admin, super_admin}` check, never in browser code.
-5. **AI answers for property-search questions come from the database** (`v_properties_search`), RealtyNow-only, never fabricated — both in `src/lib/ai.ts` and the `ai-assistant` edge function.
-6. **No user-facing English hardcoding.** All user-facing copy goes through i18next (`t()`); add strings to `src/lib/i18n/` and locale packs.
-7. **One Supabase client.** Import `supabase` from `src/lib/supabase.ts`. Don't construct instances ad hoc in components.
+2. **Public search reads only `v_properties_search`.** Never query raw `properties` for public search/listings. The view enforces the published/live boundary and redacts PII (phones are `NULL`). **Enforced at DB level:** migration 0151 revoked `SELECT` on `properties` from `anon` — anonymous callers cannot read the raw table. See `src/lib/properties.ts`.
+3. **Owners cannot self-publish.** Migration 0151's `prevent_self_publish` trigger blocks non-staff from flipping `status`/`is_live`/`approval_status` to live states. Listings must go through the admin moderation workflow.
+4. **Billing truth is server-side.** Payment webhooks verify HMAC + amount; discounts are computed server-side; `discount` payloads from the client are ignored. `fn_create_payment_and_invoice` is restricted to `service_role` only (migration 0151). Never trust a client-supplied price/discount/status.
+5. **Privileged operations live server-side.** Admin moderation, subscription activation, and payout actions happen in edge functions or scoped RPCs — behind a verified `profiles.role ∈ {admin, super_admin}` check, never in browser code.
+6. **AI answers for property-search questions come from the database** (`v_properties_search`), RealtyNow-only, never fabricated — both in `src/lib/ai.ts` and the `ai-assistant` edge function.
+7. **No user-facing English hardcoding.** All user-facing copy goes through i18next (`t()`); add strings to `src/lib/i18n/` and locale packs.
+8. **One Supabase client.** Import `supabase` from `src/lib/supabase.ts`. Don't construct instances ad hoc in components.
 
 ---
 
@@ -72,9 +73,11 @@ CI enforces all of these on push/PR.
 
 - [ ] Gates green (typecheck, tests, lint:ci, secret scan, docs-sync).
 - [ ] No secrets, no `.env` values, no admin hashes.
-- [ ] Public search still view-only; PII still redacted.
-- [ ] Billing paths still server-verified (HMAC/amount/state).
+- [ ] Public search still view-only; PII still redacted (phones = NULL).
+- [ ] Billing paths still server-verified (HMAC/amount/state); `fn_create_payment_and_invoice` service-role only.
+- [ ] No self-publish bypass: `prevent_self_publish` trigger still guards `properties.status`/`is_live`/`approval_status`.
 - [ ] Admin function added? → role + active status check + `super_admin` where needed.
+- [ ] Edge-function email/OTP flows scoped to verified caller identity; no open relay.
 - [ ] i18n: no hardcoded user-facing English.
 - [ ] Docs inventory regenerated if the API/DB surface changed.
 - [ ] Edge-function change? → `docs/API.md` deep-dive + “Last verified” bumped.

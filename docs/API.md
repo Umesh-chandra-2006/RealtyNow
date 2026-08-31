@@ -8,7 +8,7 @@ This document is the authoritative, **code-verified** reference for every server
 
 > **Exactness guarantee:** counts and inventories come from `scripts/docs-sync.mjs`, which reads the code and writes `docs/generated/api-inventory.md` + `.snapshot.json`. CI runs `docs-sync --check` and **fails the build if this document's surface drifts**. The hand-written deep-dives below are stamped with a verification date; re-verify after any edge-function change and bump it.
 
-Last verified: **2026-08-30**. Generated inventory: `docs/generated/api-inventory.md`.
+Last verified: **2026-08-31**. Generated inventory: `docs/generated/api-inventory.md`.
 
 ---
 
@@ -50,7 +50,7 @@ Last verified: **2026-08-30**. Generated inventory: `docs/generated/api-inventor
 - **Auth:** none (public). Serves HTML for crawlers (WhatsApp/Facebook/Twitter/LinkedIn) + meta-refresh redirect for browsers.
 - **Request:** `?id=<property_uuid>` or path `/property-og/<uuid>` (also accepts slug).
 - **Response:** `text/html`; `Cache-Control: public, max-age=3600, s-maxage=86400`. Missing/id-not-found → branded fallback page with redirect (HTTP 200), never leaks property data.
-- **Notes:** always uses the RealtyNow brand logo for `og:image` (never the property photo); includes Schema.org `RealEstateListing` JSON-LD. Reads `v_properties_search` (public/published rows only).
+- **Notes:** always uses the RealtyNow brand logo for `og:image` (never the property photo); includes Schema.org `RealEstateListing` JSON-LD (uses `JSON.stringify` + `escAttr()` — no raw interpolation). Reads `v_properties_search` (public/published rows only).
 - **Rate limit:** none (edge/CDN-cached).
 
 #### `track-analytics` — property views & ad counters (throttled)
@@ -131,8 +131,8 @@ All four share the same shape:
 ### 1.4 Authenticated-user flows
 
 #### `otp-auth` — mobile OTP sign-in & admin provisioning
-- **Method:** `POST`. Header `x-action` — e.g. `send`, `verify`, `request-agent-access` (+ admin provisioning).
-- **Auth:** public for OTP send/verify (rate-limited); admin provisioning requires validated admin identity.
+- **Method:** `POST`. Header `x-action` — e.g. `send`, `verify`, `request-agent-access`, `review-agent-request` (+ admin provisioning).
+- **Auth:** public for OTP send/verify (rate-limited); `request-agent-access` re-verifies the MSG91 access token server-side and scopes the update to the caller's verified phone; `review-agent-request` requires admin/super_admin + active; admin provisioning requires validated admin identity.
 - **Request:** `{ phone/accessToken/intent..., }` per action; OTP codes single-use, short TTL.
 - **Rate limit:** per-IP throttle on public actions (≈10 req/min); admin actions behind real auth.
 - **Responses:** `{ success }`; failure → generic `401/400` with no code leakage.
@@ -176,8 +176,10 @@ All four share the same shape:
 
 #### `txn-invoice-services` — Razorpay payment webhook + invoice/payment updates
 - **Method:** `POST`.
-- **Auth:** **Razorpay HMAC signature** in headers — invalid signature → `401` (no processing).
-- **Guards:** paid amount matched to stored invoice within ₹0.01; only valid `pending → confirmed` transitions; idempotent re-delivery; **refunded payments can never flip back to success**. WhatsApp send path returns honest `501` until a provider is configured.
+- **Auth:** Razorpay HMAC webhook (unauthenticated path); authenticated user JWT for `send-email` (invoice-owner scoped).
+- **Webhook guards:** paid amount matched to stored invoice within ₹0.01; only valid `pending → confirmed` transitions; idempotent re-delivery; **refunded payments can never flip back to success**.
+- **`send-email` action:** requires `invoice_id` in body; loads the `txn_invoices` row, asserts `user_id` matches the caller, and sends only to the server-recorded `bill_email` — never to a caller-supplied address. Prevents open-relay abuse.
+- **WhatsApp send path:** returns honest `501` until a provider is configured.
 - **Rate limit:** 30 req/min (defense in depth).
 
 #### `process-renewals` — scheduled subscription-renewal batch

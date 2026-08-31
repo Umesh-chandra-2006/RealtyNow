@@ -60,6 +60,7 @@ RealtyNow uses **PostgreSQL** hosted on **Supabase**, leveraging Row Level Secur
 ### Views
 
 - **`vw_published_properties`**: Aggregated view joining `properties`, `cities`, `localities`, and `property_types`.
+- **`v_properties_search`**: Redacted public search view — joins properties with cities, localities, property_types, builders, projects, and owner/agent profiles. Phones are `NULL` (redacted). Anonymous callers must use this view (migration 0151 revoked `SELECT` on raw `properties` from `anon`).
 
 ---
 
@@ -70,3 +71,15 @@ RealtyNow uses **PostgreSQL** hosted on **Supabase**, leveraging Row Level Secur
 - `admin_reject_property(p_property_id, p_reason, p_admin_id)`: Rejects a property listing with feedback.
 - `customer_resubmit_property(p_property_id)`: Resubmits a property from `changes_requested` back to `pending_verification`.
 - `increment_ad_click(p_ad_id)` / `increment_ad_impression(p_ad_id)`: Increments ad metric counters.
+- `fn_create_payment_and_invoice(...)`: Creates agent_packages, payments, and invoices. **Restricted to `service_role` only** (migration 0151 revoked `EXECUTE` from `authenticated` — the payment-gateway edge function calls this via service_role; no client code needs direct access).
+
+---
+
+## 3. Security Triggers
+
+- **`prevent_self_publish`** (migration 0151): `BEFORE UPDATE OF status, is_live, approval_status ON properties` — blocks non-staff users from flipping a listing to `published`, `live`, or `Approved` status. Owners/agents must go through the admin moderation workflow. Staff (`is_staff()`) and service_role (auth.uid() IS NULL) bypass the guard.
+
+- **`enforce_property_limit`**: Quota guard on property inserts.
+- **`prevent_view_count_tampering`**: Blocks direct edits to `view_count`.
+- **`on_property_status_changed`**: Audit-logs status transitions to `property_status_history`.
+- **`prevent_self_role_escalation`**: Blocks users from changing their own `profiles.role`.
