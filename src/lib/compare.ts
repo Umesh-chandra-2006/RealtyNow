@@ -109,23 +109,11 @@ export async function fetchComparedProperties(userId?: string | null): Promise<P
   saveCompareIdsSilent(allIds);
 
   const { data, error } = await supabase
-    .from('properties')
-    .select('*, cities(name), localities(name), property_types(name)')
+    .from('v_properties_search')
+    .select('*')
     .in('id', allIds);
 
   if (error || !data) return [];
 
-  return data.map((p) => {
-    const r = p as unknown as {
-      cities?: { name: string };
-      localities?: { name: string };
-      property_types?: { name: string };
-    };
-    return {
-      ...p,
-      city_name: r.cities?.name ?? null,
-      locality_name: r.localities?.name ?? null,
-      property_type_name: r.property_types?.name ?? null,
-    };
-  }) as unknown as Property[];
+  return data as unknown as Property[];
 }

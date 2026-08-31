@@ -46,11 +46,10 @@ export function AgentsPage() {
 
       if (!agentProfiles || agentProfiles.length === 0) return [];
 
-      // Fetch active listings count for all agents in parallel
+      // Fetch active listings count for all agents in parallel (view excludes drafts/draft-only)
       const { data: propCounts } = await supabase
-        .from('properties')
-        .select('assigned_agent_id, owner_id')
-        .or('status.eq.published,is_live.eq.true');
+        .from('v_properties_search')
+        .select('assigned_agent_id, owner_id');
 
       const countsByAgent = new Map<string, number>();
       (propCounts ?? []).forEach((p) => {

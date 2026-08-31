@@ -151,10 +151,9 @@ export function BuilderProfilePage() {
         .join(',');
 
       const { data } = await supabase
-        .from('properties')
-        .select('*, cities:city_id(name), localities:locality_id(name), property_types:property_type_id(name)')
+        .from('v_properties_search')
+        .select('*')
         .or(orFilter)
-        .or('status.eq.published,status.eq.live,is_live.eq.true')
         .order('created_at', { ascending: false });
 
       return (data ?? []) as Property[];

@@ -331,9 +331,8 @@ export function PropertyDetailPage() {
       const priceMin = property!.price * 0.6;
       const priceMax = property!.price * 1.4;
       const { data } = await supabase
-        .from('properties')
-        .select('*, cities!inner(name), localities(name), property_types(name)')
-        .or('status.eq.published,status.eq.live,is_live.eq.true')
+        .from('v_properties_search')
+        .select('*')
         .neq('id', id!)
         .eq('city_id', property!.city_id!)
         .eq('property_type_id', property!.property_type_id!)
@@ -341,10 +340,7 @@ export function PropertyDetailPage() {
         .gte('price', priceMin)
         .lte('price', priceMax)
         .limit(6);
-      return (data ?? []).map((p) => {
-        const r = p as unknown as { cities?: { name: string }; localities?: { name: string }; property_types?: { name: string } };
-        return { ...p, city_name: r.cities?.name ?? null, locality_name: r.localities?.name ?? null, property_type_name: r.property_types?.name ?? null };
-      });
+      return data ?? [];
     },
     enabled: !!property?.city_id && !!property?.property_type_id,
   });
@@ -356,11 +352,8 @@ export function PropertyDetailPage() {
       if (!data || data.length === 0) return [];
       const ids = [...new Set(data.map((v: { property_id: string }) => v.property_id).filter((pid: string) => pid !== id))].slice(0, 4);
       if (ids.length === 0) return [];
-      const { data: props } = await supabase.from('properties').select('*, cities!inner(name), localities(name), property_types(name)').in('id', ids);
-      return (props ?? []).map((p) => {
-        const r = p as unknown as { cities?: { name: string }; localities?: { name: string }; property_types?: { name: string } };
-        return { ...p, city_name: r.cities?.name ?? null, locality_name: r.localities?.name ?? null, property_type_name: r.property_types?.name ?? null };
-      });
+      const { data: props } = await supabase.from('v_properties_search').select('*').in('id', ids);
+      return props ?? [];
     },
   });
 

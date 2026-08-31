@@ -34,9 +34,8 @@ export function HyderabadLocalitiesPage() {
       const enriched = await Promise.all(
         localityRows.map(async (l) => {
           const { count } = await supabase
-            .from('properties')
+            .from('v_properties_search')
             .select('id', { count: 'exact', head: true })
-            .or('status.eq.published,is_live.eq.true')
             .eq('locality_id', l.id);
           return { ...l, count: count ?? 0 };
         }),

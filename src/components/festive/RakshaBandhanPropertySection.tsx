@@ -19,8 +19,8 @@ export function RakshaBandhanPropertySection() {
     queryKey: ['raksha-bandhan-family-properties', cityId],
     queryFn: async () => {
       let query = supabase
-        .from('properties')
-        .select('*, cities(name), localities(name), property_types(name)')
+        .from('v_properties_search')
+        .select('*')
         .eq('status', 'Approved')
         .order('created_at', { ascending: false })
         .limit(10);
@@ -33,8 +33,8 @@ export function RakshaBandhanPropertySection() {
       if (error || !data || data.length === 0) {
         // Fallback: fetch any approved properties if filter yields 0
         const fallback = await supabase
-          .from('properties')
-          .select('*, cities(name), localities(name), property_types(name)')
+          .from('v_properties_search')
+          .select('*')
           .eq('status', 'Approved')
           .limit(8);
         return (fallback.data || []) as Property[];
